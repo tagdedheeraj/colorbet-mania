@@ -35,11 +35,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#0F0F12] bg-[radial-gradient(circle_at_var(--mouse-x,0.5)_var(--mouse-y,0.5),rgba(139,92,246,0.1)_0%,rgba(30,30,35,0)_50%)] transition-all duration-300">
-      <div className="container-game relative z-10 py-4">
+      <div className="container-game relative z-10 py-4 px-2 sm:px-4">
         <Header />
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+          <div className="lg:col-span-8 space-y-4 sm:space-y-6">
             <GameArea />
             <BettingPanel />
           </div>

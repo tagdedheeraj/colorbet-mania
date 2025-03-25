@@ -41,8 +41,8 @@ const GameHistory: React.FC = () => {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`px-2 py-1 rounded text-xs capitalize ${getColorStyle(result.resultColor)}`}>
-                {result.resultColor.replace('-', ' ')}
+              <div className={`px-2 py-1 rounded text-xs font-medium truncate max-w-[80px] ${getColorStyle(result.resultColor)}`}>
+                {result.resultColor === 'purple-red' ? 'Purple Red' : result.resultColor}
               </div>
               <div className={`w-6 h-6 rounded-full ${getColorStyle(result.resultColor)} flex items-center justify-center`}>
                 <span className="text-xs font-bold">{result.resultNumber}</span>
