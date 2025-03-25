@@ -111,7 +111,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
       },
       transactions: [{
         id: `signup-${Date.now()}`,
-        type: 'signup_bonus',
+        type: 'signup',
         amount: 50,
         status: 'completed',
         timestamp: Date.now(),
@@ -129,7 +129,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
       profile: { referralCode },
       transactions: [{
         id: `signup-${Date.now()}`,
-        type: 'signup_bonus',
+        type: 'signup',
         amount: 50,
         status: 'completed',
         timestamp: Date.now(),
@@ -299,11 +299,11 @@ const useAuthStore = create<AuthState>((set, get) => ({
           notificationTitle = 'Bet Placed';
           notificationMessage = `You placed a bet of ${amount.toFixed(2)} coins.`;
           break;
-        case 'referral_bonus':
+        case 'referral':
           notificationTitle = 'Referral Bonus';
           notificationMessage = `You received ${amount.toFixed(2)} coins as a referral bonus.`;
           break;
-        case 'signup_bonus':
+        case 'signup':
           notificationTitle = 'Signup Bonus';
           notificationMessage = `Welcome! You received ${amount.toFixed(2)} coins as a signup bonus.`;
           break;
@@ -375,7 +375,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
     // Update the current user
     get().updateProfile({ referredBy: referringUser.username });
     get().updateBalance(100);
-    get().addTransaction('referral_bonus', 100, `Referral bonus from ${referringUser.username}`);
+    get().addTransaction('referral', 100, `Referral bonus from ${referringUser.username}`);
     
     // Update the referring user's balance
     if (users[referringUser.username]) {
@@ -385,7 +385,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
       const referrerTransactions = users[referringUser.username].transactions || [];
       referrerTransactions.unshift({
         id: `referral-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        type: 'referral_bonus',
+        type: 'referral',
         amount: 100,
         status: 'completed',
         timestamp: Date.now(),

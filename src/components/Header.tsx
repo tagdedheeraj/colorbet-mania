@@ -155,7 +155,8 @@ const Header = () => {
         </div>
       </div>
       
-      <AuthModal onClose={handleAuthModalClose} />
+      {/* AuthModal without onClose prop as it's not required */}
+      <AuthModal />
     </header>
   );
 };

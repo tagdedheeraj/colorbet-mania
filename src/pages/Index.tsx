@@ -42,15 +42,18 @@ const Index = () => {
       <div className="container-game relative z-10 py-4 px-2 sm:px-4 pb-20 lg:pb-4">
         <Header />
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-          <div className="lg:col-span-8 space-y-4 sm:space-y-6">
-            <GameModeSelector />
-            <GameArea />
-            <BettingPanel />
-          </div>
+        <div className="pt-16 sm:pt-20">
+          <GameModeSelector />
           
-          <div className="lg:col-span-4">
-            <GameHistory />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+            <div className="lg:col-span-8 space-y-4 sm:space-y-6">
+              <GameArea />
+              <BettingPanel />
+            </div>
+            
+            <div className="lg:col-span-4">
+              <GameHistory />
+            </div>
           </div>
         </div>
         
