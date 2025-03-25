@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { GameState, Bet, GameResult, ColorType, NumberType, WinLossPopup } from '../types/game';
 import { toast } from "sonner";
@@ -23,7 +22,6 @@ interface GameStoreState extends GameState {
 let timerInterval: NodeJS.Timeout | null = null;
 
 const generateGameId = (): string => {
-  // Generate a game ID starting from 9001 and incrementing
   const lastGameId = localStorage.getItem('last-game-id');
   const nextId = lastGameId ? parseInt(lastGameId) + 1 : 9001;
   localStorage.setItem('last-game-id', nextId.toString());
@@ -73,7 +71,6 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       return;
     }
 
-    // Check if user already has this exact bet
     const existingBetIndex = currentBets.findIndex(
       bet => bet.type === type && bet.value === value
     );
@@ -96,10 +93,8 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       timestamp: Date.now()
     };
 
-    // Update user's balance
     useAuthStore.getState().updateBalance(-betAmount);
     
-    // Add bet to current bets
     set(state => ({
       currentBets: [...state.currentBets, newBet]
     }));
@@ -133,19 +128,16 @@ const useGameStore = create<GameStoreState>((set, get) => ({
     const { timeRemaining, isAcceptingBets } = get();
     
     if (timeRemaining <= 0) {
-      // Game ended, process results
       clearInterval(timerInterval as NodeJS.Timeout);
       const result = get().determineResult();
       get().processResults(result);
       
-      // Start a new game after a short delay
       setTimeout(() => {
         get().startNewGame();
       }, 3000);
       return;
     }
 
-    // Stop accepting bets in the last 10 seconds
     if (timeRemaining <= 10 && isAcceptingBets) {
       set({ isAcceptingBets: false });
       toast.info("Betting closed for this round!");
@@ -159,12 +151,10 @@ const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   determineResult: () => {
-    // Generate random result
     const colors: ColorType[] = ['red', 'green', 'purple-red'];
     const randomColorIndex = Math.floor(Math.random() * 3);
     const resultColor = colors[randomColorIndex];
     
-    // Generate random number 0-9
     const resultNumber = Math.floor(Math.random() * 10) as NumberType;
     
     const result: GameResult = {
@@ -184,25 +174,20 @@ const useGameStore = create<GameStoreState>((set, get) => ({
     let isWin = false;
     let userWonAnyBet = false;
     
-    // Updated user bets array
     const authStore = useAuthStore.getState();
     const user = authStore.user;
-    let userBets = user?.bets || [];
     
-    // Process each bet
     const processedBets = currentBets.map(bet => {
       let betWon = false;
 
       if (bet.type === 'color' && bet.value === result.resultColor) {
         betWon = true;
       } else if (bet.type === 'number') {
-        // Numbers 1-9 win if matching, 0 always loses
         if (result.resultNumber !== 0 && bet.value === result.resultNumber) {
           betWon = true;
         }
       }
 
-      // Add won status to the bet
       const updatedBet = { ...bet, won: betWon };
 
       if (betWon) {
@@ -214,23 +199,20 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       return updatedBet;
     });
     
-    // Save bets to user history if user is logged in
     if (user) {
-      // Add current game's bets to user's bet history
+      const userBets = user.bets || [];
       const updatedUserBets = [...userBets, ...processedBets];
-      
-      // Update user with new bets
-      authStore.updateUser({
+      const updatedUser = {
         ...user,
         bets: updatedUserBets
-      });
+      };
+      authStore.user = updatedUser;
+      localStorage.setItem('current-user', JSON.stringify(updatedUser));
     }
     
-    // Update last results
     const updatedResults = [result, ...lastResults].slice(0, RESULTS_HISTORY_COUNT);
     set({ lastResults: updatedResults });
     
-    // Show win/loss popup
     if (currentBets.length > 0) {
       if (userWonAnyBet) {
         get().showWinLossPopup(true, totalWinAmount, `Congratulations! You won ${totalWinAmount.toFixed(2)} coins!`);
@@ -250,7 +232,6 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       }
     });
     
-    // Auto-hide popup after 5 seconds
     setTimeout(() => {
       get().hideWinLossPopup();
     }, 5000);
@@ -268,7 +249,6 @@ const useGameStore = create<GameStoreState>((set, get) => ({
   }
 }));
 
-// Initialize game on first load
 if (typeof window !== 'undefined') {
   setTimeout(() => {
     useGameStore.getState().startNewGame();
