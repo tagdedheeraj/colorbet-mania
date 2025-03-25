@@ -19,6 +19,9 @@ const Index = () => {
 
   // Add subtle background animation
   useEffect(() => {
+    // Set document title to the new app name
+    document.title = "Trade Hue";
+    
     const handleMouseMove = (e: MouseEvent) => {
       const x = e.clientX / window.innerWidth;
       const y = e.clientY / window.innerHeight;

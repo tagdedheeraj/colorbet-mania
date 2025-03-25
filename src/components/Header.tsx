@@ -29,7 +29,7 @@ const Header: React.FC = () => {
             <div className="w-8 h-8 bg-primary rounded-full animate-pulse-subtle"></div>
           </div>
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-400">
-            Color Prediction
+            Trade Hue
           </h1>
         </div>
         
