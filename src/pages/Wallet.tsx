@@ -93,9 +93,9 @@ const WalletPage = () => {
         return <Minus className="w-4 h-4 text-yellow-500" />;
       case 'win':
         return <Plus className="w-4 h-4 text-game-green" />;
-      case 'referral_bonus':
+      case 'referral':
         return <Plus className="w-4 h-4 text-primary" />;
-      case 'signup_bonus':
+      case 'signup':
         return <Plus className="w-4 h-4 text-primary" />;
       default:
         return <Clock className="w-4 h-4" />;
@@ -112,9 +112,9 @@ const WalletPage = () => {
         return 'Bet Placed';
       case 'win':
         return 'Game Win';
-      case 'referral_bonus':
+      case 'referral':
         return 'Referral Bonus';
-      case 'signup_bonus':
+      case 'signup':
         return 'Signup Bonus';
       default:
         return 'Transaction';
