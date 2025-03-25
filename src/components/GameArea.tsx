@@ -35,6 +35,11 @@ const GameArea: React.FC = () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
   
+  // Get a display-friendly color name
+  const getColorDisplayName = (color: ColorType): string => {
+    return color === 'purple-red' ? 'Purple' : color.charAt(0).toUpperCase() + color.slice(1);
+  };
+  
   // If no results yet, show placeholder
   if (lastResults.length === 0) {
     return (
@@ -100,7 +105,7 @@ const GameArea: React.FC = () => {
         </div>
         <div className="mt-4 flex items-center gap-3">
           <div className={`w-3 h-3 rounded-full ${getColorStyle(latestResult.resultColor)}`}></div>
-          <span className="text-lg capitalize">{latestResult.resultColor.replace('-', ' ')}</span>
+          <span className="text-lg capitalize">{getColorDisplayName(latestResult.resultColor)}</span>
         </div>
       </div>
       
