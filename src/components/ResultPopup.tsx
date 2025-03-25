@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import useGameStore from '@/store/gameStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from "sonner";
 
 const ResultPopup = () => {
   const { winLossPopup, hideWinLossPopup } = useGameStore();
@@ -10,13 +11,26 @@ const ResultPopup = () => {
   
   useEffect(() => {
     if (winLossPopup.show) {
+      // Display a toast notification when popup is shown
+      if (winLossPopup.isWin) {
+        toast.success(`You won ${winLossPopup.amount.toFixed(2)} coins!`, {
+          description: winLossPopup.message,
+          duration: 5000,
+        });
+      } else {
+        toast.error("You lost", {
+          description: winLossPopup.message,
+          duration: 5000,
+        });
+      }
+      
       const timer = setTimeout(() => {
         hideWinLossPopup();
       }, 5000);
       
       return () => clearTimeout(timer);
     }
-  }, [winLossPopup.show, hideWinLossPopup]);
+  }, [winLossPopup.show, hideWinLossPopup, winLossPopup.isWin, winLossPopup.amount, winLossPopup.message]);
   
   return (
     <AnimatePresence>
@@ -26,9 +40,9 @@ const ResultPopup = () => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.8, y: 50 }}
           transition={{ type: "spring", damping: 15 }}
-          className={`fixed ${isMobile ? 'bottom-4 left-1/2 -translate-x-1/2 max-w-[90%] w-full px-2' : 'bottom-6 left-1/2 -translate-x-1/2 max-w-md w-full px-4'} z-50`}
+          className="fixed bottom-16 left-0 right-0 w-full z-50 px-4 sm:px-0 sm:left-1/2 sm:bottom-6 sm:-translate-x-1/2 sm:max-w-md sm:w-full mx-auto pointer-events-none"
         >
-          <div className={`glass-panel p-4 sm:p-6 rounded-xl border-2 ${
+          <div className={`glass-panel p-4 sm:p-6 rounded-xl border-2 pointer-events-auto ${
             winLossPopup.isWin 
               ? 'border-game-green bg-glow-green' 
               : 'border-game-red bg-glow-red'

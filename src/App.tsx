@@ -11,6 +11,7 @@ import Referral from "./pages/Referral";
 import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
 import SupportContactPopup from "./components/SupportContactPopup";
+import ResultPopup from "./components/ResultPopup";
 
 const queryClient = new QueryClient();
 
@@ -18,7 +19,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner position="top-center" closeButton theme="dark" />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
@@ -28,6 +29,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <ResultPopup />
         <SupportContactPopup />
         <BottomNav />
       </BrowserRouter>
