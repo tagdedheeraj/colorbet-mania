@@ -4,11 +4,13 @@ export type NumberType = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export interface Bet {
   id: string;
+  gameId?: string;
   amount: number;
   type: 'color' | 'number';
   value: ColorType | NumberType;
   potentialWin: number;
   timestamp: number;
+  won?: boolean;
 }
 
 export interface GameResult {
@@ -33,6 +35,7 @@ export interface User {
   username: string;
   balance: number;
   isLoggedIn: boolean;
+  bets?: Bet[];
 }
 
 export interface WinLossPopup {

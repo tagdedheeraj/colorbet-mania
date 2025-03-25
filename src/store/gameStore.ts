@@ -54,7 +54,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   placeBet: (type: 'color' | 'number', value: ColorType | NumberType) => {
-    const { betAmount, isAcceptingBets, currentBets } = get();
+    const { betAmount, isAcceptingBets, currentBets, currentGameId } = get();
     const user = useAuthStore.getState().user;
 
     if (!user) {
@@ -88,6 +88,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
 
     const newBet: Bet = {
       id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      gameId: currentGameId,
       amount: betAmount,
       type,
       value,
@@ -183,8 +184,13 @@ const useGameStore = create<GameStoreState>((set, get) => ({
     let isWin = false;
     let userWonAnyBet = false;
     
+    // Updated user bets array
+    const authStore = useAuthStore.getState();
+    const user = authStore.user;
+    let userBets = user?.bets || [];
+    
     // Process each bet
-    currentBets.forEach(bet => {
+    const processedBets = currentBets.map(bet => {
       let betWon = false;
 
       if (bet.type === 'color' && bet.value === result.resultColor) {
@@ -196,12 +202,29 @@ const useGameStore = create<GameStoreState>((set, get) => ({
         }
       }
 
+      // Add won status to the bet
+      const updatedBet = { ...bet, won: betWon };
+
       if (betWon) {
         userWonAnyBet = true;
         totalWinAmount += bet.potentialWin;
         useAuthStore.getState().updateBalance(bet.potentialWin);
       }
+      
+      return updatedBet;
     });
+    
+    // Save bets to user history if user is logged in
+    if (user) {
+      // Add current game's bets to user's bet history
+      const updatedUserBets = [...userBets, ...processedBets];
+      
+      // Update user with new bets
+      authStore.updateUser({
+        ...user,
+        bets: updatedUserBets
+      });
+    }
     
     // Update last results
     const updatedResults = [result, ...lastResults].slice(0, RESULTS_HISTORY_COUNT);
