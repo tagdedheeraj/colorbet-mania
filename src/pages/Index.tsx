@@ -6,8 +6,16 @@ import BettingPanel from '@/components/BettingPanel';
 import AuthModal from '@/components/AuthModal';
 import ResultPopup from '@/components/ResultPopup';
 import GameHistory from '@/components/GameHistory';
+import useGameStore from '@/store/gameStore';
 
 const Index = () => {
+  const { startNewGame } = useGameStore();
+
+  useEffect(() => {
+    // Ensure the game starts correctly
+    startNewGame();
+  }, []);
+
   // Add subtle background animation
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -27,7 +35,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#0F0F12] bg-[radial-gradient(circle_at_var(--mouse-x,0.5)_var(--mouse-y,0.5),rgba(139,92,246,0.1)_0%,rgba(30,30,35,0)_50%)] transition-all duration-300">
-      <div className="container-game relative z-10">
+      <div className="container-game relative z-10 py-4">
         <Header />
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

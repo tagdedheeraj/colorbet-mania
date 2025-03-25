@@ -31,7 +31,7 @@ const GameHistory: React.FC = () => {
   return (
     <div className="glass-panel p-4">
       <h3 className="text-lg font-semibold mb-3">Game History</h3>
-      <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+      <div className="space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
         {lastResults.map((result) => (
           <div key={result.id} className="glass-panel bg-secondary/30 p-3 rounded-md flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -44,7 +44,7 @@ const GameHistory: React.FC = () => {
               <div className={`px-2 py-1 rounded text-xs capitalize ${getColorStyle(result.resultColor)}`}>
                 {result.resultColor.replace('-', ' ')}
               </div>
-              <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
+              <div className={`w-6 h-6 rounded-full ${getColorStyle(result.resultColor)} flex items-center justify-center`}>
                 <span className="text-xs font-bold">{result.resultNumber}</span>
               </div>
             </div>

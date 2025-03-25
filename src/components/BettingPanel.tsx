@@ -5,18 +5,27 @@ import { Slider } from "@/components/ui/slider";
 import useGameStore from '@/store/gameStore';
 import useAuthStore from '@/store/authStore';
 import { ColorType, NumberType } from '@/types/game';
+import { toast } from "sonner";
 
 const BettingPanel: React.FC = () => {
-  const { betAmount, setBetAmount, placeBet, isAcceptingBets } = useGameStore();
+  const { betAmount, setBetAmount, placeBet, isAcceptingBets, timeRemaining } = useGameStore();
   const { user, isAuthenticated, setAuthModalOpen } = useAuthStore();
   
   const predefinedAmounts = [10, 50, 100, 500, 1000];
   
   const handleColorBet = (color: ColorType) => {
+    if (!isAcceptingBets) {
+      toast.error(`Betting closed! Next game in ${timeRemaining}s`);
+      return;
+    }
     placeBet('color', color);
   };
   
   const handleNumberBet = (number: NumberType) => {
+    if (!isAcceptingBets) {
+      toast.error(`Betting closed! Next game in ${timeRemaining}s`);
+      return;
+    }
     placeBet('number', number);
   };
   
@@ -113,7 +122,7 @@ const BettingPanel: React.FC = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Number Prediction</h3>
-          <span className="badge bg-primary/20 text-primary-foreground">9x</span>
+          <span className="badge bg-primary/20 text-primary-foreground text-xs px-2 py-1 rounded-full">9x</span>
         </div>
         
         <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
