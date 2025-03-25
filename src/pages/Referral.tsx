@@ -62,7 +62,7 @@ const ReferralPage = () => {
 
   return (
     <div className="container-game relative z-10 py-4 px-2 sm:px-4 pb-20 lg:pb-4">
-      <div className="flex items-center mb-6">
+      <div className="flex items-center mb-4 sm:mb-6">
         <Button 
           variant="ghost" 
           className="mr-2 p-2" 
@@ -76,8 +76,8 @@ const ReferralPage = () => {
       <div className="grid gap-4">
         <Card className="glass-panel border-0 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-primary/10 rounded-lg z-0" />
-          <CardHeader className="relative z-10 p-4 sm:p-6">
-            <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+          <CardHeader className="relative z-10 p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-2xl flex items-center gap-2">
               <Gift className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               <span>Invite Friends & Earn Coins</span>
             </CardTitle>
@@ -85,36 +85,36 @@ const ReferralPage = () => {
               Share your referral code with friends and both of you will receive 100 coins
             </CardDescription>
           </CardHeader>
-          <CardContent className="relative z-10 p-4 sm:p-6 pt-0 sm:pt-0">
-            <div className="grid gap-4 sm:gap-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                <div className="flex flex-col items-center p-3 sm:p-4 bg-background/50 rounded-lg border border-border">
-                  <Users className="w-6 h-6 sm:w-8 sm:h-8 text-primary mb-2" />
-                  <h3 className="font-bold text-base sm:text-lg">Invite Friends</h3>
-                  <p className="text-xs sm:text-sm text-center text-muted-foreground mt-1">
+          <CardContent className="relative z-10 p-3 sm:p-6 pt-0 sm:pt-0">
+            <div className="grid gap-3 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+                <div className="flex flex-col items-center p-2 sm:p-4 bg-background/50 rounded-lg border border-border">
+                  <Users className="w-5 h-5 sm:w-8 sm:h-8 text-primary mb-1 sm:mb-2" />
+                  <h3 className="font-bold text-sm sm:text-lg">Invite Friends</h3>
+                  <p className="text-xs text-center text-muted-foreground mt-1">
                     Share your referral code
                   </p>
                 </div>
-                <div className="flex flex-col items-center p-3 sm:p-4 bg-background/50 rounded-lg border border-border">
-                  <Download className="w-6 h-6 sm:w-8 sm:h-8 text-primary mb-2" />
-                  <h3 className="font-bold text-base sm:text-lg">They Join</h3>
-                  <p className="text-xs sm:text-sm text-center text-muted-foreground mt-1">
+                <div className="flex flex-col items-center p-2 sm:p-4 bg-background/50 rounded-lg border border-border">
+                  <Download className="w-5 h-5 sm:w-8 sm:h-8 text-primary mb-1 sm:mb-2" />
+                  <h3 className="font-bold text-sm sm:text-lg">They Join</h3>
+                  <p className="text-xs text-center text-muted-foreground mt-1">
                     Friends register with code
                   </p>
                 </div>
-                <div className="flex flex-col items-center p-3 sm:p-4 bg-background/50 rounded-lg border border-border">
-                  <Coins className="w-6 h-6 sm:w-8 sm:h-8 text-game-gold mb-2" />
-                  <h3 className="font-bold text-base sm:text-lg">You Both Earn</h3>
-                  <p className="text-xs sm:text-sm text-center text-muted-foreground mt-1">
+                <div className="flex flex-col items-center p-2 sm:p-4 bg-background/50 rounded-lg border border-border">
+                  <Coins className="w-5 h-5 sm:w-8 sm:h-8 text-game-gold mb-1 sm:mb-2" />
+                  <h3 className="font-bold text-sm sm:text-lg">You Both Earn</h3>
+                  <p className="text-xs text-center text-muted-foreground mt-1">
                     Get 100 coins bonus each
                   </p>
                 </div>
               </div>
               
-              <div className="bg-muted/30 p-4 sm:p-6 rounded-lg border border-border mt-2 sm:mt-4">
+              <div className="bg-muted/30 p-3 sm:p-6 rounded-lg border border-border mt-2 sm:mt-4">
                 <h3 className="font-bold mb-2">Your Referral Code</h3>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-background p-2 sm:p-3 rounded border text-center font-mono text-base sm:text-lg">
+                  <div className="flex-1 bg-background p-2 sm:p-3 rounded border text-center font-mono text-sm sm:text-lg truncate">
                     {referralCode}
                   </div>
                   <Button variant="outline" size={isMobile ? "sm" : "default"} className="shrink-0" onClick={handleCopyCode}>
@@ -122,9 +122,9 @@ const ReferralPage = () => {
                   </Button>
                 </div>
                 
-                <h3 className="font-bold mt-4 sm:mt-6 mb-2">Share Your Referral Link</h3>
+                <h3 className="font-bold mt-3 sm:mt-6 mb-2">Share Your Referral Link</h3>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-background p-2 sm:p-3 rounded border text-xs sm:text-sm overflow-hidden overflow-ellipsis whitespace-nowrap">
+                  <div className="flex-1 bg-background p-2 sm:p-3 rounded border text-xs sm:text-sm truncate overflow-hidden">
                     {referralLink}
                   </div>
                   <Button variant="outline" size={isMobile ? "sm" : "default"} className="shrink-0" onClick={handleCopyLink}>
@@ -132,7 +132,7 @@ const ReferralPage = () => {
                   </Button>
                 </div>
                 
-                <div className="mt-4 sm:mt-6">
+                <div className="mt-3 sm:mt-6">
                   <Button className="w-full flex items-center gap-2" onClick={handleShare}>
                     <Share2 className="w-4 h-4" />
                     <span>Share Now</span>
@@ -144,13 +144,13 @@ const ReferralPage = () => {
         </Card>
         
         <Card className="glass-panel">
-          <CardHeader className="p-4 sm:p-6">
+          <CardHeader className="p-3 sm:p-6">
             <CardTitle className="text-lg sm:text-xl">Apply Referral Code</CardTitle>
             <CardDescription>
               Enter a friend's referral code to get 100 coins bonus
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             <div className="flex flex-col sm:flex-row items-center gap-2">
               <Input
                 placeholder="Enter referral code"
@@ -169,15 +169,15 @@ const ReferralPage = () => {
         </Card>
         
         <Card className="glass-panel bg-primary/5 border-primary/20">
-          <CardHeader className="p-4 sm:p-6">
+          <CardHeader className="p-3 sm:p-6">
             <CardTitle className="text-lg sm:text-xl">Download App</CardTitle>
             <CardDescription>
               Get the best experience with our mobile app
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             <div className="flex flex-col items-center">
-              <p className="text-center mb-4 text-sm sm:text-base">
+              <p className="text-center mb-4 text-sm">
                 Download our mobile app for a better gaming experience, faster access, and exclusive features.
               </p>
               <Button className="w-full sm:w-auto flex items-center gap-2">
