@@ -1,7 +1,7 @@
-
 import { create } from 'zustand';
 import { User, UserProfile, Transaction, TransactionType } from '../types/game';
 import { toast } from "sonner";
+import useNotificationStore from './notificationStore';
 
 interface AuthState {
   user: User | null;
@@ -62,6 +62,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
   login: async (username: string, password: string) => {
     const users = getStoredUsers();
     const user = users[username];
+    const addNotification = useNotificationStore.getState().addNotification;
 
     if (!user || user.password !== password) {
       toast.error("Invalid username or password");
@@ -80,10 +81,18 @@ const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: loggedInUser, isAuthenticated: true, isAuthModalOpen: false });
     saveCurrentUser(loggedInUser);
     toast.success(`Welcome back, ${username}!`);
+    
+    // Add login notification
+    addNotification({
+      type: 'system',
+      title: 'Login Successful',
+      message: `Welcome back, ${username}! You logged in successfully.`
+    });
   },
 
   register: async (username: string, password: string) => {
     const users = getStoredUsers();
+    const addNotification = useNotificationStore.getState().addNotification;
 
     if (users[username]) {
       toast.error("Username already exists");
@@ -131,6 +140,13 @@ const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: newUser, isAuthenticated: true, isAuthModalOpen: false });
     saveCurrentUser(newUser);
     toast.success("Account created successfully! You got 50 coins as a signup bonus.");
+    
+    // Add signup notification
+    addNotification({
+      type: 'signup',
+      title: 'Welcome to Trade Hue!',
+      message: 'Your account has been created successfully. You received 50 coins as a signup bonus!'
+    });
   },
 
   logout: () => {
@@ -198,6 +214,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
 
   changePassword: async (oldPassword: string, newPassword: string) => {
     const { user } = get();
+    const addNotification = useNotificationStore.getState().addNotification;
+    
     if (!user) {
       toast.error("You must be logged in to change your password");
       throw new Error("User not logged in");
@@ -216,10 +234,19 @@ const useAuthStore = create<AuthState>((set, get) => ({
     saveUsers(users);
     
     toast.success("Password changed successfully");
+    
+    // Add password change notification
+    addNotification({
+      type: 'system',
+      title: 'Password Updated',
+      message: 'Your password has been changed successfully.'
+    });
   },
 
   addTransaction: (type: TransactionType, amount: number, description?: string) => {
     const { user } = get();
+    const addNotification = useNotificationStore.getState().addNotification;
+    
     if (user) {
       const newTransaction: Transaction = {
         id: `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -251,6 +278,45 @@ const useAuthStore = create<AuthState>((set, get) => ({
         saveUsers(users);
       }
       
+      // Add transaction notification
+      let notificationTitle = '';
+      let notificationMessage = '';
+      
+      switch (type) {
+        case 'deposit':
+          notificationTitle = 'Deposit Successful';
+          notificationMessage = `${amount.toFixed(2)} coins have been added to your wallet.`;
+          break;
+        case 'withdrawal':
+          notificationTitle = 'Withdrawal Successful';
+          notificationMessage = `${amount.toFixed(2)} coins have been withdrawn from your wallet.`;
+          break;
+        case 'win':
+          notificationTitle = 'Game Win';
+          notificationMessage = `Congratulations! You won ${amount.toFixed(2)} coins.`;
+          break;
+        case 'bet':
+          notificationTitle = 'Bet Placed';
+          notificationMessage = `You placed a bet of ${amount.toFixed(2)} coins.`;
+          break;
+        case 'referral_bonus':
+          notificationTitle = 'Referral Bonus';
+          notificationMessage = `You received ${amount.toFixed(2)} coins as a referral bonus.`;
+          break;
+        case 'signup_bonus':
+          notificationTitle = 'Signup Bonus';
+          notificationMessage = `Welcome! You received ${amount.toFixed(2)} coins as a signup bonus.`;
+          break;
+      }
+      
+      if (notificationTitle) {
+        addNotification({
+          type: type === 'win' || type === 'bet' ? 'system' : type,
+          title: notificationTitle,
+          message: notificationMessage
+        });
+      }
+      
       return newTransaction;
     }
   },
@@ -279,6 +345,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
 
   applyReferralCode: async (code: string) => {
     const { user } = get();
+    const addNotification = useNotificationStore.getState().addNotification;
+    
     if (!user) {
       toast.error("You must be logged in to apply a referral code");
       throw new Error("User not logged in");
@@ -326,7 +394,29 @@ const useAuthStore = create<AuthState>((set, get) => ({
       
       users[referringUser.username].transactions = referrerTransactions;
       saveUsers(users);
+      
+      // Add notification for the referring user (store it for when they login)
+      const referrerNotifications = localStorage.getItem(`notifications-${referringUser.username}`);
+      const notifications = referrerNotifications ? JSON.parse(referrerNotifications) : [];
+      
+      notifications.unshift({
+        id: `notification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        type: 'referral',
+        title: 'Referral Bonus',
+        message: `${user.username} used your referral code. You received 100 coins!`,
+        isRead: false,
+        timestamp: Date.now()
+      });
+      
+      localStorage.setItem(`notifications-${referringUser.username}`, JSON.stringify(notifications));
     }
+    
+    // Add notification for the current user
+    addNotification({
+      type: 'referral',
+      title: 'Referral Bonus',
+      message: `You used ${referringUser.username}'s referral code. You received 100 coins!`
+    });
     
     toast.success("Referral code applied successfully! You received 100 coins.");
   }
