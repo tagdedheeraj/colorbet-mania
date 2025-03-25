@@ -2,6 +2,15 @@
 export type ColorType = 'red' | 'green' | 'purple-red';
 export type NumberType = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
+export type GameMode = 'blitz' | 'quick' | 'classic' | 'extended';
+
+export interface GameModeConfig {
+  id: GameMode;
+  name: string;
+  duration: number;
+  description: string;
+}
+
 export interface Bet {
   id: string;
   gameId?: string;
@@ -28,6 +37,7 @@ export interface GameState {
   lastResults: GameResult[];
   currentBets: Bet[];
   betAmount: number;
+  currentGameMode: GameMode;
 }
 
 export interface User {

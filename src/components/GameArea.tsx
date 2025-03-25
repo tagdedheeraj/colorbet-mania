@@ -4,7 +4,16 @@ import useGameStore from '@/store/gameStore';
 import { ColorType, NumberType } from '@/types/game';
 
 const GameArea: React.FC = () => {
-  const { lastResults, timeRemaining, currentGameId, isAcceptingBets } = useGameStore();
+  const { 
+    lastResults, 
+    timeRemaining, 
+    currentGameId, 
+    isAcceptingBets,
+    currentGameMode,
+    gameModesConfig
+  } = useGameStore();
+  
+  const currentModeConfig = gameModesConfig.find(mode => mode.id === currentGameMode);
   
   const getColorStyle = (color: ColorType) => {
     switch (color) {
@@ -19,6 +28,13 @@ const GameArea: React.FC = () => {
     }
   };
   
+  // Format time to display minutes and seconds
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+  
   // If no results yet, show placeholder
   if (lastResults.length === 0) {
     return (
@@ -26,11 +42,16 @@ const GameArea: React.FC = () => {
         <div className="animate-spin-slow w-16 h-16 rounded-full border-4 border-primary border-t-transparent"></div>
         <p className="mt-4 text-muted-foreground">Waiting for first game results...</p>
         <div className="mt-4 text-center">
-          <p className="text-2xl font-bold">{timeRemaining}s</p>
+          <p className="text-2xl font-bold">{formatTime(timeRemaining)}</p>
           <p className="text-sm text-muted-foreground">Game #{currentGameId}</p>
-          <p className="text-xs mt-2 px-3 py-1 rounded-full bg-primary/20 inline-block">
-            {isAcceptingBets ? 'Betting Open' : 'Betting Closed'}
-          </p>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <p className={`text-xs px-3 py-1 rounded-full bg-primary/20 inline-block`}>
+              {isAcceptingBets ? 'Betting Open' : 'Betting Closed'}
+            </p>
+            <p className="text-xs px-3 py-1 rounded-full bg-secondary/20 inline-block">
+              {currentModeConfig?.name} Mode
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -50,16 +71,21 @@ const GameArea: React.FC = () => {
           <div className="text-center">
             <p className="text-xs text-muted-foreground">Current</p>
             <div className="flex items-center gap-2">
-              <p className="text-2xl font-bold">{timeRemaining}s</p>
+              <p className="text-2xl font-bold">{formatTime(timeRemaining)}</p>
               <span className={`h-2 w-2 rounded-full ${isAcceptingBets ? 'bg-game-green animate-pulse' : 'bg-game-red'}`}></span>
             </div>
             <p className="text-sm font-semibold">Game #{currentGameId}</p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground">Status</p>
-            <p className="text-sm font-medium px-2 py-1 rounded-full bg-primary/20 inline-block">
-              {isAcceptingBets ? 'Betting Open' : 'Betting Closed'}
-            </p>
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs text-muted-foreground">Status</p>
+              <p className="text-sm font-medium px-2 py-1 rounded-full bg-primary/20 inline-block">
+                {isAcceptingBets ? 'Betting Open' : 'Betting Closed'}
+              </p>
+              <p className="text-xs font-medium px-2 py-1 rounded-full bg-secondary/20 inline-block">
+                {currentModeConfig?.name} Mode
+              </p>
+            </div>
           </div>
         </div>
         

@@ -6,6 +6,7 @@ import BettingPanel from '@/components/BettingPanel';
 import AuthModal from '@/components/AuthModal';
 import ResultPopup from '@/components/ResultPopup';
 import GameHistory from '@/components/GameHistory';
+import GameModeSelector from '@/components/GameModeSelector';
 import useGameStore from '@/store/gameStore';
 
 const Index = () => {
@@ -40,6 +41,7 @@ const Index = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
           <div className="lg:col-span-8 space-y-4 sm:space-y-6">
+            <GameModeSelector />
             <GameArea />
             <BettingPanel />
           </div>
