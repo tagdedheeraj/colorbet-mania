@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Wallet from "./pages/Wallet";
 import Referral from "./pages/Referral";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
 import SupportContactPopup from "./components/SupportContactPopup";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/referral" element={<Referral />} />
+          <Route path="/about" element={<About />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

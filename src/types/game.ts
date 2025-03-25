@@ -48,7 +48,7 @@ export interface UserProfile {
   referredBy?: string;
 }
 
-export type TransactionType = 'deposit' | 'withdrawal' | 'bet' | 'win' | 'referral_bonus' | 'signup_bonus';
+export type TransactionType = 'deposit' | 'withdrawal' | 'bet' | 'win' | 'referral' | 'signup';
 
 export interface Transaction {
   id: string;

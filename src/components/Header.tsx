@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChevronDown, Plus, UserRound, LogOut, Settings, Coins } from 'lucide-react';
+import { ChevronDown, Plus, UserRound, LogOut, Settings, Coins, Info } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +81,15 @@ const Header = () => {
         </Link>
         
         <div className="flex items-center gap-2 sm:gap-4">
+          {!isMobile && (
+            <Link to="/about">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Info className="h-4 w-4" />
+                <span>About</span>
+              </Button>
+            </Link>
+          )}
+          
           {isAuthenticated && (
             <>
               <div className="flex items-center">
