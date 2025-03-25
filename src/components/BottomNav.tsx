@@ -31,7 +31,7 @@ const BottomNav: React.FC = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 z-50 w-full h-16 border-t border-border bg-background/95 backdrop-blur-md lg:hidden">
+    <div className="fixed bottom-0 left-0 z-40 w-full h-16 border-t border-border bg-background/95 backdrop-blur-md lg:hidden">
       <div className="grid h-full grid-cols-4">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
