@@ -40,12 +40,33 @@ export interface GameState {
   currentGameMode: GameMode;
 }
 
+export interface UserProfile {
+  name?: string;
+  email?: string;
+  mobile?: string;
+  referralCode?: string;
+  referredBy?: string;
+}
+
+export type TransactionType = 'deposit' | 'withdrawal' | 'bet' | 'win' | 'referral_bonus' | 'signup_bonus';
+
+export interface Transaction {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  status: 'pending' | 'completed' | 'failed';
+  timestamp: number;
+  description?: string;
+}
+
 export interface User {
   id: string;
   username: string;
   balance: number;
   isLoggedIn: boolean;
   bets?: Bet[];
+  profile?: UserProfile;
+  transactions?: Transaction[];
 }
 
 export interface WinLossPopup {
