@@ -30,6 +30,11 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       // Load initial data
       const { activeGame, gameHistory } = await GameInitializationService.loadInitialData();
       
+      console.log('Setting initial state:', {
+        activeGame: activeGame ? `Game #${activeGame.game_number}` : 'None',
+        historyCount: gameHistory.length
+      });
+      
       set({ 
         currentGame: activeGame,
         gameHistory,
@@ -39,6 +44,8 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       // Load current user's bets if there's an active game
       if (activeGame) {
         await get().loadCurrentBets();
+        // Start timer for current game
+        get().startGameTimer();
       }
 
       // Setup real-time subscriptions
@@ -46,11 +53,6 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         () => get().loadCurrentData(),
         () => get().loadCurrentBets()
       );
-
-      // Start timer for current game
-      if (activeGame) {
-        get().startGameTimer();
-      }
 
       console.log('Supabase game store initialized successfully');
     } catch (error) {
@@ -64,7 +66,20 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
   },
 
   placeBet: async (type: 'color' | 'number', value: string) => {
-    const { currentGame, betAmount } = get();
+    const { currentGame, betAmount, isAcceptingBets } = get();
+    
+    console.log('Store placeBet called:', {
+      type,
+      value,
+      currentGame: currentGame ? `Game #${currentGame.game_number}` : 'None',
+      betAmount,
+      isAcceptingBets
+    });
+    
+    if (!isAcceptingBets) {
+      console.error('Betting is currently closed');
+      return;
+    }
     
     const success = await BetManagementService.placeBet(
       currentGame,
@@ -98,11 +113,17 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
   loadCurrentBets: async () => {
     const { currentGame } = get();
-    if (!currentGame) return;
+    if (!currentGame) {
+      console.log('No current game, skipping bet loading');
+      return;
+    }
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+      if (!session?.user) {
+        console.log('No authenticated user, skipping bet loading');
+        return;
+      }
 
       const currentBets = await BetManagementService.loadCurrentBets(
         currentGame.id,
@@ -116,7 +137,18 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
   loadCurrentData: async () => {
     try {
+      console.log('Loading current data...');
       const { activeGame, gameHistory } = await GameInitializationService.loadInitialData();
+      
+      const prevGame = get().currentGame;
+      const gameChanged = !prevGame || prevGame.id !== activeGame?.id;
+      
+      console.log('Current data loaded:', {
+        activeGame: activeGame ? `Game #${activeGame.game_number}` : 'None',
+        gameChanged,
+        prevGameId: prevGame?.id,
+        newGameId: activeGame?.id
+      });
       
       set({ 
         currentGame: activeGame,
@@ -124,7 +156,13 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       });
 
       if (activeGame) {
-        get().startGameTimer();
+        if (gameChanged) {
+          // Clear timer for previous game and start new one
+          if (prevGame) {
+            GameTimerService.clearTimer(prevGame.id);
+          }
+          get().startGameTimer();
+        }
         await get().loadCurrentBets();
       }
     } catch (error) {
@@ -134,7 +172,12 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
   startGameTimer: () => {
     const { currentGame, currentGameMode } = get();
-    if (!currentGame) return;
+    if (!currentGame) {
+      console.log('No current game to start timer for');
+      return;
+    }
+
+    console.log('Starting game timer for game:', currentGame.game_number);
 
     GameTimerService.startGameTimer(
       currentGame,
@@ -143,6 +186,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         set({ timeRemaining, isAcceptingBets });
       },
       () => {
+        console.log('Game timer ended, creating new game...');
         // Game ended, create a new one
         get().createDemoGameIfNeeded().then(() => {
           // Reload data after creating new game

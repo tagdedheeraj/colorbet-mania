@@ -11,7 +11,16 @@ export class BetManagementService {
     type: 'color' | 'number',
     value: string
   ): Promise<boolean> {
+    console.log('Attempting to place bet:', {
+      gameId: currentGame?.id,
+      gameNumber: currentGame?.game_number,
+      betAmount,
+      type,
+      value
+    });
+
     if (!currentGame) {
+      console.error('No active game found');
       toast.error('No active game');
       return false;
     }
@@ -20,9 +29,12 @@ export class BetManagementService {
       // Get current user session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
+        console.error('No authenticated user');
         toast.error('Please log in to place bets');
         return false;
       }
+
+      console.log('User authenticated:', session.user.id);
 
       // Get user profile for balance
       const { data: userProfile, error: profileError } = await supabase
@@ -37,7 +49,10 @@ export class BetManagementService {
         return false;
       }
 
+      console.log('User profile:', userProfile);
+
       if (!userProfile || (userProfile.balance || 0) < betAmount) {
+        console.error('Insufficient balance:', userProfile?.balance, 'needed:', betAmount);
         toast.error('Insufficient balance');
         return false;
       }
@@ -53,6 +68,7 @@ export class BetManagementService {
       );
 
       if (success) {
+        console.log('Bet placed successfully');
         toast.success(`Bet placed successfully on ${value}!`);
         return true;
       }
@@ -67,7 +83,10 @@ export class BetManagementService {
 
   static async loadCurrentBets(gameId: string, userId: string) {
     try {
-      return await GameService.loadCurrentBets(gameId, userId);
+      console.log('Loading current bets for:', { gameId, userId });
+      const bets = await GameService.loadCurrentBets(gameId, userId);
+      console.log('Current bets loaded:', bets.length);
+      return bets;
     } catch (error) {
       console.error('Error loading current bets:', error);
       return [];

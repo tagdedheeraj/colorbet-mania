@@ -19,6 +19,15 @@ export class GameTimerService {
       const timeRemaining = GameService.calculateTimeRemaining(currentGame.end_time);
       const isAcceptingBets = GameService.isAcceptingBets(timeRemaining, currentGameMode, currentGame.status);
       
+      console.log('Timer update:', {
+        gameId: currentGame.id,
+        gameNumber: currentGame.game_number,
+        timeRemaining,
+        isAcceptingBets,
+        status: currentGame.status,
+        endTime: currentGame.end_time
+      });
+      
       onTimerUpdate(timeRemaining, isAcceptingBets);
 
       if (timeRemaining > 0) {
@@ -26,6 +35,7 @@ export class GameTimerService {
         this.timers.set(currentGame.id, timerId);
       } else {
         // Game ended
+        console.log('Game ended, clearing timer and triggering onGameEnd');
         this.clearTimer(currentGame.id);
         onGameEnd();
       }
