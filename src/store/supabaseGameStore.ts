@@ -106,7 +106,18 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         .single();
 
       if (activeGame) {
-        set({ currentGame: activeGame });
+        // Type cast the database response to our GameResult interface
+        const gameResult: GameResult = {
+          id: activeGame.id,
+          game_number: activeGame.game_number,
+          result_color: (activeGame.result_color as ColorType) || 'red',
+          result_number: (activeGame.result_number as NumberType) || 0,
+          start_time: activeGame.start_time,
+          end_time: activeGame.end_time,
+          status: activeGame.status || 'active'
+        };
+        
+        set({ currentGame: gameResult });
         
         // Calculate time remaining
         const endTime = new Date(activeGame.end_time).getTime();
@@ -234,7 +245,19 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         .limit(10);
 
       if (error) throw error;
-      set({ gameHistory: data || [] });
+      
+      // Type cast the database response to our GameResult interface
+      const gameResults: GameResult[] = (data || []).map(game => ({
+        id: game.id,
+        game_number: game.game_number,
+        result_color: (game.result_color as ColorType) || 'red',
+        result_number: (game.result_number as NumberType) || 0,
+        start_time: game.start_time,
+        end_time: game.end_time,
+        status: game.status || 'completed'
+      }));
+      
+      set({ gameHistory: gameResults });
     } catch (error) {
       console.error('Error loading game history:', error);
     }
@@ -254,7 +277,20 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         .eq('user_id', profile.id);
 
       if (error) throw error;
-      set({ currentBets: data || [] });
+      
+      // Type cast the database response to our Bet interface
+      const bets: Bet[] = (data || []).map(bet => ({
+        id: bet.id,
+        game_id: bet.game_id || '',
+        bet_type: bet.bet_type as 'color' | 'number',
+        bet_value: bet.bet_value,
+        amount: bet.amount,
+        potential_win: bet.potential_win,
+        is_winner: bet.is_winner || false,
+        actual_win: bet.actual_win || 0
+      }));
+      
+      set({ currentBets: bets });
     } catch (error) {
       console.error('Error loading current bets:', error);
     }

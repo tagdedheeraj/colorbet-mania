@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -87,22 +86,17 @@ const WalletPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/payment-handler`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('payment-handler', {
+        body: {
           action: 'deposit',
           amount: depositAmount,
           paymentMethod: paymentMethod
-        })
+        }
       });
 
-      const result = await response.json();
+      if (error) throw error;
       
-      if (result.success) {
+      if (data?.success) {
         toast.success(`Deposit of ₹${depositAmount} initiated successfully`);
         setAmount('');
         
@@ -112,7 +106,7 @@ const WalletPage = () => {
           loadTransactions();
         }, 3000);
       } else {
-        toast.error(result.error || 'Deposit failed');
+        toast.error(data?.error || 'Deposit failed');
       }
     } catch (error) {
       console.error('Deposit error:', error);
@@ -144,28 +138,23 @@ const WalletPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/payment-handler`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('payment-handler', {
+        body: {
           action: 'withdraw',
           amount: withdrawAmount,
           paymentMethod: paymentMethod
-        })
+        }
       });
 
-      const result = await response.json();
+      if (error) throw error;
       
-      if (result.success) {
+      if (data?.success) {
         toast.success(`Withdrawal of ₹${withdrawAmount} processed successfully`);
         setAmount('');
         refreshProfile();
         loadTransactions();
       } else {
-        toast.error(result.error || 'Withdrawal failed');
+        toast.error(data?.error || 'Withdrawal failed');
       }
     } catch (error) {
       console.error('Withdrawal error:', error);
