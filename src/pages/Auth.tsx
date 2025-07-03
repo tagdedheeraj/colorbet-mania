@@ -15,7 +15,7 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useSupabaseAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("login");
+  const [activeTab, setActiveTab] = useState("signup");
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -24,7 +24,6 @@ const AuthPage = () => {
   });
 
   useEffect(() => {
-    // Redirect if already authenticated
     if (isAuthenticated) {
       navigate('/');
     }
@@ -35,6 +34,14 @@ const AuthPage = () => {
       ...prev,
       [e.target.name]: e.target.value
     }));
+  };
+
+  const cleanupAuthState = () => {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        localStorage.removeItem(key);
+      }
+    });
   };
 
   const validateForm = () => {
@@ -68,6 +75,9 @@ const AuthPage = () => {
     setIsLoading(true);
 
     try {
+      // Clean up existing state
+      cleanupAuthState();
+      
       console.log('Attempting login with:', formData.email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -90,7 +100,11 @@ const AuthPage = () => {
 
       console.log('Login successful:', data.user?.email);
       toast.success('Successfully logged in');
-      navigate('/');
+      
+      // Force page reload for clean state
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
     } catch (error) {
       console.error('Unexpected login error:', error);
       toast.error('An unexpected error occurred');
@@ -106,6 +120,9 @@ const AuthPage = () => {
     setIsLoading(true);
 
     try {
+      // Clean up existing state first
+      cleanupAuthState();
+      
       console.log('Attempting signup with:', formData.email, formData.username);
       
       const { data, error } = await supabase.auth.signUp({
@@ -138,7 +155,9 @@ const AuthPage = () => {
         toast.success('Account created! Please check your email to verify your account.');
       } else {
         toast.success('Account created successfully!');
-        navigate('/');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
       }
     } catch (error) {
       console.error('Unexpected signup error:', error);
@@ -176,50 +195,9 @@ const AuthPage = () => {
         <CardContent>
           <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="login">Login</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Logging in...
-                    </>
-                  ) : (
-                    'Login'
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
 
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4">
@@ -289,6 +267,47 @@ const AuthPage = () => {
                     </>
                   ) : (
                     'Create Account'
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Logging in...
+                    </>
+                  ) : (
+                    'Login'
                   )}
                 </Button>
               </form>

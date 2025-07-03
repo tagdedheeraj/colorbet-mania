@@ -1,136 +1,182 @@
 
 import { create } from 'zustand';
-import { toast } from 'sonner';
-import useSupabaseAuthStore from './supabaseAuthStore';
-import { GameState, GameMode } from '@/types/supabaseGame';
-import { GAME_MODES } from '@/config/gameModes';
+import { GameState } from '@/types/supabaseGame';
 import { GameService } from '@/services/gameService';
 import { BetService } from '@/services/betService';
 import { GameRealtimeService } from '@/services/gameRealtimeService';
+import { GAME_MODES } from '@/config/gameModes';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const useSupabaseGameStore = create<GameState>((set, get) => ({
   currentGame: null,
-  timeRemaining: 60,
+  timeRemaining: 0,
   isAcceptingBets: false,
   gameHistory: [],
   currentBets: [],
-  betAmount: 10,
+  betAmount: 100,
   currentGameMode: 'quick',
   gameModesConfig: GAME_MODES,
   isLoading: true,
 
   initialize: async () => {
+    set({ isLoading: true });
     try {
       console.log('Initializing game store...');
       
-      // Load current active game
+      // Load initial data
       const activeGame = await GameService.loadActiveGame();
+      const gameHistory = await GameService.loadGameHistory();
       
-      if (activeGame) {
-        console.log('Found active game:', activeGame.game_number);
-        set({ currentGame: activeGame });
-        
-        // Calculate time remaining
-        const timeLeft = GameService.calculateTimeRemaining(activeGame.end_time);
-        const isAccepting = GameService.isAcceptingBets(
-          timeLeft, 
-          activeGame.status as GameMode, 
-          activeGame.status
-        );
-        
-        set({ 
-          timeRemaining: timeLeft,
-          isAcceptingBets: isAccepting,
-          currentGameMode: (activeGame.status as GameMode) || 'quick'
-        });
-      } else {
-        console.log('No active game found');
-      }
-
-      // Load game history and current bets
-      await get().loadGameHistory();
-      await get().loadCurrentBets();
-
-      // Set up real-time subscriptions
-      const realtimeService = GameRealtimeService.getInstance();
-      realtimeService.setupGameSubscription(() => {
-        get().initialize();
+      set({ 
+        currentGame: activeGame,
+        gameHistory,
+        isLoading: false 
       });
+
+      // Setup real-time subscriptions
+      const realtimeService = GameRealtimeService.getInstance();
+      
+      realtimeService.setupGameSubscription(() => {
+        console.log('Game update received, refreshing data...');
+        get().loadCurrentData();
+      });
+
       realtimeService.setupBetSubscription(() => {
+        console.log('Bet update received, refreshing bets...');
         get().loadCurrentBets();
       });
-      
-      set({ isLoading: false });
+
+      // Start timer for current game
+      if (activeGame) {
+        get().startGameTimer();
+      }
+
       console.log('Game store initialized successfully');
     } catch (error) {
-      console.error('Game initialization error:', error);
+      console.error('Game store initialization error:', error);
       set({ isLoading: false });
     }
   },
 
   placeBet: async (type: 'color' | 'number', value: string) => {
-    const { currentGame, betAmount, isAcceptingBets } = get();
-    const { profile, session } = useSupabaseAuthStore.getState();
-
-    if (!profile || !session) {
-      toast.error('Please log in to place bets');
-      return;
-    }
-
+    const { currentGame, betAmount } = get();
+    
     if (!currentGame) {
       toast.error('No active game');
       return;
     }
 
-    if (!isAcceptingBets) {
-      toast.error('Betting is closed for this round');
-      return;
-    }
+    try {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('Please log in to place bets');
+        return;
+      }
 
-    if (profile.balance < betAmount) {
-      toast.error('Insufficient balance');
-      return;
-    }
+      // Get user profile for balance
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('id', session.user.id)
+        .single();
 
-    const success = await BetService.placeBet(
-      currentGame.id,
-      profile.id,
-      type,
-      value,
-      betAmount,
-      profile.balance,
-      currentGame.game_number
-    );
+      if (!userProfile || userProfile.balance < betAmount) {
+        toast.error('Insufficient balance');
+        return;
+      }
 
-    if (success) {
-      // Refresh profile and current bets
-      useSupabaseAuthStore.getState().refreshProfile();
-      await get().loadCurrentBets();
+      const success = await BetService.placeBet(
+        currentGame.id,
+        session.user.id,
+        type,
+        value,
+        betAmount,
+        userProfile.balance,
+        currentGame.game_number
+      );
+
+      if (success) {
+        // Refresh current bets and user profile
+        await get().loadCurrentBets();
+      }
+    } catch (error) {
+      console.error('Bet placement error:', error);
+      toast.error('Failed to place bet');
     }
   },
 
   setBetAmount: (amount: number) => {
-    set({ betAmount: amount });
+    set({ betAmount: Math.max(10, amount) });
   },
 
-  setGameMode: (mode: GameMode) => {
+  setGameMode: (mode) => {
     set({ currentGameMode: mode });
-    toast.info(`Game mode changed to ${GAME_MODES.find(m => m.id === mode)?.name}`);
   },
 
   loadGameHistory: async () => {
-    const gameHistory = await GameService.loadGameHistory();
-    set({ gameHistory });
+    try {
+      const gameHistory = await GameService.loadGameHistory();
+      set({ gameHistory });
+    } catch (error) {
+      console.error('Error loading game history:', error);
+    }
   },
 
   loadCurrentBets: async () => {
     const { currentGame } = get();
-    const { profile } = useSupabaseAuthStore.getState();
-    
-    if (!currentGame || !profile) return;
+    if (!currentGame) return;
 
-    const currentBets = await GameService.loadCurrentBets(currentGame.id, profile.id);
-    set({ currentBets });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const currentBets = await GameService.loadCurrentBets(currentGame.id, session.user.id);
+      set({ currentBets });
+    } catch (error) {
+      console.error('Error loading current bets:', error);
+    }
+  },
+
+  // Helper methods
+  loadCurrentData: async () => {
+    try {
+      const activeGame = await GameService.loadActiveGame();
+      const gameHistory = await GameService.loadGameHistory();
+      
+      set({ 
+        currentGame: activeGame,
+        gameHistory 
+      });
+
+      if (activeGame) {
+        get().startGameTimer();
+      }
+    } catch (error) {
+      console.error('Error loading current data:', error);
+    }
+  },
+
+  startGameTimer: () => {
+    const { currentGame, currentGameMode } = get();
+    if (!currentGame) return;
+
+    const updateTimer = () => {
+      const timeRemaining = GameService.calculateTimeRemaining(currentGame.end_time);
+      const isAcceptingBets = GameService.isAcceptingBets(timeRemaining, currentGameMode, currentGame.status);
+      
+      set({ 
+        timeRemaining,
+        isAcceptingBets 
+      });
+
+      if (timeRemaining > 0) {
+        setTimeout(updateTimer, 1000);
+      }
+    };
+
+    updateTimer();
   }
 }));
 

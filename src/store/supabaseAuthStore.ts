@@ -38,6 +38,30 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
     try {
       console.log('Initializing auth store...');
       
+      // Set up auth state listener first
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
+        if (session) {
+          const profile = await fetchUserProfile(session.user.id);
+          set({ 
+            user: session.user, 
+            session, 
+            profile,
+            isAuthenticated: true,
+            isLoading: false
+          });
+        } else {
+          set({ 
+            user: null, 
+            session: null, 
+            profile: null,
+            isAuthenticated: false,
+            isLoading: false
+          });
+        }
+      });
+
       // Get initial session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -61,28 +85,6 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
         console.log('No existing session found');
         set({ isLoading: false });
       }
-
-      // Listen for auth changes
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
-        if (session) {
-          const profile = await fetchUserProfile(session.user.id);
-          set({ 
-            user: session.user, 
-            session, 
-            profile,
-            isAuthenticated: true 
-          });
-        } else {
-          set({ 
-            user: null, 
-            session: null, 
-            profile: null,
-            isAuthenticated: false 
-          });
-        }
-      });
     } catch (error) {
       console.error('Auth initialization error:', error);
       set({ isLoading: false });
@@ -91,7 +93,14 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     try {
-      const { error } = await supabase.auth.signOut();
+      // Clean up any existing auth data
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) throw error;
       
       set({ 
@@ -100,7 +109,13 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
         profile: null,
         isAuthenticated: false 
       });
+      
       toast.success('Logged out successfully');
+      
+      // Force page reload for clean state
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 500);
     } catch (error) {
       console.error('Sign out error:', error);
       toast.error('Failed to sign out');
