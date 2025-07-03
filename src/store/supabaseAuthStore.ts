@@ -36,10 +36,19 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
+      console.log('Initializing auth store...');
+      
       // Get initial session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        set({ isLoading: false });
+        return;
+      }
       
       if (session) {
+        console.log('Found existing session:', session.user.email);
         const profile = await fetchUserProfile(session.user.id);
         set({ 
           user: session.user, 
@@ -49,11 +58,14 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
           isLoading: false 
         });
       } else {
+        console.log('No existing session found');
         set({ isLoading: false });
       }
 
       // Listen for auth changes
       supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
         if (session) {
           const profile = await fetchUserProfile(session.user.id);
           set({ 
@@ -137,13 +149,24 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 // Helper function to fetch user profile
 const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
+    console.log('Fetching profile for user:', userId);
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Profile fetch error:', error);
+      return null;
+    }
+    
+    if (!data) {
+      console.log('No profile found for user:', userId);
+      return null;
+    }
+    
+    console.log('Profile fetched successfully:', data.username);
     return data;
   } catch (error) {
     console.error('Profile fetch error:', error);

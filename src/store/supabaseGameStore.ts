@@ -96,16 +96,24 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
   initialize: async () => {
     try {
+      console.log('Initializing game store...');
+      
       // Load current active game
-      const { data: activeGame } = await supabase
+      const { data: activeGame, error } = await supabase
         .from('games')
         .select('*')
         .in('status', ['active', 'betting_closed'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading active game:', error);
+      }
 
       if (activeGame) {
+        console.log('Found active game:', activeGame.game_number);
+        
         // Type cast the database response to our GameResult interface
         const gameResult: GameResult = {
           id: activeGame.id,
@@ -133,6 +141,8 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
           isAcceptingBets: timeLeft > betsClosingTime && activeGame.status === 'active',
           currentGameMode: activeGame.game_mode as GameMode
         });
+      } else {
+        console.log('No active game found');
       }
 
       // Load game history and current bets
@@ -143,6 +153,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       setupRealtimeSubscriptions();
       
       set({ isLoading: false });
+      console.log('Game store initialized successfully');
     } catch (error) {
       console.error('Game initialization error:', error);
       set({ isLoading: false });
@@ -174,6 +185,8 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     }
 
     try {
+      console.log(`Placing bet: ${type} ${value} for ${betAmount}`);
+      
       // Calculate potential win
       let multiplier = 1;
       if (type === 'color') {
@@ -195,7 +208,10 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
           potential_win: potentialWin
         });
 
-      if (betError) throw betError;
+      if (betError) {
+        console.error('Bet placement error:', betError);
+        throw betError;
+      }
 
       // Update user balance
       const { error: balanceError } = await supabase
@@ -203,7 +219,10 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         .update({ balance: profile.balance - betAmount })
         .eq('id', profile.id);
 
-      if (balanceError) throw balanceError;
+      if (balanceError) {
+        console.error('Balance update error:', balanceError);
+        throw balanceError;
+      }
 
       // Add bet transaction
       await supabase
@@ -220,6 +239,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       await get().loadCurrentBets();
 
       toast.success(`Bet placed on ${value}`);
+      console.log(`Bet placed successfully: ${type} ${value}`);
     } catch (error) {
       console.error('Bet placement error:', error);
       toast.error('Failed to place bet');
@@ -244,7 +264,10 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         .order('game_number', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading game history:', error);
+        return;
+      }
       
       // Type cast the database response to our GameResult interface
       const gameResults: GameResult[] = (data || []).map(game => ({
@@ -276,7 +299,10 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         .eq('game_id', currentGame.id)
         .eq('user_id', profile.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading current bets:', error);
+        return;
+      }
       
       // Type cast the database response to our Bet interface
       const bets: Bet[] = (data || []).map(bet => ({
@@ -299,6 +325,8 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
 // Set up real-time subscriptions
 const setupRealtimeSubscriptions = () => {
+  console.log('Setting up realtime subscriptions...');
+  
   // Subscribe to game updates
   supabase
     .channel('games')

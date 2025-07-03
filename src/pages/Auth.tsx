@@ -9,27 +9,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import useSupabaseAuthStore from "@/store/supabaseAuthStore";
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useSupabaseAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    username: ''
+    username: '',
+    confirmPassword: ''
   });
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate('/');
-      }
-    };
-    checkUser();
-  }, [navigate]);
+    // Redirect if already authenticated
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -38,24 +37,62 @@ const AuthPage = () => {
     }));
   };
 
+  const validateForm = () => {
+    if (!formData.email || !formData.password) {
+      toast.error('Email and password are required');
+      return false;
+    }
+
+    if (activeTab === 'signup') {
+      if (!formData.username) {
+        toast.error('Username is required');
+        return false;
+      }
+      if (formData.password.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return false;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        toast.error('Passwords do not match');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
+    
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting login with:', formData.email);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
       if (error) {
-        toast.error(error.message || 'Login failed');
+        console.error('Login error:', error);
+        
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error('Invalid email or password');
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error('Please verify your email before logging in');
+        } else {
+          toast.error(error.message || 'Login failed');
+        }
         return;
       }
 
+      console.log('Login successful:', data.user?.email);
       toast.success('Successfully logged in');
       navigate('/');
     } catch (error) {
+      console.error('Unexpected login error:', error);
       toast.error('An unexpected error occurred');
     } finally {
       setIsLoading(false);
@@ -64,10 +101,14 @@ const AuthPage = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
+    
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      console.log('Attempting signup with:', formData.email, formData.username);
+      
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -79,16 +120,46 @@ const AuthPage = () => {
       });
 
       if (error) {
-        toast.error(error.message || 'Signup failed');
+        console.error('Signup error:', error);
+        
+        if (error.message.includes('User already registered')) {
+          toast.error('User already exists with this email');
+        } else if (error.message.includes('Password')) {
+          toast.error('Password must be at least 6 characters');
+        } else {
+          toast.error(error.message || 'Signup failed');
+        }
         return;
       }
 
-      toast.success('Account created successfully! Please check your email to verify your account.');
+      console.log('Signup successful:', data);
+      
+      if (data.user && !data.user.email_confirmed_at) {
+        toast.success('Account created! Please check your email to verify your account.');
+      } else {
+        toast.success('Account created successfully!');
+        navigate('/');
+      }
     } catch (error) {
+      console.error('Unexpected signup error:', error);
       toast.error('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      password: '',
+      username: '',
+      confirmPassword: ''
+    });
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    resetForm();
   };
 
   return (
@@ -103,7 +174,7 @@ const AuthPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -184,12 +255,25 @@ const AuthPage = () => {
                     id="signup-password"
                     name="password"
                     type="password"
-                    placeholder="Create a password"
+                    placeholder="Create a password (min 6 characters)"
                     value={formData.password}
                     onChange={handleInputChange}
                     required
                     disabled={isLoading}
                     minLength={6}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Input
+                    id="confirm-password"
+                    name="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="bg-secondary/30 p-3 rounded-md">
