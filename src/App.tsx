@@ -24,8 +24,8 @@ function App() {
     initialize();
   }, [initialize]);
 
-  // Show loading screen while initializing
-  if (!isInitialized || isLoading) {
+  // Show loading screen while initializing (with maximum 10 second timeout)
+  if (!isInitialized) {
     return <LoadingScreen />;
   }
 

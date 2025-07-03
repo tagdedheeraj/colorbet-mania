@@ -16,7 +16,12 @@ const Index = () => {
   useEffect(() => {
     // Initialize the Supabase game store when component mounts or user authenticates
     if (isAuthenticated) {
-      initialize();
+      // Add small delay to ensure auth is fully settled
+      const timer = setTimeout(() => {
+        initialize();
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
   }, [initialize, isAuthenticated]);
 
@@ -54,7 +59,10 @@ const Index = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen w-full bg-[#0F0F12] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading game data...</p>
+        </div>
       </div>
     );
   }
