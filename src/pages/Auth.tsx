@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -122,18 +121,6 @@ const AuthPage = () => {
       
       console.log('Attempting signup with:', formData.email, formData.username);
       
-      // Test database connection first
-      const { data: testData, error: testError } = await supabase
-        .from('users')
-        .select('count')
-        .limit(1);
-      
-      if (testError) {
-        console.error('Database connection test failed:', testError);
-        toast.error('Database connection error. Please try again.');
-        return;
-      }
-      
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -152,8 +139,6 @@ const AuthPage = () => {
           toast.error('User already exists with this email');
         } else if (error.message.includes('Password')) {
           toast.error('Password must be at least 6 characters');
-        } else if (error.message.includes('database')) {
-          toast.error('Database error. Please contact support if this continues.');
         } else {
           toast.error(error.message || 'Signup failed');
         }
@@ -163,9 +148,9 @@ const AuthPage = () => {
       console.log('Signup successful:', data);
       
       if (data.user && !data.user.email_confirmed_at) {
-        toast.success('Account created! Please check your email to verify your account.');
+        toast.success('Account created successfully! Please check your email to verify your account.');
       } else {
-        toast.success('Account created successfully!');
+        toast.success('Account created successfully! You can now log in.');
         setTimeout(() => {
           window.location.href = '/';
         }, 1000);
