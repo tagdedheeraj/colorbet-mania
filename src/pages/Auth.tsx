@@ -75,7 +75,6 @@ const AuthPage = () => {
     setIsLoading(true);
 
     try {
-      // Clean up existing state
       cleanupAuthState();
       
       console.log('Attempting login with:', formData.email);
@@ -101,7 +100,6 @@ const AuthPage = () => {
       console.log('Login successful:', data.user?.email);
       toast.success('Successfully logged in');
       
-      // Force page reload for clean state
       setTimeout(() => {
         window.location.href = '/';
       }, 1000);
@@ -120,10 +118,21 @@ const AuthPage = () => {
     setIsLoading(true);
 
     try {
-      // Clean up existing state first
       cleanupAuthState();
       
       console.log('Attempting signup with:', formData.email, formData.username);
+      
+      // Test database connection first
+      const { data: testData, error: testError } = await supabase
+        .from('users')
+        .select('count')
+        .limit(1);
+      
+      if (testError) {
+        console.error('Database connection test failed:', testError);
+        toast.error('Database connection error. Please try again.');
+        return;
+      }
       
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
@@ -143,6 +152,8 @@ const AuthPage = () => {
           toast.error('User already exists with this email');
         } else if (error.message.includes('Password')) {
           toast.error('Password must be at least 6 characters');
+        } else if (error.message.includes('database')) {
+          toast.error('Database error. Please contact support if this continues.');
         } else {
           toast.error(error.message || 'Signup failed');
         }
