@@ -7,6 +7,9 @@ import { AuthState, UserProfile } from '@/types/auth';
 import { UserProfileService } from '@/services/userProfileService';
 import { UserCreationService } from '@/services/userCreationService';
 
+// Store for auth subscription cleanup
+let authSubscription: (() => void) | null = null;
+
 const useSupabaseAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
@@ -23,7 +26,13 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
       console.log('Starting auth initialization...');
       set({ isLoading: true, error: null });
       
-      // Set up auth state listener FIRST
+      // Clean up existing subscription if any
+      if (authSubscription) {
+        authSubscription();
+        authSubscription = null;
+      }
+      
+      // Set up auth state listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
         
@@ -49,6 +58,9 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
         }
       });
 
+      // Store cleanup function
+      authSubscription = () => subscription.unsubscribe();
+
       // Get initial session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -66,8 +78,6 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false, isInitialized: true });
       }
 
-      // Cleanup function
-      return () => subscription.unsubscribe();
     } catch (error) {
       console.error('Auth initialization error:', error);
       set({ isLoading: false, error: 'Failed to initialize authentication', isInitialized: true });
@@ -85,6 +95,12 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     try {
+      // Clean up subscription
+      if (authSubscription) {
+        authSubscription();
+        authSubscription = null;
+      }
+
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) throw error;
       
