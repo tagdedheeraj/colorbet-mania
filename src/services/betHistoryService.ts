@@ -16,6 +16,8 @@ export class BetHistoryService {
             result_number,
             status,
             created_at,
+            start_time,
+            end_time,
             game_mode
           )
         `)
