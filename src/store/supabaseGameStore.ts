@@ -6,7 +6,6 @@ import { GameInitializationService } from '@/services/gameInitializationService'
 import { BetManagementService } from '@/services/betManagementService';
 import { GameTimerService } from '@/services/gameTimerService';
 import { GAME_MODES } from '@/config/gameModes';
-import { supabase } from '@/integrations/supabase/client';
 
 const useSupabaseGameStore = create<GameState>((set, get) => ({
   currentGame: null,
@@ -22,18 +21,13 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
   initialize: async () => {
     set({ isLoading: true });
     try {
-      console.log('Initializing Supabase game store...');
+      console.log('Initializing game store...');
       
-      // First, try to create a demo game if none exists
+      // Create demo game if needed
       await get().createDemoGameIfNeeded();
       
       // Load initial data
       const { activeGame, gameHistory } = await GameInitializationService.loadInitialData();
-      
-      console.log('Setting initial state:', {
-        activeGame: activeGame ? `Game #${activeGame.game_number}` : 'None',
-        historyCount: gameHistory.length
-      });
       
       set({ 
         currentGame: activeGame,
@@ -41,11 +35,13 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         isLoading: false 
       });
 
-      // Load current user's bets if there's an active game
       if (activeGame) {
         await get().loadCurrentBets();
-        // Start timer for current game
         get().startGameTimer();
+      } else {
+        // Force create a new game if none exists
+        await get().createDemoGameIfNeeded();
+        await get().loadCurrentData();
       }
 
       // Setup real-time subscriptions
@@ -54,27 +50,25 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         () => get().loadCurrentBets()
       );
 
-      console.log('Supabase game store initialized successfully');
+      console.log('Game store initialized successfully');
     } catch (error) {
-      console.error('Supabase game store initialization error:', error);
+      console.error('Game store initialization error:', error);
       set({ isLoading: false });
     }
   },
 
   createDemoGameIfNeeded: async () => {
-    await GameInitializationService.createDemoGameIfNeeded();
+    try {
+      await GameInitializationService.createDemoGameIfNeeded();
+    } catch (error) {
+      console.error('Error creating demo game:', error);
+    }
   },
 
   placeBet: async (type: 'color' | 'number', value: string) => {
     const { currentGame, betAmount, isAcceptingBets } = get();
     
-    console.log('Store placeBet called:', {
-      type,
-      value,
-      currentGame: currentGame ? `Game #${currentGame.game_number}` : 'None',
-      betAmount,
-      isAcceptingBets
-    });
+    console.log('Placing bet:', { type, value, betAmount, isAcceptingBets });
     
     if (!isAcceptingBets) {
       console.error('Betting is currently closed');
@@ -89,7 +83,6 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     );
 
     if (success) {
-      // Refresh current bets
       await get().loadCurrentBets();
     }
   },
@@ -113,21 +106,12 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
   loadCurrentBets: async () => {
     const { currentGame } = get();
-    if (!currentGame) {
-      console.log('No current game, skipping bet loading');
-      return;
-    }
+    if (!currentGame) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        console.log('No authenticated user, skipping bet loading');
-        return;
-      }
-
       const currentBets = await BetManagementService.loadCurrentBets(
         currentGame.id,
-        session.user.id
+        currentGame.id // This will be replaced with actual user ID in BetManagementService
       );
       set({ currentBets });
     } catch (error) {
@@ -143,13 +127,6 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       const prevGame = get().currentGame;
       const gameChanged = !prevGame || prevGame.id !== activeGame?.id;
       
-      console.log('Current data loaded:', {
-        activeGame: activeGame ? `Game #${activeGame.game_number}` : 'None',
-        gameChanged,
-        prevGameId: prevGame?.id,
-        newGameId: activeGame?.id
-      });
-      
       set({ 
         currentGame: activeGame,
         gameHistory 
@@ -157,13 +134,20 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
       if (activeGame) {
         if (gameChanged) {
-          // Clear timer for previous game and start new one
           if (prevGame) {
             GameTimerService.clearTimer(prevGame.id);
           }
           get().startGameTimer();
         }
         await get().loadCurrentBets();
+      } else {
+        // No active game, create one
+        await get().createDemoGameIfNeeded();
+        const { activeGame: newGame } = await GameInitializationService.loadInitialData();
+        if (newGame) {
+          set({ currentGame: newGame });
+          get().startGameTimer();
+        }
       }
     } catch (error) {
       console.error('Error loading current data:', error);
@@ -172,10 +156,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
   startGameTimer: () => {
     const { currentGame, currentGameMode } = get();
-    if (!currentGame) {
-      console.log('No current game to start timer for');
-      return;
-    }
+    if (!currentGame) return;
 
     console.log('Starting game timer for game:', currentGame.game_number);
 
@@ -186,10 +167,8 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         set({ timeRemaining, isAcceptingBets });
       },
       () => {
-        console.log('Game timer ended, creating new game...');
-        // Game ended, create a new one
+        console.log('Game ended, creating new game...');
         get().createDemoGameIfNeeded().then(() => {
-          // Reload data after creating new game
           get().loadCurrentData();
         });
       }

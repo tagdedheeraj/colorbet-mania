@@ -21,12 +21,11 @@ export class BetManagementService {
 
     if (!currentGame) {
       console.error('No active game found');
-      toast.error('No active game');
+      toast.error('No active game available');
       return false;
     }
 
     try {
-      // Get current user session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         console.error('No authenticated user');
@@ -34,9 +33,6 @@ export class BetManagementService {
         return false;
       }
 
-      console.log('User authenticated:', session.user.id);
-
-      // Get user profile for balance
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
         .select('balance')
@@ -45,11 +41,9 @@ export class BetManagementService {
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
-        toast.error('Error fetching user data');
+        toast.error('Error loading user data');
         return false;
       }
-
-      console.log('User profile:', userProfile);
 
       if (!userProfile || (userProfile.balance || 0) < betAmount) {
         console.error('Insufficient balance:', userProfile?.balance, 'needed:', betAmount);
@@ -67,13 +61,7 @@ export class BetManagementService {
         currentGame.game_number
       );
 
-      if (success) {
-        console.log('Bet placed successfully');
-        toast.success(`Bet placed successfully on ${value}!`);
-        return true;
-      }
-
-      return false;
+      return success;
     } catch (error) {
       console.error('Bet placement error:', error);
       toast.error('Failed to place bet');
@@ -83,8 +71,13 @@ export class BetManagementService {
 
   static async loadCurrentBets(gameId: string, userId: string) {
     try {
-      console.log('Loading current bets for:', { gameId, userId });
-      const bets = await GameService.loadCurrentBets(gameId, userId);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        return [];
+      }
+
+      console.log('Loading current bets for game:', gameId);
+      const bets = await GameService.loadCurrentBets(gameId, session.user.id);
       console.log('Current bets loaded:', bets.length);
       return bets;
     } catch (error) {

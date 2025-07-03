@@ -8,12 +8,21 @@ import { ColorType, NumberType } from '@/types/supabaseGame';
 import { toast } from "sonner";
 
 const BettingPanel: React.FC = () => {
-  const { betAmount, setBetAmount, placeBet, isAcceptingBets, timeRemaining, currentGame } = useSupabaseGameStore();
-  const { user, profile, isAuthenticated } = useSupabaseAuthStore();
+  const { 
+    betAmount, 
+    setBetAmount, 
+    placeBet, 
+    isAcceptingBets, 
+    timeRemaining, 
+    currentGame,
+    isLoading: gameLoading 
+  } = useSupabaseGameStore();
+  
+  const { user, profile, isAuthenticated, isLoading: authLoading } = useSupabaseAuthStore();
   
   const predefinedAmounts = [10, 50, 100, 500, 1000];
   
-  const handleColorBet = (color: ColorType) => {
+  const handleColorBet = async (color: ColorType) => {
     if (!isAuthenticated) {
       toast.error('Please log in to place bets');
       return;
@@ -30,11 +39,12 @@ const BettingPanel: React.FC = () => {
       toast.error('Insufficient balance');
       return;
     }
+    
     console.log('Placing color bet:', color, 'amount:', betAmount);
-    placeBet('color', color);
+    await placeBet('color', color);
   };
   
-  const handleNumberBet = (number: NumberType) => {
+  const handleNumberBet = async (number: NumberType) => {
     if (!isAuthenticated) {
       toast.error('Please log in to place bets');
       return;
@@ -51,8 +61,9 @@ const BettingPanel: React.FC = () => {
       toast.error('Insufficient balance');
       return;
     }
+    
     console.log('Placing number bet:', number, 'amount:', betAmount);
-    placeBet('number', number.toString());
+    await placeBet('number', number.toString());
   };
   
   const handleBetAmountChange = (value: number[]) => {
@@ -84,6 +95,8 @@ const BettingPanel: React.FC = () => {
   };
 
   const userBalance = profile?.balance || 0;
+  const isSystemLoading = authLoading || gameLoading;
+  const canBet = isAuthenticated && !isSystemLoading && currentGame && isAcceptingBets;
 
   return (
     <div className="glass-panel p-4 mb-6 space-y-6">
@@ -103,7 +116,7 @@ const BettingPanel: React.FC = () => {
           step={10}
           onValueChange={handleBetAmountChange}
           className="my-4"
-          disabled={!isAcceptingBets || !isAuthenticated}
+          disabled={!canBet}
         />
         
         <div className="flex flex-wrap gap-2 justify-between">
@@ -113,7 +126,7 @@ const BettingPanel: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setBetAmount(amount)}
-              disabled={!isAcceptingBets || !isAuthenticated || (profile ? userBalance < amount : false)}
+              disabled={!canBet || (profile ? userBalance < amount : false)}
               className="glass-panel flex-1 border-none min-w-16"
             >
               {amount}
@@ -129,7 +142,7 @@ const BettingPanel: React.FC = () => {
             <Button
               key={color}
               onClick={() => handleColorBet(color)}
-              disabled={!isAcceptingBets || !isAuthenticated || (profile && userBalance < betAmount) || !currentGame}
+              disabled={!canBet || (profile && userBalance < betAmount)}
               className={`color-button ${getColorStyle(color)} text-white h-14`}
             >
               <span className="capitalize">{color.replace('-', ' ')}</span>
@@ -152,7 +165,7 @@ const BettingPanel: React.FC = () => {
             <Button
               key={num}
               onClick={() => handleNumberBet(num)}
-              disabled={!isAcceptingBets || !isAuthenticated || (profile && userBalance < betAmount) || !currentGame}
+              disabled={!canBet || (profile && userBalance < betAmount)}
               className={`number-button text-lg font-bold ${
                 num === 0 
                   ? 'bg-secondary text-muted-foreground hover:bg-secondary/80' 
@@ -179,21 +192,20 @@ const BettingPanel: React.FC = () => {
         </div>
       )}
 
-      {!currentGame && isAuthenticated && (
+      {isSystemLoading && (
         <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
-          <p className="text-blue-500 text-sm text-center">
+          <p className="text-blue-500 text-sm text-center flex items-center justify-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
             Loading game data...
           </p>
         </div>
       )}
 
-      {/* Debug information */}
-      {isAuthenticated && (
-        <div className="bg-gray-500/10 border border-gray-500/20 p-2 rounded-lg text-xs">
-          <p>Debug: Game ID: {currentGame?.id || 'None'}</p>
-          <p>Debug: Accepting Bets: {isAcceptingBets ? 'Yes' : 'No'}</p>
-          <p>Debug: Time Remaining: {timeRemaining}s</p>
-          <p>Debug: User Balance: {userBalance}</p>
+      {!currentGame && !isSystemLoading && isAuthenticated && (
+        <div className="bg-orange-500/10 border border-orange-500/20 p-3 rounded-lg">
+          <p className="text-orange-500 text-sm text-center">
+            No active game available. Creating new game...
+          </p>
         </div>
       )}
     </div>

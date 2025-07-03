@@ -18,14 +18,14 @@ import useSupabaseAuthStore from "./store/supabaseAuthStore";
 const queryClient = new QueryClient();
 
 function App() {
-  const { initialize, isLoading, isAuthenticated, error } = useSupabaseAuthStore();
+  const { initialize, isLoading, isAuthenticated, error, isInitialized } = useSupabaseAuthStore();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
   // Show loading screen while initializing
-  if (isLoading) {
+  if (!isInitialized || isLoading) {
     return <LoadingScreen />;
   }
 
