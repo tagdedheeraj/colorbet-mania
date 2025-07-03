@@ -2,18 +2,22 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import useGameStore from '@/store/gameStore';
+import useSupabaseGameStore from '@/store/supabaseGameStore';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
-import { ColorType, NumberType } from '@/types/game';
+import { ColorType, NumberType } from '@/types/supabaseGame';
 import { toast } from "sonner";
 
 const BettingPanel: React.FC = () => {
-  const { betAmount, setBetAmount, placeBet, isAcceptingBets, timeRemaining } = useGameStore();
+  const { betAmount, setBetAmount, placeBet, isAcceptingBets, timeRemaining } = useSupabaseGameStore();
   const { user, profile, isAuthenticated } = useSupabaseAuthStore();
   
   const predefinedAmounts = [10, 50, 100, 500, 1000];
   
   const handleColorBet = (color: ColorType) => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to place bets');
+      return;
+    }
     if (!isAcceptingBets) {
       toast.error(`Betting closed! Next game in ${timeRemaining}s`);
       return;
@@ -22,11 +26,15 @@ const BettingPanel: React.FC = () => {
   };
   
   const handleNumberBet = (number: NumberType) => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to place bets');
+      return;
+    }
     if (!isAcceptingBets) {
       toast.error(`Betting closed! Next game in ${timeRemaining}s`);
       return;
     }
-    placeBet('number', number);
+    placeBet('number', number.toString());
   };
   
   const handleBetAmountChange = (value: number[]) => {
@@ -57,12 +65,6 @@ const BettingPanel: React.FC = () => {
     }
   };
 
-  const promptLogin = () => {
-    if (!isAuthenticated) {
-      toast.info('Please log in to place bets');
-    }
-  };
-
   const userBalance = profile?.balance || 0;
 
   return (
@@ -83,7 +85,7 @@ const BettingPanel: React.FC = () => {
           step={10}
           onValueChange={handleBetAmountChange}
           className="my-4"
-          disabled={!isAcceptingBets}
+          disabled={!isAcceptingBets || !isAuthenticated}
         />
         
         <div className="flex flex-wrap gap-2 justify-between">
@@ -93,7 +95,7 @@ const BettingPanel: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setBetAmount(amount)}
-              disabled={!isAcceptingBets || (isAuthenticated && profile ? userBalance < amount : false)}
+              disabled={!isAcceptingBets || !isAuthenticated || (profile ? userBalance < amount : false)}
               className="glass-panel flex-1 border-none min-w-16"
             >
               {amount}
@@ -108,8 +110,8 @@ const BettingPanel: React.FC = () => {
           {(['red', 'green', 'purple-red'] as ColorType[]).map((color) => (
             <Button
               key={color}
-              onClick={() => isAuthenticated ? handleColorBet(color) : promptLogin()}
-              disabled={!isAcceptingBets || (isAuthenticated && profile ? userBalance < betAmount : false)}
+              onClick={() => handleColorBet(color)}
+              disabled={!isAcceptingBets || !isAuthenticated || (profile && userBalance < betAmount)}
               className={`color-button ${getColorStyle(color)} text-white h-14`}
             >
               <span className="capitalize">{color.replace('-', ' ')}</span>
@@ -131,8 +133,8 @@ const BettingPanel: React.FC = () => {
           {numbers.map((num) => (
             <Button
               key={num}
-              onClick={() => isAuthenticated ? handleNumberBet(num) : promptLogin()}
-              disabled={!isAcceptingBets || (isAuthenticated && profile ? userBalance < betAmount : false)}
+              onClick={() => handleNumberBet(num)}
+              disabled={!isAcceptingBets || !isAuthenticated || (profile && userBalance < betAmount)}
               className={`number-button text-lg font-bold ${
                 num === 0 
                   ? 'bg-secondary text-muted-foreground hover:bg-secondary/80' 
@@ -150,6 +152,14 @@ const BettingPanel: React.FC = () => {
           </p>
         </div>
       </div>
+      
+      {!isAuthenticated && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
+          <p className="text-yellow-500 text-sm text-center">
+            Please log in to place bets
+          </p>
+        </div>
+      )}
     </div>
   );
 };

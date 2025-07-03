@@ -22,7 +22,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
   initialize: async () => {
     set({ isLoading: true });
     try {
-      console.log('Initializing game store...');
+      console.log('Initializing Supabase game store...');
       
       // Load initial data
       const activeGame = await GameService.loadActiveGame();
@@ -52,9 +52,9 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         get().startGameTimer();
       }
 
-      console.log('Game store initialized successfully');
+      console.log('Supabase game store initialized successfully');
     } catch (error) {
-      console.error('Game store initialization error:', error);
+      console.error('Supabase game store initialization error:', error);
       set({ isLoading: false });
     }
   },
@@ -76,11 +76,17 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       }
 
       // Get user profile for balance
-      const { data: userProfile } = await supabase
+      const { data: userProfile, error: profileError } = await supabase
         .from('users')
         .select('balance')
         .eq('id', session.user.id)
         .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        toast.error('Error fetching user data');
+        return;
+      }
 
       if (!userProfile || userProfile.balance < betAmount) {
         toast.error('Insufficient balance');
@@ -98,8 +104,9 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       );
 
       if (success) {
-        // Refresh current bets and user profile
+        // Refresh current bets
         await get().loadCurrentBets();
+        toast.success(`Bet placed successfully on ${value}!`);
       }
     } catch (error) {
       console.error('Bet placement error:', error);

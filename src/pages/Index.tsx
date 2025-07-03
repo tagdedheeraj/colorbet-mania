@@ -6,15 +6,15 @@ import BettingPanel from '@/components/BettingPanel';
 import ResultPopup from '@/components/ResultPopup';
 import GameHistory from '@/components/GameHistory';
 import GameModeSelector from '@/components/GameModeSelector';
-import useGameStore from '@/store/gameStore';
+import useSupabaseGameStore from '@/store/supabaseGameStore';
 
 const Index = () => {
-  const { startNewGame } = useGameStore();
+  const { initialize } = useSupabaseGameStore();
 
   useEffect(() => {
-    // Ensure the game starts correctly
-    startNewGame();
-  }, []);
+    // Initialize the Supabase game store
+    initialize();
+  }, [initialize]);
 
   // Add subtle background animation
   useEffect(() => {
