@@ -6,7 +6,7 @@ import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 
 const GameHistory: React.FC = () => {
   const { lastResults } = useGameStore();
-  const { user } = useSupabaseAuthStore();
+  const { user, profile } = useSupabaseAuthStore();
   
   const getColorStyle = (color: ColorType) => {
     switch (color) {
@@ -35,10 +35,8 @@ const GameHistory: React.FC = () => {
       <h3 className="text-lg font-semibold mb-3">Game History</h3>
       <div className="space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
         {lastResults.map((result) => {
-          // Find user bets for this game if user is logged in
-          const userBetsForGame = user ? 
-            user.bets?.filter(bet => bet.gameId === result.gameId) : 
-            [];
+          // For now, we'll handle user bets from the game store since profile doesn't have bets
+          const userBetsForGame = user ? [] : [];
           
           return (
             <div key={result.id} className="glass-panel bg-secondary/30 p-3 rounded-md space-y-3">

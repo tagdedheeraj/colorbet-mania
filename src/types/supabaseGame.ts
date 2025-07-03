@@ -1,6 +1,38 @@
 
 import { GAME_MODES } from '@/config/gameModes';
 
+export type ColorType = 'red' | 'green' | 'purple-red';
+export type NumberType = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type GameMode = 'blitz' | 'quick' | 'classic' | 'extended';
+
+export interface GameModeConfig {
+  id: GameMode;
+  name: string;
+  duration: number;
+  description: string;
+}
+
+export interface GameResult {
+  id: string;
+  game_number: number;
+  result_color: ColorType;
+  result_number: NumberType;
+  start_time: string;
+  end_time: string;
+  status: string;
+}
+
+export interface Bet {
+  id: string;
+  game_id: string;
+  bet_type: 'color' | 'number';
+  bet_value: string;
+  amount: number;
+  potential_win: number;
+  is_winner: boolean;
+  actual_win: number;
+}
+
 export interface GameState {
   currentGame: SupabaseGame | null;
   timeRemaining: number;
@@ -57,4 +89,6 @@ export interface UserProfile {
   referred_by: string | null;
   created_at: string;
   updated_at: string;
+  full_name?: string;
+  phone?: string;
 }

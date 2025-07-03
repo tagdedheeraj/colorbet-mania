@@ -11,7 +11,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const ReferralPage = () => {
   const navigate = useNavigate();
-  const { user } = useSupabaseAuthStore();
+  const { user, profile } = useSupabaseAuthStore();
   const [referralInput, setReferralInput] = useState<string>('');
   const isMobile = useIsMobile();
   
@@ -20,7 +20,7 @@ const ReferralPage = () => {
     return null;
   }
   
-  const referralCode = user.referral_code || 'REF000000';
+  const referralCode = profile?.referral_code || 'REF000000';
   const referralLink = `${window.location.origin}?ref=${referralCode}`;
   
   const handleCopyCode = () => {

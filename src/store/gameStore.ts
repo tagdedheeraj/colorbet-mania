@@ -87,9 +87,9 @@ const useGameStore = create<GameStoreState>((set, get) => ({
   placeBet: (type: 'color' | 'number', value: ColorType | NumberType) => {
     const { betAmount, isAcceptingBets, currentBets, currentGameId } = get();
     const authStore = useSupabaseAuthStore.getState();
-    const user = authStore.user;
+    const profile = authStore.profile;
 
-    if (!user) {
+    if (!profile) {
       toast.error("Please log in to place bets");
       return;
     }
@@ -99,7 +99,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       return;
     }
 
-    if (user.balance && user.balance < betAmount) {
+    if (profile.balance && profile.balance < betAmount) {
       toast.error("Insufficient balance");
       return;
     }
@@ -233,7 +233,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
     let userWonAnyBet = false;
     
     const authStore = useSupabaseAuthStore.getState();
-    const user = authStore.user;
+    const profile = authStore.profile;
     
     const processedBets = currentBets.map(bet => {
       let betWon = false;

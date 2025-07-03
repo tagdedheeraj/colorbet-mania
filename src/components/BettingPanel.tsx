@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 const BettingPanel: React.FC = () => {
   const { betAmount, setBetAmount, placeBet, isAcceptingBets, timeRemaining } = useGameStore();
-  const { user, isAuthenticated } = useSupabaseAuthStore();
+  const { user, profile, isAuthenticated } = useSupabaseAuthStore();
   
   const predefinedAmounts = [10, 50, 100, 500, 1000];
   
@@ -63,6 +63,8 @@ const BettingPanel: React.FC = () => {
     }
   };
 
+  const userBalance = profile?.balance || 0;
+
   return (
     <div className="glass-panel p-4 mb-6 space-y-6">
       <div className="space-y-3">
@@ -77,7 +79,7 @@ const BettingPanel: React.FC = () => {
         <Slider
           value={[betAmount]}
           min={10}
-          max={isAuthenticated && user ? Math.min(user.balance, 1000) : 1000}
+          max={isAuthenticated && profile ? Math.min(userBalance, 1000) : 1000}
           step={10}
           onValueChange={handleBetAmountChange}
           className="my-4"
@@ -91,7 +93,7 @@ const BettingPanel: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setBetAmount(amount)}
-              disabled={!isAcceptingBets || (isAuthenticated && user ? user.balance < amount : false)}
+              disabled={!isAcceptingBets || (isAuthenticated && profile ? userBalance < amount : false)}
               className="glass-panel flex-1 border-none min-w-16"
             >
               {amount}
@@ -107,7 +109,7 @@ const BettingPanel: React.FC = () => {
             <Button
               key={color}
               onClick={() => isAuthenticated ? handleColorBet(color) : promptLogin()}
-              disabled={!isAcceptingBets || (isAuthenticated && user ? user.balance < betAmount : false)}
+              disabled={!isAcceptingBets || (isAuthenticated && profile ? userBalance < betAmount : false)}
               className={`color-button ${getColorStyle(color)} text-white h-14`}
             >
               <span className="capitalize">{color.replace('-', ' ')}</span>
@@ -130,7 +132,7 @@ const BettingPanel: React.FC = () => {
             <Button
               key={num}
               onClick={() => isAuthenticated ? handleNumberBet(num) : promptLogin()}
-              disabled={!isAcceptingBets || (isAuthenticated && user ? user.balance < betAmount : false)}
+              disabled={!isAcceptingBets || (isAuthenticated && profile ? userBalance < betAmount : false)}
               className={`number-button text-lg font-bold ${
                 num === 0 
                   ? 'bg-secondary text-muted-foreground hover:bg-secondary/80' 

@@ -116,9 +116,9 @@ const ProfilePage = () => {
                     <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
                       <UserCircle className="w-20 h-20 text-primary" />
                     </div>
-                    <h2 className="text-xl font-bold">{user.username}</h2>
+                    <h2 className="text-xl font-bold">{profile?.username || 'User'}</h2>
                     <div className="px-4 py-2 rounded-full bg-game-gold/20 text-game-gold font-bold">
-                      {user.balance?.toFixed(2) || '0.00'} coins
+                      {profile?.balance?.toFixed(2) || '0.00'} coins
                     </div>
                   </div>
                   

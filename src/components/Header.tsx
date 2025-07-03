@@ -17,7 +17,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const Header = () => {
   const [showBackground, setShowBackground] = useState(false);
-  const { user, isAuthenticated, signOut } = useSupabaseAuthStore();
+  const { user, profile, isAuthenticated, signOut } = useSupabaseAuthStore();
   const location = useLocation();
   const isMobile = useIsMobile();
   
@@ -76,11 +76,11 @@ const Header = () => {
             </Link>
           )}
           
-          {isAuthenticated && user && (
+          {isAuthenticated && profile && (
             <>
               <div className="flex items-center">
                 <Coins className="h-4 w-4 mr-1 text-game-gold" />
-                <span className="text-sm font-medium">{user.balance?.toFixed(2) || '0.00'}</span>
+                <span className="text-sm font-medium">{profile.balance?.toFixed(2) || '0.00'}</span>
               </div>
               <Button 
                 variant="ghost" 
@@ -99,7 +99,7 @@ const Header = () => {
             </Link>
           )}
           
-          {isAuthenticated && user && (
+          {isAuthenticated && profile && (
             <>
               <NotificationCenter />
               
@@ -107,12 +107,12 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-2 p-1">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={`https://avatar.vercel.sh/${user.username}`} />
-                      <AvatarFallback>{user.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarImage src={`https://avatar.vercel.sh/${profile.username}`} />
+                      <AvatarFallback>{profile.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     {!isMobile && (
                       <>
-                        <span className="text-sm font-medium max-w-[80px] truncate">{user.username}</span>
+                        <span className="text-sm font-medium max-w-[80px] truncate">{profile.username}</span>
                         <ChevronDown className="h-4 w-4 opacity-50" />
                       </>
                     )}
