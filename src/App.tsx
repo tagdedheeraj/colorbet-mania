@@ -11,6 +11,7 @@ import Wallet from "./pages/Wallet";
 import Referral from "./pages/Referral";
 import About from "./pages/About";
 import Admin from "./pages/Admin";
+import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 import useSupabaseAuthStore from "./store/supabaseAuthStore";
 
@@ -36,6 +37,7 @@ function App() {
             <Route path="/referral" element={<Referral />} />
             <Route path="/about" element={<About />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

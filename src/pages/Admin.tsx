@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { AdminService } from '@/services/adminService';
+import { AdminAuthService } from '@/services/adminAuthService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,42 +9,39 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Users, GamepadIcon, DollarSign, Activity, Settings } from 'lucide-react';
+import { Users, GamepadIcon, DollarSign, Activity, Settings, LogOut, ArrowLeft } from 'lucide-react';
 
 const Admin: React.FC = () => {
-  const { user, isAuthenticated } = useSupabaseAuthStore();
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [games, setGames] = useState<any[]>([]);
   const [bets, setBets] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [newBalance, setNewBalance] = useState('');
+  const [adminInfo, setAdminInfo] = useState<any>(null);
 
   useEffect(() => {
     checkAdminAccess();
-  }, [user, isAuthenticated]);
+  }, []);
 
   const checkAdminAccess = async () => {
-    if (!isAuthenticated || !user) {
-      navigate('/auth');
-      return;
-    }
-
     try {
-      const adminStatus = await AdminService.isAdmin(user.id);
-      if (!adminStatus) {
-        toast.error('Access denied. Admin privileges required.');
-        navigate('/');
+      const isValidSession = await AdminAuthService.verifySession();
+      
+      if (!isValidSession) {
+        toast.error('Access denied. Please login as admin.');
+        navigate('/admin-login');
         return;
       }
+
+      const adminData = AdminAuthService.getAdminInfo();
+      setAdminInfo(adminData);
       
-      setIsAdmin(true);
       await loadAdminData();
     } catch (error) {
       console.error('Error checking admin access:', error);
-      navigate('/');
+      navigate('/admin-login');
     } finally {
       setLoading(false);
     }
@@ -64,6 +60,7 @@ const Admin: React.FC = () => {
       setBets(betsResult.data);
     } catch (error) {
       console.error('Error loading admin data:', error);
+      toast.error('Failed to load admin data');
     }
   };
 
@@ -99,6 +96,17 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await AdminAuthService.logout();
+      toast.success('Admin logged out successfully');
+      navigate('/admin-login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Failed to logout');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
@@ -110,10 +118,6 @@ const Admin: React.FC = () => {
     );
   }
 
-  if (!isAdmin) {
-    return null;
-  }
-
   const totalUsers = users.length;
   const totalGames = games.length;
   const totalBets = bets.length;
@@ -122,9 +126,34 @@ const Admin: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
       <div className="container mx-auto max-w-7xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
-          <p className="text-muted-foreground">Manage your gaming platform</p>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Home
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Admin Panel</h1>
+              <p className="text-muted-foreground">
+                Welcome, {adminInfo?.username} - Manage your gaming platform
+              </p>
+            </div>
+          </div>
+          
+          <Button
+            variant="destructive"
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
         </div>
 
         {/* Statistics Cards */}
@@ -358,6 +387,13 @@ const Admin: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  <div className="p-4 border rounded-lg">
+                    <h3 className="text-lg font-semibold mb-2">Admin Information</h3>
+                    <p className="text-muted-foreground">
+                      Logged in as: <strong>{adminInfo?.username}</strong> ({adminInfo?.email})
+                    </p>
+                  </div>
+                  
                   <div className="p-4 border rounded-lg">
                     <h3 className="text-lg font-semibold mb-2">Game Settings</h3>
                     <p className="text-muted-foreground">Game mode configurations and payout rates can be adjusted in the game modes config.</p>

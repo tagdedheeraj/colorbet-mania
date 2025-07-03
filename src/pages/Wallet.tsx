@@ -1,165 +1,104 @@
 
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Wallet as WalletIcon, Plus, Minus, History, CreditCard, RefreshCw, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Plus, Minus, History, CreditCard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
-interface Transaction {
-  id: string;
-  type: string;
-  amount: number;
-  description: string;
-  created_at: string;
-}
-
-const Wallet = () => {
-  const { profile, refreshProfile, isAuthenticated, isLoading, error, clearError } = useSupabaseAuthStore();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+const Wallet: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useSupabaseAuthStore();
+  const [balance, setBalance] = useState<number>(0);
+  const [amount, setAmount] = useState<string>('');
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && profile) {
-      loadTransactions();
+    if (!isAuthenticated) {
+      navigate('/auth');
+      return;
     }
-  }, [isAuthenticated, profile]);
+    loadWalletData();
+  }, [isAuthenticated, navigate]);
 
-  // Auto-retry profile loading if it fails
-  useEffect(() => {
-    if (isAuthenticated && !profile && !isLoading && retryCount < 3) {
-      const timer = setTimeout(() => {
-        console.log(`Retrying profile load attempt ${retryCount + 1}`);
-        refreshProfile();
-        setRetryCount(prev => prev + 1);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated, profile, isLoading, retryCount, refreshProfile]);
+  const loadWalletData = async () => {
+    if (!user) return;
 
-  const loadTransactions = async () => {
     try {
-      setIsLoadingTransactions(true);
-      const { data, error } = await supabase
+      // Load user balance
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) throw userError;
+      setBalance(userData?.balance || 0);
+
+      // Load transactions
+      const { data: transactionData, error: transactionError } = await supabase
         .from('transactions')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
-      setTransactions(data || []);
+      if (transactionError) throw transactionError;
+      setTransactions(transactionData || []);
     } catch (error) {
-      console.error('Error loading transactions:', error);
-      toast.error('Failed to load transactions');
-    } finally {
-      setIsLoadingTransactions(false);
+      console.error('Error loading wallet data:', error);
+      toast.error('Failed to load wallet data');
     }
   };
 
-  const handleDeposit = async () => {
-    const amount = parseFloat(depositAmount);
-    if (!amount || amount <= 0) {
+  const handleAddFunds = async () => {
+    if (!amount || parseFloat(amount) <= 0) {
       toast.error('Please enter a valid amount');
       return;
     }
 
-    if (!profile) {
-      toast.error('Profile not loaded');
-      return;
-    }
-
+    setLoading(true);
     try {
-      setIsProcessing(true);
-      
+      const addAmount = parseFloat(amount);
+      const newBalance = balance + addAmount;
+
       // Update user balance
-      const newBalance = (profile.balance || 0) + amount;
-      const { error: balanceError } = await supabase
+      const { error: updateError } = await supabase
         .from('users')
         .update({ balance: newBalance })
-        .eq('id', profile.id);
+        .eq('id', user?.id);
 
-      if (balanceError) throw balanceError;
+      if (updateError) throw updateError;
 
       // Add transaction record
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
+          user_id: user?.id,
           type: 'deposit',
-          amount: amount,
-          description: 'Wallet deposit'
+          amount: addAmount,
+          description: 'Funds added to wallet'
         });
 
       if (transactionError) throw transactionError;
 
-      await refreshProfile();
-      setDepositAmount('');
-      loadTransactions();
-      toast.success('Deposit successful!');
+      setBalance(newBalance);
+      setAmount('');
+      toast.success('Funds added successfully');
+      loadWalletData();
     } catch (error) {
-      console.error('Deposit error:', error);
-      toast.error('Deposit failed');
+      console.error('Error adding funds:', error);
+      toast.error('Failed to add funds');
     } finally {
-      setIsProcessing(false);
+      setLoading(false);
     }
-  };
-
-  const handleWithdraw = async () => {
-    const amount = parseFloat(withdrawAmount);
-    if (!amount || amount <= 0) {
-      toast.error('Please enter a valid amount');
-      return;
-    }
-
-    if (!profile || (profile.balance || 0) < amount) {
-      toast.error('Insufficient balance');
-      return;
-    }
-
-    try {
-      setIsProcessing(true);
-      
-      // Update user balance
-      const newBalance = (profile.balance || 0) - amount;
-      const { error: balanceError } = await supabase
-        .from('users')
-        .update({ balance: newBalance })
-        .eq('id', profile.id);
-
-      if (balanceError) throw balanceError;
-
-      // Add transaction record
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          type: 'withdrawal',
-          amount: -amount,
-          description: 'Wallet withdrawal'
-        });
-
-      if (transactionError) throw transactionError;
-
-      await refreshProfile();
-      setWithdrawAmount('');
-      loadTransactions();
-      toast.success('Withdrawal successful!');
-    } catch (error) {
-      console.error('Withdrawal error:', error);
-      toast.error('Withdrawal failed');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleRetry = () => {
-    clearError();
-    setRetryCount(0);
-    refreshProfile();
   };
 
   const formatDate = (dateString: string) => {
@@ -172,205 +111,160 @@ const Wallet = () => {
     });
   };
 
-  const getTransactionColor = (type: string) => {
+  const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'deposit':
-      case 'signup_bonus':
-      case 'win':
-        return 'text-green-500';
+        return <Plus className="h-4 w-4 text-green-500" />;
       case 'withdrawal':
+        return <Minus className="h-4 w-4 text-red-500" />;
       case 'bet':
-        return 'text-red-500';
+        return <CreditCard className="h-4 w-4 text-blue-500" />;
+      case 'win':
+        return <Plus className="h-4 w-4 text-green-500" />;
       default:
-        return 'text-gray-500';
+        return <History className="h-4 w-4 text-gray-500" />;
     }
   };
 
   if (!isAuthenticated) {
-    return (
-      <div className="container mx-auto p-4 pb-20 lg:pb-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
-          <div className="text-center">
-            <WalletIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-2xl font-bold mb-2">Please Log In</h2>
-            <p className="text-muted-foreground">You need to be logged in to access your wallet.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-4 pb-20 lg:pb-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading wallet...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto p-4 pb-20 lg:pb-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
-          <div className="text-center">
-            <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
-            <h2 className="text-2xl font-bold mb-2 text-red-600">Error Loading Wallet</h2>
-            <p className="text-muted-foreground mb-4">{error}</p>
-            <Button onClick={handleRetry} className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Try Again
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="container mx-auto p-4 pb-20 lg:pb-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
-          <div className="text-center">
-            <WalletIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-2xl font-bold mb-2">Profile Loading...</h2>
-            <p className="text-muted-foreground mb-4">Setting up your wallet profile</p>
-            <Button onClick={handleRetry} className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="container mx-auto p-4 pb-20 lg:pb-4">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-3 mb-6">
-          <WalletIcon className="w-8 h-8 text-primary" />
+    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20">
+      <div className="container mx-auto px-4 py-6">
+        {/* Header with Back Button */}
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
           <h1 className="text-3xl font-bold">Wallet</h1>
         </div>
 
-        {/* Balance Card */}
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <WalletIcon className="w-5 h-5" />
-              Current Balance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-bold text-primary">
-              ₹{(profile.balance || 0).toFixed(2)}
-            </div>
-            <p className="text-muted-foreground mt-2">Available for betting</p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Balance Card */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Current Balance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-primary">
+                  {balance.toFixed(2)} coins
+                </div>
+                <p className="text-muted-foreground mt-2">
+                  Available for betting
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Deposit/Withdraw Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-600">
-                <Plus className="w-5 h-5" />
-                Deposit
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                type="number"
-                placeholder="Enter amount"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                min="1"
-                disabled={isProcessing}
-              />
-              <Button 
-                onClick={handleDeposit} 
-                className="w-full bg-green-600 hover:bg-green-700"
-                disabled={!depositAmount || isProcessing}
-              >
-                <CreditCard className="w-4 h-4 mr-2" />
-                {isProcessing ? 'Processing...' : 'Deposit Money'}
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Wallet Actions */}
+          <div className="lg:col-span-2">
+            <Tabs defaultValue="add-funds" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="add-funds">Add Funds</TabsTrigger>
+                <TabsTrigger value="transactions">Transaction History</TabsTrigger>
+              </TabsList>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-600">
-                <Minus className="w-5 h-5" />
-                Withdraw
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                type="number"
-                placeholder="Enter amount"
-                value={withdrawAmount}
-                onChange={(e) => setWithdrawAmount(e.target.value)}
-                min="1"
-                max={profile.balance || 0}
-                disabled={isProcessing}
-              />
-              <Button 
-                onClick={handleWithdraw} 
-                variant="destructive" 
-                className="w-full"
-                disabled={!withdrawAmount || isProcessing}
-              >
-                <Minus className="w-4 h-4 mr-2" />
-                {isProcessing ? 'Processing...' : 'Withdraw Money'}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Transaction History */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="w-5 h-5" />
-              Recent Transactions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingTransactions ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : transactions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No transactions yet
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {transactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+              <TabsContent value="add-funds" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Add Funds</CardTitle>
+                    <CardDescription>
+                      Add coins to your wallet for betting
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <div>
-                      <p className="font-medium capitalize">{transaction.type.replace('_', ' ')}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {transaction.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(transaction.created_at)}
-                      </p>
+                      <Label htmlFor="amount">Amount (Coins)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="Enter amount"
+                        min="1"
+                        step="0.01"
+                      />
                     </div>
-                    <div className={`font-bold text-lg ${getTransactionColor(transaction.type)}`}>
-                      {transaction.amount > 0 ? '+' : ''}₹{transaction.amount.toFixed(2)}
+                    <Button 
+                      onClick={handleAddFunds}
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      {loading ? 'Processing...' : 'Add Funds'}
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      * This is a demo environment. In production, this would integrate with payment processors.
+                    </p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="transactions" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Transactions</CardTitle>
+                    <CardDescription>
+                      Your recent wallet activity
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {transactions.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-8">
+                          No transactions yet
+                        </p>
+                      ) : (
+                        transactions.map((transaction) => (
+                          <div
+                            key={transaction.id}
+                            className="flex items-center justify-between p-4 border rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              {getTransactionIcon(transaction.type)}
+                              <div>
+                                <p className="font-medium">
+                                  {transaction.description || transaction.type}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatDate(transaction.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className={`font-medium ${
+                                transaction.type === 'deposit' || transaction.type === 'win'
+                                  ? 'text-green-600'
+                                  : 'text-red-600'
+                              }`}>
+                                {transaction.type === 'deposit' || transaction.type === 'win' ? '+' : '-'}
+                                {Math.abs(transaction.amount).toFixed(2)}
+                              </p>
+                              <Badge variant="outline" className="text-xs">
+                                {transaction.status || 'completed'}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,253 +1,306 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Settings, KeyRound, ChevronLeft, UserCircle, PhoneCall, Mail, Edit, Save } from "lucide-react";
+import { User, Mail, Calendar, Trophy, LogOut, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
-import { toast } from "sonner";
 import { supabase } from '@/integrations/supabase/client';
 
-const ProfilePage = () => {
+const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, updateProfile } = useSupabaseAuthStore();
-  
-  const [isEditing, setIsEditing] = useState(false);
-  const [profileForm, setProfileForm] = useState({
-    name: profile?.full_name || '',
-    email: user?.email || '',
-    mobile: profile?.phone || ''
-  });
-  
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+  const { user, isAuthenticated, logout } = useSupabaseAuthStore();
+  const [profile, setProfile] = useState<any>(null);
+  const [userStats, setUserStats] = useState<any>({});
+  const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [formData, setFormData] = useState({
+    username: '',
+    full_name: '',
+    phone: ''
   });
 
-  if (!user) {
-    navigate('/');
-    return null;
-  }
-
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      await updateProfile({
-        full_name: profileForm.name,
-        phone: profileForm.mobile
-      });
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Profile update error:', error);
-      toast.error('Failed to update profile');
-    }
-  };
-
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error("New passwords don't match");
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/auth');
       return;
     }
-    
+    loadProfileData();
+  }, [isAuthenticated, navigate]);
+
+  const loadProfileData = async () => {
+    if (!user) return;
+
+    setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: passwordForm.newPassword
+      // Load user data
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) throw userError;
+
+      // Load profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        throw profileError;
+      }
+
+      // Load user stats
+      const { data: betsData, error: betsError } = await supabase
+        .from('bets')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (betsError) throw betsError;
+
+      const totalBets = betsData?.length || 0;
+      const totalWins = betsData?.filter(bet => bet.is_winner).length || 0;
+      const totalWinnings = betsData?.filter(bet => bet.is_winner).reduce((sum, bet) => sum + (bet.actual_win || 0), 0) || 0;
+
+      setProfile(profileData);
+      setUserStats({
+        totalBets,
+        totalWins,
+        totalWinnings,
+        winRate: totalBets > 0 ? ((totalWins / totalBets) * 100).toFixed(1) : '0'
       });
-      
-      if (error) throw error;
-      
-      toast.success('Password updated successfully');
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
+
+      setFormData({
+        username: userData?.username || '',
+        full_name: profileData?.full_name || '',
+        phone: profileData?.phone || ''
       });
-    } catch (error: any) {
-      console.error('Password update error:', error);
-      toast.error(error.message || 'Failed to update password');
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+      toast.error('Failed to load profile data');
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="container-game relative z-10 py-4 px-2 sm:px-4 mb-16">
-      <div className="flex items-center mb-6">
-        <Button 
-          variant="ghost" 
-          className="mr-2 p-2" 
-          onClick={() => navigate('/')}
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </Button>
-        <h1 className="text-2xl font-bold">My Profile</h1>
-      </div>
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
 
-      <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="profile" className="flex items-center gap-2">
-            <User className="w-4 h-4" />
-            <span>Profile</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Settings className="w-4 h-4" />
-            <span>Security</span>
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="profile">
-          <Card className="glass-panel">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Profile Information</CardTitle>
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="flex items-center gap-2"
-                >
-                  {isEditing ? (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>Cancel</span>
-                    </>
-                  ) : (
-                    <>
-                      <Edit className="w-4 h-4" />
-                      <span>Edit</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-              <CardDescription>Update your personal information</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleProfileSubmit}>
-                <div className="grid gap-6">
-                  <div className="flex flex-col items-center gap-4 py-4">
-                    <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-                      <UserCircle className="w-20 h-20 text-primary" />
-                    </div>
-                    <h2 className="text-xl font-bold">{profile?.username || 'User'}</h2>
-                    <div className="px-4 py-2 rounded-full bg-game-gold/20 text-game-gold font-bold">
-                      {profile?.balance?.toFixed(2) || '0.00'} coins
-                    </div>
+    setUpdating(true);
+    try {
+      // Update username in users table
+      const { error: userError } = await supabase
+        .from('users')
+        .update({ username: formData.username })
+        .eq('id', user.id);
+
+      if (userError) throw userError;
+
+      // Update or create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: user.id,
+          full_name: formData.full_name,
+          phone: formData.phone
+        });
+
+      if (profileError) throw profileError;
+
+      toast.success('Profile updated successfully');
+      loadProfileData();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Failed to logout');
+    }
+  };
+
+  if (!isAuthenticated || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20">
+      <div className="container mx-auto px-4 py-6">
+        {/* Header with Back Button */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <h1 className="text-3xl font-bold">Profile</h1>
+          </div>
+          
+          {/* Logout Button */}
+          <Button
+            variant="destructive"
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Profile Information */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Profile Information
+                </CardTitle>
+                <CardDescription>
+                  Update your personal information
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleUpdateProfile} className="space-y-4">
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={user?.email || ''}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Email cannot be changed
+                    </p>
                   </div>
-                  
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      {isEditing ? (
-                        <Input 
-                          id="name" 
-                          value={profileForm.name} 
-                          onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
-                          placeholder="Enter your full name"
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2 p-2 border rounded-md">
-                          <UserCircle className="w-5 h-5 text-muted-foreground" />
-                          <span>{profileForm.name || 'Not set'}</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="email">Email</Label>
-                      <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                        <Mail className="w-5 h-5 text-muted-foreground" />
-                        <span>{profileForm.email || 'Not set'}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="mobile">Mobile Number</Label>
-                      {isEditing ? (
-                        <Input 
-                          id="mobile" 
-                          value={profileForm.mobile} 
-                          onChange={(e) => setProfileForm({...profileForm, mobile: e.target.value})}
-                          placeholder="Enter your mobile number"
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2 p-2 border rounded-md">
-                          <PhoneCall className="w-5 h-5 text-muted-foreground" />
-                          <span>{profileForm.mobile || 'Not set'}</span>
-                        </div>
-                      )}
-                    </div>
+
+                  <div>
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      placeholder="Enter username"
+                    />
                   </div>
-                </div>
-                
-                {isEditing && (
-                  <Button type="submit" className="w-full mt-6">
-                    Save Changes
+
+                  <div>
+                    <Label htmlFor="full_name">Full Name</Label>
+                    <Input
+                      id="full_name"
+                      type="text"
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                      placeholder="Enter full name"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+
+                  <Button type="submit" disabled={updating} className="w-full">
+                    {updating ? 'Updating...' : 'Update Profile'}
                   </Button>
-                )}
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="security">
-          <Card className="glass-panel">
-            <CardHeader>
-              <CardTitle>Change Password</CardTitle>
-              <CardDescription>Update your password to keep your account secure</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handlePasswordSubmit}>
-                <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <div className="relative">
-                      <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="new-password"
-                        type="password"
-                        className="pl-10"
-                        value={passwordForm.newPassword}
-                        onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                        placeholder="Enter new password"
-                        minLength={6}
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <div className="relative">
-                      <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        className="pl-10"
-                        value={passwordForm.confirmPassword}
-                        onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                        placeholder="Confirm new password"
-                        minLength={6}
-                        required
-                      />
-                    </div>
-                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Stats and Account Info */}
+          <div className="space-y-6">
+            {/* Account Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  Gaming Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Bets:</span>
+                  <span className="font-semibold">{userStats.totalBets}</span>
                 </div>
-                
-                <Button type="submit" className="w-full mt-6">
-                  Update Password
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Wins:</span>
+                  <span className="font-semibold text-green-600">{userStats.totalWins}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Win Rate:</span>
+                  <span className="font-semibold">{userStats.winRate}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Winnings:</span>
+                  <span className="font-semibold text-green-600">{userStats.totalWinnings?.toFixed(2)} coins</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Account Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Account Info
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Member since:</span>
+                  <span className="font-semibold">
+                    {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">User ID:</span>
+                  <span className="font-mono text-xs">{user?.id?.slice(0, 8)}...</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default ProfilePage;
+export default Profile;

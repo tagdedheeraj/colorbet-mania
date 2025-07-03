@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_accounts: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          is_active: boolean | null
+          last_login: string | null
+          password_hash: string
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          password_hash: string
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          password_hash?: string
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       admin_logs: {
         Row: {
           action: string
@@ -43,6 +79,41 @@ export type Database = {
             columns: ["admin_user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_sessions: {
+        Row: {
+          admin_id: string | null
+          created_at: string | null
+          expires_at: string
+          id: string
+          last_accessed: string | null
+          session_token: string
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          last_accessed?: string | null
+          session_token: string
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          last_accessed?: string | null
+          session_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_sessions_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -263,9 +334,45 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_admin_account: {
+        Args: {
+          p_username: string
+          p_password: string
+          p_email?: string
+          p_full_name?: string
+        }
+        Returns: string
+      }
+      create_admin_session: {
+        Args: { p_admin_id: string }
+        Returns: string
+      }
       generate_referral_code: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      logout_admin_session: {
+        Args: { p_session_token: string }
+        Returns: boolean
+      }
+      verify_admin_login: {
+        Args: { p_username: string; p_password: string }
+        Returns: {
+          admin_id: string
+          username: string
+          email: string
+          full_name: string
+          is_active: boolean
+        }[]
+      }
+      verify_admin_session: {
+        Args: { p_session_token: string }
+        Returns: {
+          admin_id: string
+          username: string
+          email: string
+          full_name: string
+        }[]
       }
     }
     Enums: {
