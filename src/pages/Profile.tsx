@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Calendar, Trophy, LogOut, ArrowLeft } from 'lucide-react';
@@ -12,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useSupabaseAuthStore();
+  const { user, isAuthenticated, signOut } = useSupabaseAuthStore();
   const [profile, setProfile] = useState<any>(null);
   const [userStats, setUserStats] = useState<any>({});
   const [loading, setLoading] = useState(false);
@@ -126,7 +125,7 @@ const Profile: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await signOut();
       toast.success('Logged out successfully');
       navigate('/auth');
     } catch (error) {
