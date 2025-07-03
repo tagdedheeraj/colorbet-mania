@@ -4,6 +4,45 @@ import { GameService } from './gameService';
 import { GameRealtimeService } from './gameRealtimeService';
 
 export class GameInitializationService {
+  static async cleanupOldGames(): Promise<void> {
+    try {
+      console.log('Cleaning up old active games...');
+      
+      // Mark all old active games as completed
+      const { data: oldGames, error: fetchError } = await supabase
+        .from('games')
+        .select('id, end_time, game_number')
+        .eq('status', 'active');
+
+      if (fetchError) {
+        console.error('Error fetching old games:', fetchError);
+        return;
+      }
+
+      if (oldGames && oldGames.length > 0) {
+        const now = new Date();
+        const expiredGames = oldGames.filter(game => 
+          new Date(game.end_time) < now
+        );
+
+        if (expiredGames.length > 0) {
+          const { error: updateError } = await supabase
+            .from('games')
+            .update({ status: 'completed' })
+            .in('id', expiredGames.map(game => game.id));
+
+          if (updateError) {
+            console.error('Error updating expired games:', updateError);
+          } else {
+            console.log(`Marked ${expiredGames.length} expired games as completed`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in cleanupOldGames:', error);
+    }
+  }
+
   static async createDemoGameIfNeeded(): Promise<void> {
     try {
       console.log('Checking for active games...');

@@ -28,12 +28,15 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     set({ isLoading: true });
     
     try {
-      // Set timeout to prevent infinite loading
+      // Set timeout to prevent infinite loading - reduced to 5 seconds
       const timeout = setTimeout(() => {
         console.log('Game initialization timeout');
         set({ isLoading: false });
         isInitializing = false;
-      }, 8000);
+      }, 5000);
+
+      // First clean up old active games in database
+      await GameInitializationService.cleanupOldGames();
 
       // Load game history (fast operation)
       const gameHistory = await GameService.loadGameHistory();
@@ -43,7 +46,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       let activeGame = await GameService.loadActiveGame();
       
       if (!activeGame) {
-        console.log('No active game found, creating demo game...');
+        console.log('No active game found, creating new game...');
         await GameInitializationService.createDemoGameIfNeeded();
         activeGame = await GameService.loadActiveGame();
       }
@@ -88,9 +91,11 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
   placeBet: async (type: 'color' | 'number', value: string) => {
     const { currentGame, betAmount, isAcceptingBets } = get();
     
+    console.log('Placing bet:', { type, value, betAmount, isAcceptingBets, currentGame: currentGame?.id });
+    
     if (!isAcceptingBets) {
       console.error('Betting is currently closed');
-      return;
+      return false;
     }
     
     const success = await BetManagementService.placeBet(
@@ -103,6 +108,8 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     if (success) {
       await get().loadCurrentBets();
     }
+
+    return success;
   },
 
   setBetAmount: (amount: number) => {

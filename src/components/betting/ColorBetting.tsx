@@ -19,13 +19,13 @@ const ColorBetting: React.FC<ColorBettingProps> = ({
   const getColorStyle = (color: ColorType) => {
     switch (color) {
       case 'red':
-        return 'bg-game-red hover:bg-game-red/90';
+        return 'bg-red-500 hover:bg-red-600 border-red-400';
       case 'green':
-        return 'bg-game-green hover:bg-game-green/90';
+        return 'bg-green-500 hover:bg-green-600 border-green-400';
       case 'purple-red':
-        return 'bg-game-purple-red hover:bg-game-purple-red/90';
+        return 'bg-purple-500 hover:bg-purple-600 border-purple-400';
       default:
-        return '';
+        return 'bg-gray-500 hover:bg-gray-600 border-gray-400';
     }
   };
   
@@ -38,21 +38,36 @@ const ColorBetting: React.FC<ColorBettingProps> = ({
     }
   };
 
+  const getColorName = (color: ColorType) => {
+    switch (color) {
+      case 'red':
+        return 'Red';
+      case 'green':
+        return 'Green';
+      case 'purple-red':
+        return 'Purple';
+      default:
+        return color;
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Color Prediction</h3>
+      <h3 className="text-lg font-semibold text-white">Color Prediction</h3>
       <div className="grid grid-cols-3 gap-3">
         {(['red', 'green', 'purple-red'] as ColorType[]).map((color) => (
           <Button
             key={color}
             onClick={() => onColorBet(color)}
             disabled={!canBet || userBalance < betAmount}
-            className={`color-button ${getColorStyle(color)} text-white h-14`}
+            className={`${getColorStyle(color)} text-white h-14 border-2 transition-all duration-300 transform hover:scale-105 active:scale-95 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
           >
-            <span className="capitalize">{color.replace('-', ' ')}</span>
-            <span className="text-xs font-normal opacity-80 ml-1">
-              ({getColorMultiplier(color)})
-            </span>
+            <div className="flex flex-col items-center">
+              <span className="font-bold">{getColorName(color)}</span>
+              <span className="text-xs opacity-80">
+                {getColorMultiplier(color)}
+              </span>
+            </div>
           </Button>
         ))}
       </div>

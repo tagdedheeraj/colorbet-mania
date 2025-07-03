@@ -58,13 +58,14 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
     overflow-x: hidden;
-    background-color: #0F0F12;
-    color: white;
+    background-color: #0F0F12 !important;
+    color: white !important;
+    min-height: 100vh;
   }
 
   #root {
-    background-color: #0F0F12;
-    color: white;
+    background-color: #0F0F12 !important;
+    color: white !important;
     min-height: 100vh;
   }
 }
@@ -141,8 +142,13 @@
   }
 }
 
-/* Ensure proper dark theme */
-.dark {
+/* Force white text and dark background */
+html, body, #root, .dark {
   background-color: #0F0F12 !important;
   color: white !important;
+}
+
+/* Ensure all text is visible */
+h1, h2, h3, h4, h5, h6, p, span, div, button {
+  color: inherit;
 }

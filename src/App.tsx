@@ -21,10 +21,10 @@ function App() {
   const { initialize, isLoading, isAuthenticated, error, isInitialized } = useSupabaseAuthStore();
 
   useEffect(() => {
-    // Initialize auth with timeout
+    // Initialize auth with shorter timeout
     const initTimeout = setTimeout(() => {
       console.log('App initialization timeout - proceeding anyway');
-    }, 3000);
+    }, 2000);
 
     initialize().finally(() => {
       clearTimeout(initTimeout);

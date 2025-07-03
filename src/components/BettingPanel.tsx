@@ -23,6 +23,8 @@ const BettingPanel: React.FC = () => {
   const { user, profile, isAuthenticated, isLoading: authLoading } = useSupabaseAuthStore();
   
   const handleColorBet = async (color: ColorType) => {
+    console.log('Color bet clicked:', color);
+    
     if (!isAuthenticated) {
       toast.error('Please log in to place bets');
       return;
@@ -41,10 +43,16 @@ const BettingPanel: React.FC = () => {
     }
     
     console.log('Placing color bet:', color, 'amount:', betAmount);
-    await placeBet('color', color);
+    const success = await placeBet('color', color);
+    
+    if (success) {
+      toast.success(`Bet placed on ${color}!`);
+    }
   };
   
   const handleNumberBet = async (number: NumberType) => {
+    console.log('Number bet clicked:', number);
+    
     if (!isAuthenticated) {
       toast.error('Please log in to place bets');
       return;
@@ -63,15 +71,29 @@ const BettingPanel: React.FC = () => {
     }
     
     console.log('Placing number bet:', number, 'amount:', betAmount);
-    await placeBet('number', number.toString());
+    const success = await placeBet('number', number.toString());
+    
+    if (success) {
+      toast.success(`Bet placed on ${number}!`);
+    }
   };
 
   const userBalance = profile?.balance || 0;
   const isSystemLoading = authLoading || gameLoading;
-  const canBet = isAuthenticated && !isSystemLoading && currentGame && isAcceptingBets;
+  const canBet = isAuthenticated && !isSystemLoading && currentGame && isAcceptingBets && userBalance >= betAmount;
+
+  console.log('Betting panel state:', {
+    isAuthenticated,
+    isSystemLoading,
+    currentGame: currentGame?.id,
+    isAcceptingBets,
+    userBalance,
+    betAmount,
+    canBet
+  });
 
   return (
-    <div className="glass-panel p-4 mb-6 space-y-6">
+    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6 space-y-6">
       <BetAmountControl
         betAmount={betAmount}
         setBetAmount={setBetAmount}
