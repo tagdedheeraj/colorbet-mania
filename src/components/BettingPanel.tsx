@@ -8,7 +8,7 @@ import { ColorType, NumberType } from '@/types/supabaseGame';
 import { toast } from "sonner";
 
 const BettingPanel: React.FC = () => {
-  const { betAmount, setBetAmount, placeBet, isAcceptingBets, timeRemaining } = useSupabaseGameStore();
+  const { betAmount, setBetAmount, placeBet, isAcceptingBets, timeRemaining, currentGame } = useSupabaseGameStore();
   const { user, profile, isAuthenticated } = useSupabaseAuthStore();
   
   const predefinedAmounts = [10, 50, 100, 500, 1000];
@@ -18,8 +18,16 @@ const BettingPanel: React.FC = () => {
       toast.error('Please log in to place bets');
       return;
     }
+    if (!currentGame) {
+      toast.error('No active game found');
+      return;
+    }
     if (!isAcceptingBets) {
       toast.error(`Betting closed! Next game in ${timeRemaining}s`);
+      return;
+    }
+    if (!profile || (profile.balance || 0) < betAmount) {
+      toast.error('Insufficient balance');
       return;
     }
     placeBet('color', color);
@@ -30,8 +38,16 @@ const BettingPanel: React.FC = () => {
       toast.error('Please log in to place bets');
       return;
     }
+    if (!currentGame) {
+      toast.error('No active game found');
+      return;
+    }
     if (!isAcceptingBets) {
       toast.error(`Betting closed! Next game in ${timeRemaining}s`);
+      return;
+    }
+    if (!profile || (profile.balance || 0) < betAmount) {
+      toast.error('Insufficient balance');
       return;
     }
     placeBet('number', number.toString());
@@ -111,7 +127,7 @@ const BettingPanel: React.FC = () => {
             <Button
               key={color}
               onClick={() => handleColorBet(color)}
-              disabled={!isAcceptingBets || !isAuthenticated || (profile && userBalance < betAmount)}
+              disabled={!isAcceptingBets || !isAuthenticated || (profile && userBalance < betAmount) || !currentGame}
               className={`color-button ${getColorStyle(color)} text-white h-14`}
             >
               <span className="capitalize">{color.replace('-', ' ')}</span>
@@ -134,7 +150,7 @@ const BettingPanel: React.FC = () => {
             <Button
               key={num}
               onClick={() => handleNumberBet(num)}
-              disabled={!isAcceptingBets || !isAuthenticated || (profile && userBalance < betAmount)}
+              disabled={!isAcceptingBets || !isAuthenticated || (profile && userBalance < betAmount) || !currentGame}
               className={`number-button text-lg font-bold ${
                 num === 0 
                   ? 'bg-secondary text-muted-foreground hover:bg-secondary/80' 
@@ -157,6 +173,14 @@ const BettingPanel: React.FC = () => {
         <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
           <p className="text-yellow-500 text-sm text-center">
             Please log in to place bets
+          </p>
+        </div>
+      )}
+
+      {!currentGame && isAuthenticated && (
+        <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
+          <p className="text-blue-500 text-sm text-center">
+            Loading game data...
           </p>
         </div>
       )}

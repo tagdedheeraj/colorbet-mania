@@ -14,24 +14,15 @@ import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
 import LoadingScreen from "./components/LoadingScreen";
 import useSupabaseAuthStore from "./store/supabaseAuthStore";
-import useSupabaseGameStore from "./store/supabaseGameStore";
 
 const queryClient = new QueryClient();
 
 function App() {
   const { initialize, isLoading, isAuthenticated } = useSupabaseAuthStore();
-  const { initialize: initializeGameStore } = useSupabaseGameStore();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
-
-  useEffect(() => {
-    // Initialize game store when user is authenticated
-    if (isAuthenticated) {
-      initializeGameStore();
-    }
-  }, [isAuthenticated, initializeGameStore]);
 
   // Show loading screen while initializing
   if (isLoading) {

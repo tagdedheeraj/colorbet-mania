@@ -7,14 +7,18 @@ import ResultPopup from '@/components/ResultPopup';
 import GameHistory from '@/components/GameHistory';
 import GameModeSelector from '@/components/GameModeSelector';
 import useSupabaseGameStore from '@/store/supabaseGameStore';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 
 const Index = () => {
-  const { initialize } = useSupabaseGameStore();
+  const { initialize, isLoading } = useSupabaseGameStore();
+  const { isAuthenticated } = useSupabaseAuthStore();
 
   useEffect(() => {
-    // Initialize the Supabase game store
-    initialize();
-  }, [initialize]);
+    // Initialize the Supabase game store when component mounts or user authenticates
+    if (isAuthenticated) {
+      initialize();
+    }
+  }, [initialize, isAuthenticated]);
 
   // Add subtle background animation
   useEffect(() => {
@@ -35,6 +39,25 @@ const Index = () => {
       window.removeEventListener('mousemove', handleMouseMove);
     };
   }, []);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen w-full bg-[#0F0F12] flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold mb-4">Trade Hue</h1>
+          <p className="text-muted-foreground mb-6">Please log in to start playing</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen w-full bg-[#0F0F12] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#0F0F12] bg-[radial-gradient(circle_at_var(--mouse-x,0.5)_var(--mouse-y,0.5),rgba(139,92,246,0.1)_0%,rgba(30,30,35,0)_50%)] transition-all duration-300">

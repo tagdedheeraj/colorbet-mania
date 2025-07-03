@@ -1,16 +1,15 @@
 
 import React from 'react';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import useGameStore from '@/store/gameStore';
-import { GameMode } from '@/types/game';
+import useSupabaseGameStore from '@/store/supabaseGameStore';
 import { Clock, Timer } from 'lucide-react';
 
 const GameModeSelector: React.FC = () => {
-  const { currentGameMode, setGameMode, gameModesConfig } = useGameStore();
+  const { currentGameMode, setGameMode, gameModesConfig } = useSupabaseGameStore();
   
   const handleModeChange = (value: string) => {
     if (value) {
-      setGameMode(value as GameMode);
+      setGameMode(value);
     }
   };
   

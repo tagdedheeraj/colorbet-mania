@@ -24,6 +24,9 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     try {
       console.log('Initializing Supabase game store...');
       
+      // First, try to create a demo game if none exists
+      await get().createDemoGameIfNeeded();
+      
       // Load initial data
       const activeGame = await GameService.loadActiveGame();
       const gameHistory = await GameService.loadGameHistory();
@@ -59,6 +62,49 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  createDemoGameIfNeeded: async () => {
+    try {
+      // Check if there are any active games
+      const { data: activeGames, error } = await supabase
+        .from('games')
+        .select('id')
+        .eq('status', 'active')
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking for active games:', error);
+        return;
+      }
+
+      // If no active games, create one
+      if (!activeGames || activeGames.length === 0) {
+        console.log('No active games found, creating demo game...');
+        
+        const gameNumber = Math.floor(Math.random() * 10000) + 1000;
+        const startTime = new Date();
+        const endTime = new Date(startTime.getTime() + 60000); // 60 seconds from now
+
+        const { error: createError } = await supabase
+          .from('games')
+          .insert({
+            game_number: gameNumber,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            status: 'active',
+            game_mode: 'quick'
+          });
+
+        if (createError) {
+          console.error('Error creating demo game:', createError);
+        } else {
+          console.log('Demo game created successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Error in createDemoGameIfNeeded:', error);
+    }
+  },
+
   placeBet: async (type: 'color' | 'number', value: string) => {
     const { currentGame, betAmount } = get();
     
@@ -88,7 +134,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         return;
       }
 
-      if (!userProfile || userProfile.balance < betAmount) {
+      if (!userProfile || (userProfile.balance || 0) < betAmount) {
         toast.error('Insufficient balance');
         return;
       }
@@ -99,7 +145,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         type,
         value,
         betAmount,
-        userProfile.balance,
+        userProfile.balance || 0,
         currentGame.game_number
       );
 
@@ -180,6 +226,9 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
       if (timeRemaining > 0) {
         setTimeout(updateTimer, 1000);
+      } else {
+        // Game ended, create a new one
+        get().createDemoGameIfNeeded();
       }
     };
 

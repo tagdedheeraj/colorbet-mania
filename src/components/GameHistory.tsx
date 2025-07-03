@@ -1,11 +1,11 @@
 
 import React from 'react';
-import useGameStore from '@/store/gameStore';
-import { ColorType } from '@/types/game';
+import useSupabaseGameStore from '@/store/supabaseGameStore';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
+import { ColorType } from '@/types/supabaseGame';
 
 const GameHistory: React.FC = () => {
-  const { lastResults } = useGameStore();
+  const { gameHistory, currentBets } = useSupabaseGameStore();
   const { user, profile } = useSupabaseAuthStore();
   
   const getColorStyle = (color: ColorType) => {
@@ -21,7 +21,7 @@ const GameHistory: React.FC = () => {
     }
   };
   
-  if (lastResults.length === 0) {
+  if (gameHistory.length === 0) {
     return (
       <div className="glass-panel p-4">
         <h3 className="text-lg font-semibold mb-2">Game History</h3>
@@ -34,26 +34,26 @@ const GameHistory: React.FC = () => {
     <div className="glass-panel p-4">
       <h3 className="text-lg font-semibold mb-3">Game History</h3>
       <div className="space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
-        {lastResults.map((result) => {
-          // For now, we'll handle user bets from the game store since profile doesn't have bets
-          const userBetsForGame = user ? [] : [];
+        {gameHistory.map((result) => {
+          // Find user bets for this game
+          const userBetsForGame = currentBets.filter(bet => bet.game_id === result.id);
           
           return (
             <div key={result.id} className="glass-panel bg-secondary/30 p-3 rounded-md space-y-3">
               {/* Game result info */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Game #{result.gameId}</span>
+                  <span className="text-sm font-medium">Game #{result.game_number}</span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(result.timestamp).toLocaleTimeString()}
+                    {new Date(result.created_at).toLocaleTimeString()}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className={`px-2 py-1 rounded text-xs font-medium truncate max-w-[80px] ${getColorStyle(result.resultColor)}`}>
-                    {result.resultColor === 'purple-red' ? 'Purple Red' : result.resultColor}
+                  <div className={`px-2 py-1 rounded text-xs font-medium truncate max-w-[80px] ${getColorStyle(result.result_color as ColorType)}`}>
+                    {result.result_color === 'purple-red' ? 'Purple Red' : result.result_color}
                   </div>
-                  <div className={`w-6 h-6 rounded-full ${getColorStyle(result.resultColor)} flex items-center justify-center`}>
-                    <span className="text-xs font-bold">{result.resultNumber}</span>
+                  <div className={`w-6 h-6 rounded-full ${getColorStyle(result.result_color as ColorType)} flex items-center justify-center`}>
+                    <span className="text-xs font-bold">{result.result_number}</span>
                   </div>
                 </div>
               </div>
@@ -66,15 +66,15 @@ const GameHistory: React.FC = () => {
                     <div key={bet.id} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1">
                         <span className="text-primary-foreground/70">Bet on:</span>
-                        <span className="font-medium capitalize">{bet.type === 'color' ? 
-                          (bet.value === 'purple-red' ? 'Purple Red' : bet.value) : 
-                          `Number ${bet.value}`}
+                        <span className="font-medium capitalize">{bet.bet_type === 'color' ? 
+                          (bet.bet_value === 'purple-red' ? 'Purple Red' : bet.bet_value) : 
+                          `Number ${bet.bet_value}`}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span>{bet.amount} coins</span>
-                        <span className={bet.won ? "text-game-green" : "text-game-red"}>
-                          {bet.won ? `+${bet.potentialWin.toFixed(1)}` : '-'}
+                        <span className={bet.is_winner ? "text-game-green" : "text-game-red"}>
+                          {bet.is_winner ? `+${bet.actual_win || bet.potential_win}` : '-'}
                         </span>
                       </div>
                     </div>

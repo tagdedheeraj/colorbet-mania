@@ -7,7 +7,6 @@ import { Wallet as WalletIcon, Plus, Minus, History, CreditCard } from 'lucide-r
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import LoadingScreen from '@/components/LoadingScreen';
 
 interface Transaction {
   id: string;
@@ -18,17 +17,18 @@ interface Transaction {
 }
 
 const Wallet = () => {
-  const { profile, refreshProfile, isLoading: authLoading } = useSupabaseAuthStore();
+  const { profile, refreshProfile, isAuthenticated } = useSupabaseAuthStore();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    if (profile) {
+    if (isAuthenticated && profile) {
       loadTransactions();
     }
-  }, [profile]);
+  }, [isAuthenticated, profile]);
 
   const loadTransactions = async () => {
     try {
@@ -56,15 +56,33 @@ const Wallet = () => {
       return;
     }
 
+    if (!profile) {
+      toast.error('Profile not loaded');
+      return;
+    }
+
     try {
-      // For demo purposes, we'll simulate a successful deposit
-      await supabase
+      setIsProcessing(true);
+      
+      // Update user balance
+      const newBalance = (profile.balance || 0) + amount;
+      const { error: balanceError } = await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', profile.id);
+
+      if (balanceError) throw balanceError;
+
+      // Add transaction record
+      const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
           type: 'deposit',
           amount: amount,
           description: 'Wallet deposit'
         });
+
+      if (transactionError) throw transactionError;
 
       await refreshProfile();
       setDepositAmount('');
@@ -73,6 +91,8 @@ const Wallet = () => {
     } catch (error) {
       console.error('Deposit error:', error);
       toast.error('Deposit failed');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -83,20 +103,33 @@ const Wallet = () => {
       return;
     }
 
-    if (!profile || profile.balance < amount) {
+    if (!profile || (profile.balance || 0) < amount) {
       toast.error('Insufficient balance');
       return;
     }
 
     try {
-      // For demo purposes, we'll simulate a successful withdrawal
-      await supabase
+      setIsProcessing(true);
+      
+      // Update user balance
+      const newBalance = (profile.balance || 0) - amount;
+      const { error: balanceError } = await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', profile.id);
+
+      if (balanceError) throw balanceError;
+
+      // Add transaction record
+      const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
           type: 'withdrawal',
           amount: -amount,
           description: 'Wallet withdrawal'
         });
+
+      if (transactionError) throw transactionError;
 
       await refreshProfile();
       setWithdrawAmount('');
@@ -105,6 +138,8 @@ const Wallet = () => {
     } catch (error) {
       console.error('Withdrawal error:', error);
       toast.error('Withdrawal failed');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -132,8 +167,28 @@ const Wallet = () => {
     }
   };
 
-  if (authLoading || !profile) {
-    return <LoadingScreen />;
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto p-4 pb-20 lg:pb-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
+          <div className="text-center">
+            <WalletIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-2">Please Log In</h2>
+            <p className="text-muted-foreground">You need to be logged in to access your wallet.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="container mx-auto p-4 pb-20 lg:pb-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -154,7 +209,7 @@ const Wallet = () => {
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold text-primary">
-              ₹{profile.balance?.toFixed(2) || '0.00'}
+              ₹{(profile.balance || 0).toFixed(2)}
             </div>
             <p className="text-muted-foreground mt-2">Available for betting</p>
           </CardContent>
@@ -176,14 +231,15 @@ const Wallet = () => {
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
                 min="1"
+                disabled={isProcessing}
               />
               <Button 
                 onClick={handleDeposit} 
                 className="w-full bg-green-600 hover:bg-green-700"
-                disabled={!depositAmount}
+                disabled={!depositAmount || isProcessing}
               >
                 <CreditCard className="w-4 h-4 mr-2" />
-                Deposit Money
+                {isProcessing ? 'Processing...' : 'Deposit Money'}
               </Button>
             </CardContent>
           </Card>
@@ -203,15 +259,16 @@ const Wallet = () => {
                 onChange={(e) => setWithdrawAmount(e.target.value)}
                 min="1"
                 max={profile.balance || 0}
+                disabled={isProcessing}
               />
               <Button 
                 onClick={handleWithdraw} 
                 variant="destructive" 
                 className="w-full"
-                disabled={!withdrawAmount}
+                disabled={!withdrawAmount || isProcessing}
               >
                 <Minus className="w-4 h-4 mr-2" />
-                Withdraw Money
+                {isProcessing ? 'Processing...' : 'Withdraw Money'}
               </Button>
             </CardContent>
           </Card>
