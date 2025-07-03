@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Wallet as WalletIcon, Plus, Minus, History, CreditCard } from 'lucide-react';
+import { Wallet as WalletIcon, Plus, Minus, History, CreditCard, RefreshCw, AlertCircle } from 'lucide-react';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -17,18 +17,31 @@ interface Transaction {
 }
 
 const Wallet = () => {
-  const { profile, refreshProfile, isAuthenticated } = useSupabaseAuthStore();
+  const { profile, refreshProfile, isAuthenticated, isLoading, error, clearError } = useSupabaseAuthStore();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (isAuthenticated && profile) {
       loadTransactions();
     }
   }, [isAuthenticated, profile]);
+
+  // Auto-retry profile loading if it fails
+  useEffect(() => {
+    if (isAuthenticated && !profile && !isLoading && retryCount < 3) {
+      const timer = setTimeout(() => {
+        console.log(`Retrying profile load attempt ${retryCount + 1}`);
+        refreshProfile();
+        setRetryCount(prev => prev + 1);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, profile, isLoading, retryCount, refreshProfile]);
 
   const loadTransactions = async () => {
     try {
@@ -143,6 +156,12 @@ const Wallet = () => {
     }
   };
 
+  const handleRetry = () => {
+    clearError();
+    setRetryCount(0);
+    refreshProfile();
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -181,11 +200,50 @@ const Wallet = () => {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4 pb-20 lg:pb-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading wallet...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-4 pb-20 lg:pb-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
+            <h2 className="text-2xl font-bold mb-2 text-red-600">Error Loading Wallet</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={handleRetry} className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="container mx-auto p-4 pb-20 lg:pb-4">
         <div className="max-w-4xl mx-auto flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="text-center">
+            <WalletIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-2">Profile Loading...</h2>
+            <p className="text-muted-foreground mb-4">Setting up your wallet profile</p>
+            <Button onClick={handleRetry} className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
     );

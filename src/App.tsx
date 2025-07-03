@@ -18,7 +18,7 @@ import useSupabaseAuthStore from "./store/supabaseAuthStore";
 const queryClient = new QueryClient();
 
 function App() {
-  const { initialize, isLoading, isAuthenticated } = useSupabaseAuthStore();
+  const { initialize, isLoading, isAuthenticated, error } = useSupabaseAuthStore();
 
   useEffect(() => {
     initialize();
@@ -27,6 +27,29 @@ function App() {
   // Show loading screen while initializing
   if (isLoading) {
     return <LoadingScreen />;
+  }
+
+  // Show error state if authentication failed
+  if (error && !isAuthenticated) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold mb-4 text-red-600">Authentication Error</h1>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
   }
 
   return (

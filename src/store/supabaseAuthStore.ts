@@ -23,12 +23,14 @@ interface AuthState {
   profile: UserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  error: string | null;
   initialize: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateBalance: (amount: number) => Promise<void>;
   updateProfile: (data: { full_name?: string; phone?: string }) => Promise<void>;
   createMissingUserData: (user: User) => Promise<void>;
+  clearError: () => void;
 }
 
 const useSupabaseAuthStore = create<AuthState>((set, get) => ({
@@ -37,50 +39,54 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
   profile: null,
   isLoading: true,
   isAuthenticated: false,
+  error: null,
+
+  clearError: () => set({ error: null }),
 
   initialize: async () => {
     try {
       console.log('Initializing auth store...');
+      set({ isLoading: true, error: null });
       
-      // Set up auth state listener first
+      // Set up auth state listener
       supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
         
         if (session) {
-          // Update auth state immediately
           set({ 
             user: session.user, 
             session,
-            isAuthenticated: true
+            isAuthenticated: true,
+            error: null
           });
 
-          // Defer profile fetching to prevent deadlocks
-          setTimeout(async () => {
-            try {
-              const profile = await fetchUserProfile(session.user.id);
-              
-              if (!profile) {
-                console.log('No profile found, creating missing user data...');
-                await get().createMissingUserData(session.user);
-                // Retry fetching profile after creation
-                const newProfile = await fetchUserProfile(session.user.id);
-                set({ profile: newProfile, isLoading: false });
-              } else {
-                set({ profile, isLoading: false });
-              }
-            } catch (error) {
-              console.error('Profile fetch error in auth state change:', error);
-              // Still set loading to false even if profile fetch fails
-              set({ isLoading: false });
+          // Handle profile loading without setTimeout to avoid race conditions
+          try {
+            let profile = await fetchUserProfile(session.user.id);
+            
+            if (!profile) {
+              console.log('No profile found, creating missing user data...');
+              await get().createMissingUserData(session.user);
+              // Retry fetching profile after creation
+              profile = await fetchUserProfile(session.user.id);
             }
-          }, 100);
+            
+            set({ profile, isLoading: false, error: null });
+          } catch (error) {
+            console.error('Profile handling error:', error);
+            set({ 
+              isLoading: false, 
+              error: 'Failed to load user profile. Please refresh the page.' 
+            });
+          }
         } else {
           set({ 
             user: null, 
             session: null, 
             profile: null,
             isAuthenticated: false,
-            isLoading: false
+            isLoading: false,
+            error: null
           });
         }
       });
@@ -90,46 +96,20 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
       
       if (sessionError) {
         console.error('Session error:', sessionError);
-        set({ isLoading: false });
+        set({ isLoading: false, error: 'Authentication error occurred' });
         return;
       }
       
       if (session) {
         console.log('Found existing session:', session.user.email);
-        
-        // Update auth state immediately
-        set({ 
-          user: session.user, 
-          session, 
-          isAuthenticated: true
-        });
-
-        // Defer profile fetching
-        setTimeout(async () => {
-          try {
-            const profile = await fetchUserProfile(session.user.id);
-            
-            if (!profile) {
-              console.log('No profile found for existing session, creating missing user data...');
-              await get().createMissingUserData(session.user);
-              // Retry fetching profile after creation
-              const newProfile = await fetchUserProfile(session.user.id);
-              set({ profile: newProfile, isLoading: false });
-            } else {
-              set({ profile, isLoading: false });
-            }
-          } catch (error) {
-            console.error('Profile fetch error in initialization:', error);
-            set({ isLoading: false });
-          }
-        }, 100);
+        // The auth state change listener will handle the profile loading
       } else {
         console.log('No existing session found');
         set({ isLoading: false });
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
-      set({ isLoading: false });
+      set({ isLoading: false, error: 'Failed to initialize authentication' });
     }
   },
 
@@ -137,23 +117,42 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
     try {
       console.log('Creating missing user data for:', user.id);
       
-      // Extract username from metadata or email
-      const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
+      // Generate a unique username by appending random numbers if needed
+      let username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
+      let attempts = 0;
+      const maxAttempts = 5;
       
-      // Insert into users table
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: user.id,
-          email: user.email!,
-          username: username,
-          balance: 1000.00,
-          referral_code: 'REF' + Math.floor(Math.random() * 999999).toString().padStart(6, '0')
-        });
+      while (attempts < maxAttempts) {
+        try {
+          // Try to insert the user
+          const { error: userError } = await supabase
+            .from('users')
+            .insert({
+              id: user.id,
+              email: user.email!,
+              username: attempts === 0 ? username : `${username}${Math.floor(Math.random() * 1000)}`,
+              balance: 1000.00,
+              referral_code: 'REF' + Math.floor(Math.random() * 999999).toString().padStart(6, '0')
+            });
 
-      if (userError && !userError.message.includes('duplicate key')) {
-        console.error('User creation error:', userError);
-        throw userError;
+          if (userError) {
+            if (userError.message.includes('duplicate key') && userError.message.includes('username')) {
+              attempts++;
+              continue; // Try with a different username
+            }
+            if (userError.message.includes('duplicate key') && userError.message.includes('users_pkey')) {
+              // User already exists, continue to profile creation
+              break;
+            }
+            throw userError;
+          }
+          break; // Success, exit the loop
+        } catch (error) {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            throw error;
+          }
+        }
       }
 
       // Insert into profiles table
@@ -165,7 +164,7 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 
       if (profileError && !profileError.message.includes('duplicate key')) {
         console.error('Profile creation error:', profileError);
-        throw profileError;
+        // Don't throw for profile errors as it's not critical
       }
 
       // Add signup bonus transaction
@@ -178,8 +177,8 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
           description: 'Welcome bonus'
         });
 
-      if (transactionError) {
-        console.error('Transaction creation error:', transactionError);
+      if (transactionError && !transactionError.message.includes('duplicate key')) {
+        console.error('Transaction creation error (non-critical):', transactionError);
         // Don't throw for transaction errors as it's not critical
       }
 
@@ -206,7 +205,8 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
         user: null, 
         session: null, 
         profile: null,
-        isAuthenticated: false 
+        isAuthenticated: false,
+        error: null
       });
       
       toast.success('Logged out successfully');
@@ -226,6 +226,7 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
     if (!user) return;
 
     try {
+      set({ error: null });
       const profile = await fetchUserProfile(user.id);
       if (!profile) {
         await get().createMissingUserData(user);
@@ -236,6 +237,7 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (error) {
       console.error('Profile refresh error:', error);
+      set({ error: 'Failed to refresh profile' });
     }
   },
 
