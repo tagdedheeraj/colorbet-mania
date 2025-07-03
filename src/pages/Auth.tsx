@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import useSupabaseAuthStore from "@/store/supabaseAuthStore";
+import { cleanupAuthState } from "@/utils/authUtils";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -33,14 +34,6 @@ const AuthPage = () => {
       ...prev,
       [e.target.name]: e.target.value
     }));
-  };
-
-  const cleanupAuthState = () => {
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-        localStorage.removeItem(key);
-      }
-    });
   };
 
   const validateForm = () => {
@@ -99,9 +92,7 @@ const AuthPage = () => {
       console.log('Login successful:', data.user?.email);
       toast.success('Successfully logged in');
       
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 1000);
+      // Navigation will be handled by auth state change
     } catch (error) {
       console.error('Unexpected login error:', error);
       toast.error('An unexpected error occurred');
@@ -151,9 +142,7 @@ const AuthPage = () => {
         toast.success('Account created successfully! Please check your email to verify your account.');
       } else {
         toast.success('Account created successfully! You can now log in.');
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 1000);
+        // Navigation will be handled by auth state change
       }
     } catch (error) {
       console.error('Unexpected signup error:', error);

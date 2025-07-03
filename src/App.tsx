@@ -5,42 +5,29 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import Index from "./pages/Index";
+import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
 import Wallet from "./pages/Wallet";
 import Referral from "./pages/Referral";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
-import Auth from "./pages/Auth";
 import BottomNav from "./components/BottomNav";
+import LoadingScreen from "./components/LoadingScreen";
 import useSupabaseAuthStore from "./store/supabaseAuthStore";
 
 const queryClient = new QueryClient();
 
-// Protected Route Component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useSupabaseAuthStore();
-  
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-const App = () => {
-  const { initialize } = useSupabaseAuthStore();
+function App() {
+  const { initialize, isLoading, isAuthenticated } = useSupabaseAuthStore();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Show loading screen while initializing
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -49,48 +36,38 @@ const App = () => {
         <BrowserRouter>
           <div className="min-h-screen bg-background">
             <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Index />
-                  </ProtectedRoute>
-                }
+              <Route 
+                path="/auth" 
+                element={isAuthenticated ? <Navigate to="/" replace /> : <Auth />} 
               />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                }
+              <Route 
+                path="/" 
+                element={isAuthenticated ? <Index /> : <Navigate to="/auth" replace />} 
               />
-              <Route
-                path="/wallet"
-                element={
-                  <ProtectedRoute>
-                    <Wallet />
-                  </ProtectedRoute>
-                }
+              <Route 
+                path="/profile" 
+                element={isAuthenticated ? <Profile /> : <Navigate to="/auth" replace />} 
               />
-              <Route
-                path="/referral"
-                element={
-                  <ProtectedRoute>
-                    <Referral />
-                  </ProtectedRoute>
-                }
+              <Route 
+                path="/wallet" 
+                element={isAuthenticated ? <Wallet /> : <Navigate to="/auth" replace />} 
               />
-              <Route path="/about" element={<About />} />
+              <Route 
+                path="/referral" 
+                element={isAuthenticated ? <Referral /> : <Navigate to="/auth" replace />} 
+              />
+              <Route 
+                path="/about" 
+                element={isAuthenticated ? <About /> : <Navigate to="/auth" replace />} 
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <BottomNav />
+            {isAuthenticated && <BottomNav />}
           </div>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
   );
-};
+}
 
 export default App;

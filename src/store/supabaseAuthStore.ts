@@ -28,6 +28,7 @@ interface AuthState {
   refreshProfile: () => Promise<void>;
   updateBalance: (amount: number) => Promise<void>;
   updateProfile: (data: { full_name?: string; phone?: string }) => Promise<void>;
+  createMissingUserData: (user: User) => Promise<void>;
 }
 
 const useSupabaseAuthStore = create<AuthState>((set, get) => ({
@@ -46,14 +47,33 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
         console.log('Auth state changed:', event, session?.user?.email);
         
         if (session) {
-          const profile = await fetchUserProfile(session.user.id);
+          // Update auth state immediately
           set({ 
             user: session.user, 
-            session, 
-            profile,
-            isAuthenticated: true,
-            isLoading: false
+            session,
+            isAuthenticated: true
           });
+
+          // Defer profile fetching to prevent deadlocks
+          setTimeout(async () => {
+            try {
+              const profile = await fetchUserProfile(session.user.id);
+              
+              if (!profile) {
+                console.log('No profile found, creating missing user data...');
+                await get().createMissingUserData(session.user);
+                // Retry fetching profile after creation
+                const newProfile = await fetchUserProfile(session.user.id);
+                set({ profile: newProfile, isLoading: false });
+              } else {
+                set({ profile, isLoading: false });
+              }
+            } catch (error) {
+              console.error('Profile fetch error in auth state change:', error);
+              // Still set loading to false even if profile fetch fails
+              set({ isLoading: false });
+            }
+          }, 100);
         } else {
           set({ 
             user: null, 
@@ -76,14 +96,33 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
       
       if (session) {
         console.log('Found existing session:', session.user.email);
-        const profile = await fetchUserProfile(session.user.id);
+        
+        // Update auth state immediately
         set({ 
           user: session.user, 
           session, 
-          profile,
-          isAuthenticated: true,
-          isLoading: false 
+          isAuthenticated: true
         });
+
+        // Defer profile fetching
+        setTimeout(async () => {
+          try {
+            const profile = await fetchUserProfile(session.user.id);
+            
+            if (!profile) {
+              console.log('No profile found for existing session, creating missing user data...');
+              await get().createMissingUserData(session.user);
+              // Retry fetching profile after creation
+              const newProfile = await fetchUserProfile(session.user.id);
+              set({ profile: newProfile, isLoading: false });
+            } else {
+              set({ profile, isLoading: false });
+            }
+          } catch (error) {
+            console.error('Profile fetch error in initialization:', error);
+            set({ isLoading: false });
+          }
+        }, 100);
       } else {
         console.log('No existing session found');
         set({ isLoading: false });
@@ -91,6 +130,63 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Auth initialization error:', error);
       set({ isLoading: false });
+    }
+  },
+
+  createMissingUserData: async (user: User) => {
+    try {
+      console.log('Creating missing user data for:', user.id);
+      
+      // Extract username from metadata or email
+      const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
+      
+      // Insert into users table
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email!,
+          username: username,
+          balance: 1000.00,
+          referral_code: 'REF' + Math.floor(Math.random() * 999999).toString().padStart(6, '0')
+        });
+
+      if (userError && !userError.message.includes('duplicate key')) {
+        console.error('User creation error:', userError);
+        throw userError;
+      }
+
+      // Insert into profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: user.id
+        });
+
+      if (profileError && !profileError.message.includes('duplicate key')) {
+        console.error('Profile creation error:', profileError);
+        throw profileError;
+      }
+
+      // Add signup bonus transaction
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'signup_bonus',
+          amount: 1000.00,
+          description: 'Welcome bonus'
+        });
+
+      if (transactionError) {
+        console.error('Transaction creation error:', transactionError);
+        // Don't throw for transaction errors as it's not critical
+      }
+
+      console.log('Successfully created missing user data');
+    } catch (error) {
+      console.error('Error creating missing user data:', error);
+      throw error;
     }
   },
 
@@ -131,7 +227,13 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 
     try {
       const profile = await fetchUserProfile(user.id);
-      set({ profile });
+      if (!profile) {
+        await get().createMissingUserData(user);
+        const newProfile = await fetchUserProfile(user.id);
+        set({ profile: newProfile });
+      } else {
+        set({ profile });
+      }
     } catch (error) {
       console.error('Profile refresh error:', error);
     }
@@ -188,7 +290,7 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
   }
 }));
 
-// Helper function to fetch user profile
+// Helper function to fetch user profile with better error handling
 const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
     console.log('Fetching profile for user:', userId);
@@ -206,7 +308,7 @@ const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => 
     }
     
     if (!userData) {
-      console.log('No user found for user:', userId);
+      console.log('No user found in users table for:', userId);
       return null;
     }
 
