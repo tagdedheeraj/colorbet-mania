@@ -20,17 +20,21 @@ export interface GameResult {
   start_time: string;
   end_time: string;
   status: string;
+  game_mode: string;
+  created_at: string;
 }
 
 export interface Bet {
   id: string;
   game_id: string;
+  user_id: string;
   bet_type: 'color' | 'number';
   bet_value: string;
   amount: number;
   potential_win: number;
   is_winner: boolean;
   actual_win: number;
+  created_at: string;
 }
 
 export interface GameState {

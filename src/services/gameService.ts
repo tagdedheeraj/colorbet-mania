@@ -1,10 +1,10 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { GameResult, Bet, ColorType, NumberType, GameMode } from '@/types/supabaseGame';
+import { SupabaseGame, SupabaseBet, ColorType, NumberType, GameMode } from '@/types/supabaseGame';
 import { GAME_MODES } from '@/config/gameModes';
 
 export class GameService {
-  static async loadActiveGame(): Promise<GameResult | null> {
+  static async loadActiveGame(): Promise<SupabaseGame | null> {
     try {
       const { data: activeGame, error } = await supabase
         .from('games')
@@ -27,11 +27,13 @@ export class GameService {
       return {
         id: activeGame.id,
         game_number: activeGame.game_number,
-        result_color: (activeGame.result_color as ColorType) || 'red',
-        result_number: (activeGame.result_number as NumberType) || 0,
+        result_color: activeGame.result_color,
+        result_number: activeGame.result_number,
         start_time: activeGame.start_time,
         end_time: activeGame.end_time,
-        status: activeGame.status || 'active'
+        status: activeGame.status || 'active',
+        game_mode: activeGame.game_mode || 'quick',
+        created_at: activeGame.created_at || new Date().toISOString()
       };
     } catch (error) {
       console.error('Error loading active game:', error);
@@ -39,7 +41,7 @@ export class GameService {
     }
   }
 
-  static async loadGameHistory(): Promise<GameResult[]> {
+  static async loadGameHistory(): Promise<SupabaseGame[]> {
     try {
       const { data, error } = await supabase
         .from('games')
@@ -56,11 +58,13 @@ export class GameService {
       return (data || []).map(game => ({
         id: game.id,
         game_number: game.game_number,
-        result_color: (game.result_color as ColorType) || 'red',
-        result_number: (game.result_number as NumberType) || 0,
+        result_color: game.result_color,
+        result_number: game.result_number,
         start_time: game.start_time,
         end_time: game.end_time,
-        status: game.status || 'completed'
+        status: game.status || 'completed',
+        game_mode: game.game_mode || 'quick',
+        created_at: game.created_at || new Date().toISOString()
       }));
     } catch (error) {
       console.error('Error loading game history:', error);
@@ -68,7 +72,7 @@ export class GameService {
     }
   }
 
-  static async loadCurrentBets(gameId: string, userId: string): Promise<Bet[]> {
+  static async loadCurrentBets(gameId: string, userId: string): Promise<SupabaseBet[]> {
     try {
       const { data, error } = await supabase
         .from('bets')
@@ -84,12 +88,14 @@ export class GameService {
       return (data || []).map(bet => ({
         id: bet.id,
         game_id: bet.game_id || '',
-        bet_type: bet.bet_type as 'color' | 'number',
+        user_id: bet.user_id || '',
+        bet_type: bet.bet_type,
         bet_value: bet.bet_value,
         amount: bet.amount,
         potential_win: bet.potential_win,
-        is_winner: bet.is_winner || false,
-        actual_win: bet.actual_win || 0
+        is_winner: bet.is_winner,
+        actual_win: bet.actual_win,
+        created_at: bet.created_at || new Date().toISOString()
       }));
     } catch (error) {
       console.error('Error loading current bets:', error);
@@ -103,8 +109,9 @@ export class GameService {
     return Math.max(0, Math.floor((endTimeMs - now) / 1000));
   }
 
-  static isAcceptingBets(timeRemaining: number, gameMode: GameMode, status: string): boolean {
-    const totalDuration = GAME_MODES.find(m => m.id === gameMode)?.duration || 60;
+  static isAcceptingBets(timeRemaining: number, gameMode: string, status: string): boolean {
+    const modeConfig = GAME_MODES.find(m => m.id === gameMode);
+    const totalDuration = modeConfig?.duration || 60;
     const betsClosingTime = Math.max(10, Math.floor(totalDuration * 0.15));
     return timeRemaining > betsClosingTime && status === 'active';
   }
