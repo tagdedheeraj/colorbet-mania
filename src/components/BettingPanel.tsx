@@ -30,6 +30,7 @@ const BettingPanel: React.FC = () => {
       toast.error('Insufficient balance');
       return;
     }
+    console.log('Placing color bet:', color, 'amount:', betAmount);
     placeBet('color', color);
   };
   
@@ -50,6 +51,7 @@ const BettingPanel: React.FC = () => {
       toast.error('Insufficient balance');
       return;
     }
+    console.log('Placing number bet:', number, 'amount:', betAmount);
     placeBet('number', number.toString());
   };
   
@@ -182,6 +184,16 @@ const BettingPanel: React.FC = () => {
           <p className="text-blue-500 text-sm text-center">
             Loading game data...
           </p>
+        </div>
+      )}
+
+      {/* Debug information */}
+      {isAuthenticated && (
+        <div className="bg-gray-500/10 border border-gray-500/20 p-2 rounded-lg text-xs">
+          <p>Debug: Game ID: {currentGame?.id || 'None'}</p>
+          <p>Debug: Accepting Bets: {isAcceptingBets ? 'Yes' : 'No'}</p>
+          <p>Debug: Time Remaining: {timeRemaining}s</p>
+          <p>Debug: User Balance: {userBalance}</p>
         </div>
       )}
     </div>

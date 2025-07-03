@@ -37,6 +37,11 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         isLoading: false 
       });
 
+      // Load current user's bets if there's an active game
+      if (activeGame) {
+        await get().loadCurrentBets();
+      }
+
       // Setup real-time subscriptions
       const realtimeService = GameRealtimeService.getInstance();
       
@@ -205,6 +210,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
       if (activeGame) {
         get().startGameTimer();
+        await get().loadCurrentBets();
       }
     } catch (error) {
       console.error('Error loading current data:', error);
@@ -228,7 +234,10 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         setTimeout(updateTimer, 1000);
       } else {
         // Game ended, create a new one
-        get().createDemoGameIfNeeded();
+        get().createDemoGameIfNeeded().then(() => {
+          // Reload data after creating new game
+          get().loadCurrentData();
+        });
       }
     };
 

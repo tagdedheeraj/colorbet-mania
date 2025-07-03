@@ -50,6 +50,7 @@ export interface GameState {
 
   // Actions
   initialize: () => Promise<void>;
+  createDemoGameIfNeeded: () => Promise<void>;
   placeBet: (type: 'color' | 'number', value: string) => Promise<void>;
   setBetAmount: (amount: number) => void;
   setGameMode: (mode: string) => void;
