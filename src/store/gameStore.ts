@@ -86,11 +86,12 @@ const useGameStore = create<GameStoreState>((set, get) => ({
 
   placeBet: (type: 'color' | 'number', value: ColorType | NumberType) => {
     const { betAmount, isAcceptingBets, currentBets, currentGameId } = get();
-    const user = useAuthStore.getState().user;
+    const authStore = useAuthStore();
+    const user = authStore.user;
 
     if (!user) {
       toast.error("Please log in to place bets");
-      useAuthStore.getState().setAuthModalOpen(true);
+      authStore.setAuthModalOpen(true);
       return;
     }
 
@@ -126,7 +127,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       timestamp: Date.now()
     };
 
-    useAuthStore.getState().updateBalance(-betAmount);
+    authStore.updateBalance(-betAmount);
     
     set(state => ({
       currentBets: [...state.currentBets, newBet]
@@ -232,7 +233,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
     let isWin = false;
     let userWonAnyBet = false;
     
-    const authStore = useAuthStore.getState();
+    const authStore = useAuthStore();
     const user = authStore.user;
     
     const processedBets = currentBets.map(bet => {
@@ -251,7 +252,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       if (betWon) {
         userWonAnyBet = true;
         totalWinAmount += bet.potentialWin;
-        useAuthStore.getState().updateBalance(bet.potentialWin);
+        authStore.updateBalance(bet.potentialWin);
       }
       
       return updatedBet;
