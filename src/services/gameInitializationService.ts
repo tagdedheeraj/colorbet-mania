@@ -27,15 +27,16 @@ export class GameInitializationService {
         );
 
         if (expiredGames.length > 0) {
-          const { error: updateError } = await supabase
-            .from('games')
-            .update({ status: 'completed' })
-            .in('id', expiredGames.map(game => game.id));
-
-          if (updateError) {
-            console.error('Error updating expired games:', updateError);
-          } else {
-            console.log(`Marked ${expiredGames.length} expired games as completed`);
+          console.log(`Found ${expiredGames.length} expired games to complete`);
+          
+          // Complete each expired game through the edge function
+          for (const game of expiredGames) {
+            try {
+              console.log(`Completing expired game: ${game.game_number} (${game.id})`);
+              await this.completeExpiredGame(game.id);
+            } catch (error) {
+              console.error(`Error completing game ${game.id}:`, error);
+            }
           }
         }
       }
@@ -46,11 +47,11 @@ export class GameInitializationService {
 
   static async createDemoGameIfNeeded(gameMode: string = 'quick'): Promise<void> {
     try {
-      console.log('Checking for active games...');
+      console.log('Checking for active games with mode:', gameMode);
       
       const { data: activeGames, error } = await supabase
         .from('games')
-        .select('id, end_time, status, game_number')
+        .select('id, end_time, status, game_number, game_mode')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1);
@@ -64,22 +65,23 @@ export class GameInitializationService {
       if (activeGames && activeGames.length > 0) {
         const activeGame = activeGames[0];
         const timeRemaining = GameService.calculateTimeRemaining(activeGame.end_time);
-        console.log('Active game time remaining:', timeRemaining, 'for game:', activeGame.game_number);
+        console.log(`Active game ${activeGame.game_number} has ${timeRemaining}s remaining`);
         
         if (timeRemaining > 0) {
           needsNewGame = false;
         } else {
           // Mark expired game as completed and process results
+          console.log('Active game has expired, completing it...');
           await this.completeExpiredGame(activeGame.id);
         }
       }
 
       if (needsNewGame) {
-        console.log('Creating new demo game with mode:', gameMode);
+        console.log('Creating new game with mode:', gameMode);
         
         // Get duration from game mode config
         const modeConfig = GAME_MODES.find(mode => mode.id === gameMode);
-        const duration = modeConfig ? modeConfig.duration : 60; // fallback to 60 seconds
+        const duration = modeConfig ? modeConfig.duration : 60;
         
         const gameNumber = Math.floor(Math.random() * 10000) + 1000;
         const startTime = new Date();
@@ -100,7 +102,7 @@ export class GameInitializationService {
         if (createError) {
           console.error('Error creating demo game:', createError);
         } else {
-          console.log(`Demo game created successfully: ${gameNumber} (${duration}s, ${gameMode} mode)`);
+          console.log(`New ${gameMode} game created: #${gameNumber} (${duration}s)`);
         }
       }
     } catch (error) {
@@ -118,9 +120,17 @@ export class GameInitializationService {
       });
 
       if (error) {
-        console.error('Error completing game:', error);
+        console.error('Error completing game via edge function:', error);
+        
+        // Fallback: Mark as completed directly if edge function fails
+        await supabase
+          .from('games')
+          .update({ status: 'completed' })
+          .eq('id', gameId);
+        
+        console.log('Game marked as completed (fallback)');
       } else {
-        console.log('Game completed successfully:', data);
+        console.log('Game completed successfully via edge function:', data);
       }
     } catch (error) {
       console.error('Error in completeExpiredGame:', error);
@@ -154,7 +164,9 @@ export class GameInitializationService {
       
       realtimeService.setupGameSubscription(() => {
         console.log('Game update received, refreshing data...');
-        onGameUpdate();
+        setTimeout(() => {
+          onGameUpdate();
+        }, 500); // Small delay to ensure data is consistent
       });
 
       realtimeService.setupBetSubscription(() => {

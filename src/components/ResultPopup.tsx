@@ -12,6 +12,7 @@ interface ResultState {
   amount: number;
   message: string;
   bets: any[];
+  gameNumber: number;
 }
 
 const ResultPopup = () => {
@@ -23,12 +24,19 @@ const ResultPopup = () => {
     isWin: false,
     amount: 0,
     message: '',
-    bets: []
+    bets: [],
+    gameNumber: 0
   });
   const [processedGames, setProcessedGames] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user || !gameHistory.length) return;
+
+    console.log('ResultPopup: Checking for completed games...', {
+      userExists: !!user,
+      gameHistoryLength: gameHistory.length,
+      currentBetsLength: currentBets.length
+    });
 
     // Check for newly completed games with results
     const completedGamesWithResults = gameHistory.filter(game => 
@@ -38,16 +46,27 @@ const ResultPopup = () => {
       !processedGames.has(game.id)
     );
 
+    console.log('Found completed games with results:', completedGamesWithResults.length);
+
     if (completedGamesWithResults.length > 0) {
       const latestGame = completedGamesWithResults[0];
+      console.log('Processing latest completed game:', latestGame.game_number);
       
-      // Find user bets for this game
+      // Find user bets for this specific game
       const gameBets = currentBets.filter(bet => bet.game_id === latestGame.id);
+      console.log('User bets for this game:', gameBets.length);
       
       if (gameBets.length > 0) {
         const winningBets = gameBets.filter(bet => bet.is_winner === true);
         const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.actual_win || 0), 0);
         const totalBetAmount = gameBets.reduce((sum, bet) => sum + bet.amount, 0);
+        
+        console.log('Bet results:', {
+          totalBets: gameBets.length,
+          winningBets: winningBets.length,
+          totalWinAmount,
+          totalBetAmount
+        });
         
         if (winningBets.length > 0) {
           // User won
@@ -56,7 +75,8 @@ const ResultPopup = () => {
             isWin: true,
             amount: totalWinAmount,
             message: `Congratulations! You won ${totalWinAmount.toFixed(2)} coins!`,
-            bets: winningBets
+            bets: winningBets,
+            gameNumber: latestGame.game_number
           });
           
           toast.success(`🎉 You won ${totalWinAmount.toFixed(2)} coins!`, {
@@ -70,7 +90,8 @@ const ResultPopup = () => {
             isWin: false,
             amount: totalBetAmount,
             message: `You lost ${totalBetAmount.toFixed(2)} coins. Better luck next time!`,
-            bets: gameBets
+            bets: gameBets,
+            gameNumber: latestGame.game_number
           });
           
           toast.error(`😔 You lost ${totalBetAmount.toFixed(2)} coins`, {
@@ -86,6 +107,10 @@ const ResultPopup = () => {
         setTimeout(() => {
           setResultState(prev => ({ ...prev, show: false }));
         }, 5000);
+      } else {
+        console.log('No bets found for completed game, marking as processed');
+        // Mark as processed even if no bets to avoid repeated checks
+        setProcessedGames(prev => new Set(prev).add(latestGame.id));
       }
     }
   }, [gameHistory, currentBets, user, processedGames]);
@@ -124,7 +149,8 @@ const ResultPopup = () => {
                 {resultState.isWin ? 'You Won!' : 'You Lost!'}
               </h2>
               
-              <p className="text-gray-700 mb-4">{resultState.message}</p>
+              <p className="text-gray-700 mb-2">{resultState.message}</p>
+              <p className="text-sm text-gray-500 mb-4">Game #{resultState.gameNumber}</p>
               
               <div className="bg-gray-100 rounded-lg p-4 mb-4">
                 <h3 className="font-semibold mb-2">Your Bets:</h3>

@@ -38,6 +38,11 @@ const GameHistory: React.FC = () => {
           // Find user bets for this game
           const userBetsForGame = currentBets.filter(bet => bet.game_id === result.id);
           
+          // Calculate total win/loss for this game
+          const totalBetAmount = userBetsForGame.reduce((sum, bet) => sum + bet.amount, 0);
+          const totalWinAmount = userBetsForGame.reduce((sum, bet) => sum + (bet.actual_win || 0), 0);
+          const netResult = totalWinAmount - totalBetAmount;
+          
           return (
             <div key={result.id} className="glass-panel bg-secondary/30 p-3 rounded-md space-y-3">
               {/* Game result info */}
@@ -61,7 +66,14 @@ const GameHistory: React.FC = () => {
               {/* User bets for this game */}
               {user && userBetsForGame && userBetsForGame.length > 0 ? (
                 <div className="border-t border-border/30 pt-2 space-y-1">
-                  <span className="text-xs text-muted-foreground">Your bets:</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Your bets:</span>
+                    <span className={`text-xs font-bold ${
+                      netResult > 0 ? 'text-game-green' : netResult < 0 ? 'text-game-red' : 'text-muted-foreground'
+                    }`}>
+                      {netResult > 0 ? `+${netResult.toFixed(2)}` : netResult < 0 ? `${netResult.toFixed(2)}` : '0.00'}
+                    </span>
+                  </div>
                   {userBetsForGame.map((bet) => (
                     <div key={bet.id} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1">
@@ -79,6 +91,10 @@ const GameHistory: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : user ? (
+                <div className="border-t border-border/30 pt-2">
+                  <span className="text-xs text-muted-foreground">No bets placed</span>
                 </div>
               ) : null}
             </div>

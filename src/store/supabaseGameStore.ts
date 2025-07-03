@@ -149,6 +149,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         currentGame.id,
         currentGame.id
       );
+      console.log('Current bets loaded:', currentBets.length);
       set({ currentBets });
     } catch (error) {
       console.error('Error loading current bets:', error);
@@ -169,10 +170,16 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       });
 
       if (activeGame && gameChanged) {
+        console.log('Game changed, updating bets and timer');
         if (prevGame) {
           GameTimerService.clearTimer(prevGame.id);
         }
+        
+        // Load bets first, then start timer
+        await get().loadCurrentBets();
         get().startGameTimer();
+      } else if (activeGame) {
+        // Same game, just refresh bets
         await get().loadCurrentBets();
       }
     } catch (error) {
@@ -184,28 +191,43 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     const { currentGame, currentGameMode } = get();
     if (!currentGame) return;
 
-    console.log('Starting game timer for game:', currentGame.game_number, 'mode:', currentGameMode);
+    const gameMode = currentGame.game_mode || currentGameMode;
+    console.log('Starting game timer for game:', currentGame.game_number, 'mode:', gameMode);
 
     GameTimerService.startGameTimer(
       currentGame,
-      currentGame.game_mode || currentGameMode, // Use game's mode, fallback to selected mode
+      gameMode,
       (timeRemaining, isAcceptingBets) => {
         set({ timeRemaining, isAcceptingBets });
       },
       async () => {
-        console.log('Game ended, completing and creating new game...');
+        console.log('Game timer ended, completing game and creating new one...');
         
-        // Complete the current game first
-        if (currentGame) {
-          await GameInitializationService.completeExpiredGame(currentGame.id);
+        const { currentGame: gameToComplete } = get();
+        if (gameToComplete) {
+          try {
+            // Complete the current game
+            await GameInitializationService.completeExpiredGame(gameToComplete.id);
+            
+            // Wait a moment for the edge function to process
+            setTimeout(async () => {
+              // Refresh all data to get the completed game and results
+              await get().loadCurrentData();
+              
+              // Create new game after a short delay
+              setTimeout(async () => {
+                await get().createDemoGameIfNeeded();
+                // Load data again to get the new game
+                setTimeout(() => {
+                  get().loadCurrentData();
+                }, 1000);
+              }, 2000);
+            }, 1000);
+            
+          } catch (error) {
+            console.error('Error in game completion process:', error);
+          }
         }
-        
-        // Wait a bit then create new game
-        setTimeout(() => {
-          get().createDemoGameIfNeeded().then(() => {
-            get().loadCurrentData();
-          });
-        }, 3000);
       }
     );
   }

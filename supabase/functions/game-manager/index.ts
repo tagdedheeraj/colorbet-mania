@@ -21,6 +21,8 @@ serve(async (req) => {
     const requestBody = await req.json()
     const { action, gameMode = 'quick', gameId } = requestBody
 
+    console.log('Game manager action:', action, { gameMode, gameId })
+
     if (action === 'start_game') {
       // Generate game number
       const { data: lastGame } = await supabaseClient
@@ -111,7 +113,7 @@ serve(async (req) => {
 
       if (bets && bets.length > 0) {
         const betUpdates = []
-        const balanceUpdates = []
+        const balanceUpdates = new Map()
         const transactions = []
 
         for (const bet of bets) {
@@ -138,64 +140,84 @@ serve(async (req) => {
 
           // If user won, prepare balance update and transaction
           if (isWinner && actualWin > 0) {
-            const { data: user, error: userError } = await supabaseClient
-              .from('users')
-              .select('balance')
-              .eq('id', bet.user_id)
-              .single()
+            const currentBalance = balanceUpdates.get(bet.user_id) || 0
+            balanceUpdates.set(bet.user_id, currentBalance + actualWin)
 
-            if (!userError && user) {
-              const newBalance = (user.balance || 0) + actualWin
-              
-              balanceUpdates.push({
-                userId: bet.user_id,
-                newBalance: newBalance
-              })
-
-              transactions.push({
-                user_id: bet.user_id,
-                type: 'win',
-                amount: actualWin,
-                description: `Win from Game #${gameId} - ${bet.bet_type}: ${bet.bet_value}`
-              })
-            }
+            transactions.push({
+              user_id: bet.user_id,
+              type: 'win',
+              amount: actualWin,
+              description: `Win from Game #${gameId} - ${bet.bet_type}: ${bet.bet_value}`
+            })
           }
         }
 
         // Update all bets
         for (const betUpdate of betUpdates) {
-          await supabaseClient
+          const { error: betUpdateError } = await supabaseClient
             .from('bets')
             .update({
               is_winner: betUpdate.is_winner,
               actual_win: betUpdate.actual_win
             })
             .eq('id', betUpdate.id)
+
+          if (betUpdateError) {
+            console.error('Error updating bet:', betUpdate.id, betUpdateError)
+          }
         }
 
         // Update user balances
-        for (const balanceUpdate of balanceUpdates) {
-          await supabaseClient
+        for (const [userId, winAmount] of balanceUpdates) {
+          // Get current balance
+          const { data: user, error: userError } = await supabaseClient
             .from('users')
-            .update({ balance: balanceUpdate.newBalance })
-            .eq('id', balanceUpdate.userId)
+            .select('balance')
+            .eq('id', userId)
+            .single()
+
+          if (!userError && user) {
+            const newBalance = (user.balance || 0) + winAmount
+            
+            const { error: balanceError } = await supabaseClient
+              .from('users')
+              .update({ balance: newBalance })
+              .eq('id', userId)
+
+            if (balanceError) {
+              console.error('Error updating balance for user:', userId, balanceError)
+            } else {
+              console.log(`Updated balance for user ${userId}: +${winAmount} = ${newBalance}`)
+            }
+          }
         }
 
         // Add win transactions
         if (transactions.length > 0) {
-          await supabaseClient
+          const { error: transactionError } = await supabaseClient
             .from('transactions')
             .insert(transactions)
+
+          if (transactionError) {
+            console.error('Error inserting transactions:', transactionError)
+          } else {
+            console.log(`Added ${transactions.length} win transactions`)
+          }
         }
 
-        console.log(`Processed game completion: ${betUpdates.length} bets, ${balanceUpdates.length} winners`)
+        console.log(`Game completion processed: ${betUpdates.length} bets, ${balanceUpdates.size} winners`)
       }
 
       return new Response(
         JSON.stringify({ 
           success: true, 
           result: { color: resultColor, number: resultNumber },
-          processedBets: bets?.length || 0
+          processedBets: bets?.length || 0,
+          winners: bets?.filter(bet => {
+            if (bet.bet_type === 'color' && bet.bet_value === resultColor) return true
+            if (bet.bet_type === 'number' && parseInt(bet.bet_value) === resultNumber && resultNumber !== 0) return true
+            return false
+          }).length || 0
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

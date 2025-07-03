@@ -35,10 +35,14 @@ export class GameTimerService {
         const timerId = setTimeout(updateTimer, 1000);
         this.timers.set(currentGame.id, timerId);
       } else {
-        // Game ended
-        console.log('Game ended, clearing timer and triggering onGameEnd');
+        // Game ended - ensure completion happens
+        console.log('Game ended, clearing timer and triggering completion');
         this.clearTimer(currentGame.id);
-        onGameEnd();
+        
+        // Call onGameEnd which should handle the completion
+        setTimeout(() => {
+          onGameEnd();
+        }, 100); // Small delay to ensure state is updated
       }
     };
 
@@ -50,10 +54,12 @@ export class GameTimerService {
     if (timerId) {
       clearTimeout(timerId);
       this.timers.delete(gameId);
+      console.log('Timer cleared for game:', gameId);
     }
   }
 
   static clearAllTimers() {
+    console.log('Clearing all timers');
     this.timers.forEach((timerId) => clearTimeout(timerId));
     this.timers.clear();
   }
