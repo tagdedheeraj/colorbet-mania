@@ -43,6 +43,9 @@
     --sidebar-accent-foreground: 240 5% 90%;
     --sidebar-border: 240 10% 15%;
     --sidebar-ring: 252 88% 68%;
+
+    --mouse-x: 0.5;
+    --mouse-y: 0.5;
   }
 }
 
@@ -55,12 +58,20 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
     overflow-x: hidden;
+    background-color: #0F0F12;
+    color: white;
+  }
+
+  #root {
+    background-color: #0F0F12;
+    color: white;
+    min-height: 100vh;
   }
 }
 
 @layer components {
   .glass-panel {
-    @apply bg-glass-gradient bg-opacity-10 backdrop-blur-md border border-white/10 rounded-xl shadow-glass;
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-lg;
   }
   
   .game-button {
@@ -68,7 +79,7 @@
   }
   
   .number-button {
-    @apply glass-panel px-4 py-3 text-lg font-bold transition-all duration-300 hover:shadow-inner-glow;
+    @apply glass-panel px-4 py-3 text-lg font-bold transition-all duration-300 hover:bg-white/10;
   }
   
   .color-button {
@@ -80,7 +91,7 @@
   }
   
   .win-animation {
-    @apply animate-bounce-subtle text-game-gold;
+    @apply animate-bounce text-yellow-400;
   }
   
   .container-game {
@@ -128,4 +139,10 @@
   .number-grid {
     grid-template-columns: repeat(10, 1fr);
   }
+}
+
+/* Ensure proper dark theme */
+.dark {
+  background-color: #0F0F12 !important;
+  color: white !important;
 }

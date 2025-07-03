@@ -7,14 +7,14 @@ import { AuthState, UserProfile } from '@/types/auth';
 import { UserProfileService } from '@/services/userProfileService';
 import { UserCreationService } from '@/services/userCreationService';
 
-// Store for auth subscription cleanup
 let authSubscription: (() => void) | null = null;
+let isInitializing = false;
 
 const useSupabaseAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   profile: null,
-  isLoading: true,
+  isLoading: false,
   isAuthenticated: false,
   error: null,
   isInitialized: false,
@@ -22,11 +22,14 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
   clearError: () => set({ error: null }),
 
   initialize: async () => {
+    if (isInitializing) return;
+    isInitializing = true;
+
     try {
       console.log('Starting auth initialization...');
       set({ isLoading: true, error: null });
       
-      // Set a maximum timeout for initialization
+      // Set initialization timeout - force complete after 5 seconds
       const initTimeout = setTimeout(() => {
         console.log('Auth initialization timeout - forcing completion');
         set({ 
@@ -34,9 +37,10 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
           isInitialized: true,
           error: null
         });
-      }, 10000); // 10 second timeout
+        isInitializing = false;
+      }, 5000);
       
-      // Clean up existing subscription if any
+      // Clean up existing subscription
       if (authSubscription) {
         authSubscription();
         authSubscription = null;
@@ -44,12 +48,12 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
       
       // Set up auth state listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
+        console.log('Auth state changed:', event, session?.user?.email || 'no user');
         
-        // Clear the timeout since we got a response
+        // Clear timeout since we got response
         clearTimeout(initTimeout);
         
-        // Only synchronous state updates in the callback
+        // Update state synchronously
         set({ 
           user: session?.user || null, 
           session,
@@ -59,61 +63,60 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
           isInitialized: true
         });
 
-        // Defer async operations to prevent deadlock
+        // Handle user session in background
         if (session?.user && event === 'SIGNED_IN') {
-          setTimeout(() => {
-            handleUserSession(session.user);
-          }, 100);
+          setTimeout(() => handleUserSession(session.user), 100);
         }
+        
+        isInitializing = false;
       });
 
-      // Store cleanup function
       authSubscription = () => subscription.unsubscribe();
 
       // Get initial session with timeout
-      const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
-      );
-
       try {
         const { data: { session }, error: sessionError } = await Promise.race([
-          sessionPromise,
-          timeoutPromise
+          supabase.auth.getSession(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
         ]) as any;
         
         clearTimeout(initTimeout);
         
         if (sessionError) {
           console.error('Session error:', sessionError);
-          set({ isLoading: false, error: null, isInitialized: true });
-          return;
         }
         
+        set({ 
+          user: session?.user || null, 
+          session,
+          isAuthenticated: !!session,
+          isLoading: false,
+          isInitialized: true,
+          error: null
+        });
+
         if (session?.user) {
-          console.log('Found existing session for:', session.user.email);
-          set({ 
-            user: session.user, 
-            session,
-            isAuthenticated: true,
-            isLoading: false,
-            isInitialized: true
-          });
-          // Load profile in background
           setTimeout(() => handleUserSession(session.user), 100);
-        } else {
-          console.log('No existing session found');
-          set({ isLoading: false, isInitialized: true });
         }
       } catch (error) {
         console.error('Session fetch failed:', error);
         clearTimeout(initTimeout);
-        set({ isLoading: false, isInitialized: true, error: null });
+        set({ 
+          isLoading: false, 
+          isInitialized: true, 
+          error: null 
+        });
       }
 
+      isInitializing = false;
     } catch (error) {
       console.error('Auth initialization error:', error);
-      set({ isLoading: false, error: null, isInitialized: true });
+      set({ 
+        isLoading: false, 
+        error: null, 
+        isInitialized: true 
+      });
+      isInitializing = false;
     }
   },
 
@@ -122,20 +125,17 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
       await UserCreationService.createMissingUserData(user);
     } catch (error) {
       console.error('Error creating user data:', error);
-      // Don't throw error - continue with basic functionality
     }
   },
 
   signOut: async () => {
     try {
-      // Clean up subscription
       if (authSubscription) {
         authSubscription();
         authSubscription = null;
       }
 
-      const { error } = await supabase.auth.signOut({ scope: 'global' });
-      if (error) throw error;
+      await supabase.auth.signOut({ scope: 'global' });
       
       set({ 
         user: null, 
@@ -159,12 +159,10 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
     if (!user) return;
 
     try {
-      set({ error: null });
       const profile = await UserProfileService.fetchUserProfile(user.id);
       set({ profile });
     } catch (error) {
       console.error('Profile refresh error:', error);
-      // Don't set error - continue with basic functionality
     }
   },
 
@@ -174,9 +172,7 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 
     try {
       const newBalance = profile.balance + amount;
-      
       await UserProfileService.updateBalance(user.id, newBalance);
-
       set({ 
         profile: { 
           ...profile, 
@@ -195,10 +191,8 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 
     try {
       await UserProfileService.updateProfile(user.id, data);
-
       const updatedProfile = await UserProfileService.fetchUserProfile(user.id);
       set({ profile: updatedProfile });
-      
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Profile update error:', error);
@@ -207,7 +201,7 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
   }
 }));
 
-// Helper function moved outside the store
+// Helper function for handling user sessions
 const handleUserSession = async (user: User) => {
   try {
     console.log('Loading profile for user:', user.id);
@@ -220,7 +214,6 @@ const handleUserSession = async (user: User) => {
         profile = await UserProfileService.fetchUserProfile(user.id);
       } catch (error) {
         console.error('Error creating user data:', error);
-        // Continue without profile
       }
     }
     
@@ -230,7 +223,6 @@ const handleUserSession = async (user: User) => {
     });
   } catch (error) {
     console.error('Profile handling error:', error);
-    // Don't set error state - just continue without profile
     useSupabaseAuthStore.setState({ 
       error: null 
     });

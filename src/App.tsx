@@ -21,27 +21,34 @@ function App() {
   const { initialize, isLoading, isAuthenticated, error, isInitialized } = useSupabaseAuthStore();
 
   useEffect(() => {
-    initialize();
+    // Initialize auth with timeout
+    const initTimeout = setTimeout(() => {
+      console.log('App initialization timeout - proceeding anyway');
+    }, 3000);
+
+    initialize().finally(() => {
+      clearTimeout(initTimeout);
+    });
   }, [initialize]);
 
-  // Show loading screen while initializing (with maximum 10 second timeout)
-  if (!isInitialized) {
+  // Show loading screen briefly, then proceed
+  if (!isInitialized && isLoading) {
     return <LoadingScreen />;
   }
 
-  // Show error state if authentication failed
+  // Show error state if critical authentication failed
   if (error && !isAuthenticated) {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
-          <div className="min-h-screen bg-background flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4 text-red-600">Authentication Error</h1>
-              <p className="text-muted-foreground mb-6">{error}</p>
+          <div className="min-h-screen bg-[#0F0F12] flex items-center justify-center">
+            <div className="text-center text-white">
+              <h1 className="text-2xl font-bold mb-4 text-red-500">Authentication Error</h1>
+              <p className="text-gray-400 mb-6">{error}</p>
               <button 
                 onClick={() => window.location.reload()} 
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+                className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90"
               >
                 Reload Page
               </button>
@@ -57,7 +64,7 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <BrowserRouter>
-          <div className="min-h-screen bg-background">
+          <div className="min-h-screen bg-[#0F0F12] text-white">
             <Routes>
               <Route 
                 path="/auth" 

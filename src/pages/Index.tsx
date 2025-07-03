@@ -14,22 +14,10 @@ const Index = () => {
   const { isAuthenticated } = useSupabaseAuthStore();
 
   useEffect(() => {
-    // Initialize the Supabase game store when component mounts or user authenticates
-    if (isAuthenticated) {
-      // Add small delay to ensure auth is fully settled
-      const timer = setTimeout(() => {
-        initialize();
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [initialize, isAuthenticated]);
-
-  // Add subtle background animation
-  useEffect(() => {
-    // Set document title to the new app name
+    // Set document title
     document.title = "Trade Hue";
     
+    // Add mouse tracking for background effect
     const handleMouseMove = (e: MouseEvent) => {
       const x = e.clientX / window.innerWidth;
       const y = e.clientY / window.innerHeight;
@@ -45,12 +33,29 @@ const Index = () => {
     };
   }, []);
 
+  useEffect(() => {
+    // Initialize game store when authenticated
+    if (isAuthenticated) {
+      const timer = setTimeout(() => {
+        initialize();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [initialize, isAuthenticated]);
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen w-full bg-[#0F0F12] flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">Trade Hue</h1>
-          <p className="text-muted-foreground mb-6">Please log in to start playing</p>
+        <div className="text-center text-white">
+          <h1 className="text-4xl font-bold mb-4 text-primary">Trade Hue</h1>
+          <p className="text-gray-400 mb-6">Please log in to start playing</p>
+          <button 
+            onClick={() => window.location.href = '/auth'}
+            className="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90"
+          >
+            Login
+          </button>
         </div>
       </div>
     );
@@ -59,9 +64,9 @@ const Index = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen w-full bg-[#0F0F12] flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading game data...</p>
+          <p className="text-gray-400">Loading game data...</p>
         </div>
       </div>
     );
@@ -91,7 +96,7 @@ const Index = () => {
         
         <div className="fixed inset-0 pointer-events-none z-0">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full filter blur-[100px]"></div>
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-game-green/10 rounded-full filter blur-[100px]"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-green-500/10 rounded-full filter blur-[100px]"></div>
         </div>
       </div>
     </div>
