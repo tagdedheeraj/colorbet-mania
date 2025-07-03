@@ -9,13 +9,223 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      bets: {
+        Row: {
+          actual_win: number | null
+          amount: number
+          bet_type: string
+          bet_value: string
+          created_at: string | null
+          game_id: string | null
+          id: string
+          is_winner: boolean | null
+          potential_win: number
+          user_id: string | null
+        }
+        Insert: {
+          actual_win?: number | null
+          amount: number
+          bet_type: string
+          bet_value: string
+          created_at?: string | null
+          game_id?: string | null
+          id?: string
+          is_winner?: boolean | null
+          potential_win: number
+          user_id?: string | null
+        }
+        Update: {
+          actual_win?: number | null
+          amount?: number
+          bet_type?: string
+          bet_value?: string
+          created_at?: string | null
+          game_id?: string | null
+          id?: string
+          is_winner?: boolean | null
+          potential_win?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bets_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      games: {
+        Row: {
+          created_at: string | null
+          end_time: string
+          game_mode: string | null
+          game_number: number
+          id: string
+          result_color: string | null
+          result_number: number | null
+          start_time: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: string
+          game_mode?: string | null
+          game_number: number
+          id?: string
+          result_color?: string | null
+          result_number?: number | null
+          start_time: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: string
+          game_mode?: string | null
+          game_number?: number
+          id?: string
+          result_color?: string | null
+          result_number?: number | null
+          start_time?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          preferences: Json | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          preferences?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          preferences?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          id: string
+          payment_method: string | null
+          status: string | null
+          transaction_reference: string | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          payment_method?: string | null
+          status?: string | null
+          transaction_reference?: string | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          payment_method?: string | null
+          status?: string | null
+          transaction_reference?: string | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          email: string
+          id: string
+          referral_code: string | null
+          referred_by: string | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          email: string
+          id?: string
+          referral_code?: string | null
+          referred_by?: string | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          referral_code?: string | null
+          referred_by?: string | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_referral_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
