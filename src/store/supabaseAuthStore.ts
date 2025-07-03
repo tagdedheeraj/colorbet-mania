@@ -13,6 +13,8 @@ interface UserProfile {
   referred_by: string | null;
   created_at: string;
   updated_at: string;
+  full_name?: string;
+  phone?: string;
 }
 
 interface AuthState {
@@ -25,6 +27,7 @@ interface AuthState {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateBalance: (amount: number) => Promise<void>;
+  updateProfile: (data: { full_name?: string; phone?: string }) => Promise<void>;
 }
 
 const useSupabaseAuthStore = create<AuthState>((set, get) => ({
@@ -158,6 +161,30 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
       console.error('Balance update error:', error);
       toast.error('Failed to update balance');
     }
+  },
+
+  updateProfile: async (data: { full_name?: string; phone?: string }) => {
+    const { user, profile } = get();
+    if (!user || !profile) return;
+
+    try {
+      // Update profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(data)
+        .eq('user_id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Fetch updated profile
+      const updatedProfile = await fetchUserProfile(user.id);
+      set({ profile: updatedProfile });
+      
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error('Profile update error:', error);
+      toast.error('Failed to update profile');
+    }
   }
 }));
 
@@ -165,24 +192,42 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
     console.log('Fetching profile for user:', userId);
-    const { data, error } = await supabase
+    
+    // Get user data from users table
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
 
-    if (error) {
-      console.error('Profile fetch error:', error);
+    if (userError) {
+      console.error('User fetch error:', userError);
       return null;
     }
     
-    if (!data) {
-      console.log('No profile found for user:', userId);
+    if (!userData) {
+      console.log('No user found for user:', userId);
       return null;
     }
+
+    // Get profile data from profiles table
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Profile fetch error:', profileError);
+    }
     
-    console.log('Profile fetched successfully:', data.username);
-    return data;
+    console.log('Profile fetched successfully:', userData.username);
+    
+    return {
+      ...userData,
+      full_name: profileData?.full_name || undefined,
+      phone: profileData?.phone || undefined
+    };
   } catch (error) {
     console.error('Profile fetch error:', error);
     return null;

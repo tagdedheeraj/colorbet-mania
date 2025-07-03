@@ -9,10 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Settings, KeyRound, ChevronLeft, UserCircle, PhoneCall, Mail, Edit, Save } from "lucide-react";
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { toast } from "sonner";
+import { supabase } from '@/integrations/supabase/client';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { user, profile } = useSupabaseAuthStore();
+  const { user, profile, updateProfile } = useSupabaseAuthStore();
   
   const [isEditing, setIsEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -32,10 +33,19 @@ const ProfilePage = () => {
     return null;
   }
 
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Profile updated successfully');
-    setIsEditing(false);
+    
+    try {
+      await updateProfile({
+        full_name: profileForm.name,
+        phone: profileForm.mobile
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Profile update error:', error);
+      toast.error('Failed to update profile');
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -47,14 +57,21 @@ const ProfilePage = () => {
     }
     
     try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword
+      });
+      
+      if (error) throw error;
+      
       toast.success('Password updated successfully');
       setPasswordForm({
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
-    } catch (error) {
-      toast.error('Failed to update password');
+    } catch (error: any) {
+      console.error('Password update error:', error);
+      toast.error(error.message || 'Failed to update password');
     }
   };
 
@@ -142,20 +159,10 @@ const ProfilePage = () => {
                     
                     <div className="grid gap-2">
                       <Label htmlFor="email">Email</Label>
-                      {isEditing ? (
-                        <Input 
-                          id="email" 
-                          type="email" 
-                          value={profileForm.email} 
-                          onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
-                          placeholder="Enter your email"
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2 p-2 border rounded-md">
-                          <Mail className="w-5 h-5 text-muted-foreground" />
-                          <span>{profileForm.email || 'Not set'}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                        <Mail className="w-5 h-5 text-muted-foreground" />
+                        <span>{profileForm.email || 'Not set'}</span>
+                      </div>
                     </div>
                     
                     <div className="grid gap-2">
@@ -197,21 +204,6 @@ const ProfilePage = () => {
               <form onSubmit={handlePasswordSubmit}>
                 <div className="space-y-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <div className="relative">
-                      <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="current-password"
-                        type="password"
-                        className="pl-10"
-                        value={passwordForm.currentPassword}
-                        onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                        placeholder="Enter current password"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid gap-2">
                     <Label htmlFor="new-password">New Password</Label>
                     <div className="relative">
                       <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -222,6 +214,8 @@ const ProfilePage = () => {
                         value={passwordForm.newPassword}
                         onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                         placeholder="Enter new password"
+                        minLength={6}
+                        required
                       />
                     </div>
                   </div>
@@ -237,6 +231,8 @@ const ProfilePage = () => {
                         value={passwordForm.confirmPassword}
                         onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
                         placeholder="Confirm new password"
+                        minLength={6}
+                        required
                       />
                     </div>
                   </div>
