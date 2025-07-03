@@ -3,13 +3,13 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import useGameStore from '@/store/gameStore';
-import useAuthStore from '@/store/authStore';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { ColorType, NumberType } from '@/types/game';
 import { toast } from "sonner";
 
 const BettingPanel: React.FC = () => {
   const { betAmount, setBetAmount, placeBet, isAcceptingBets, timeRemaining } = useGameStore();
-  const { user, isAuthenticated, setAuthModalOpen } = useAuthStore();
+  const { user, isAuthenticated } = useSupabaseAuthStore();
   
   const predefinedAmounts = [10, 50, 100, 500, 1000];
   
@@ -59,7 +59,7 @@ const BettingPanel: React.FC = () => {
 
   const promptLogin = () => {
     if (!isAuthenticated) {
-      setAuthModalOpen(true);
+      toast.info('Please log in to place bets');
     }
   };
 

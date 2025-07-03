@@ -2,11 +2,11 @@
 import React from 'react';
 import useGameStore from '@/store/gameStore';
 import { ColorType } from '@/types/game';
-import useAuthStore from '@/store/authStore';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 
 const GameHistory: React.FC = () => {
   const { lastResults } = useGameStore();
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   
   const getColorStyle = (color: ColorType) => {
     switch (color) {

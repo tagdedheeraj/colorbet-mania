@@ -10,17 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import AuthModal from './AuthModal';
-import useAuthStore from '@/store/authStore';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import NotificationCenter from './NotificationCenter';
 import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Header = () => {
   const [showBackground, setShowBackground] = useState(false);
-  const { user, isAuthenticated, logout, setAuthModalOpen } = useAuthStore();
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const { user, isAuthenticated, signOut } = useSupabaseAuthStore();
   const location = useLocation();
   const isMobile = useIsMobile();
   
@@ -41,18 +38,8 @@ const Header = () => {
     };
   }, []);
   
-  const handleAuthModalOpen = () => {
-    setIsAuthModalOpen(true);
-    setAuthModalOpen(true);
-  };
-  
-  const handleAuthModalClose = () => {
-    setIsAuthModalOpen(false);
-    setAuthModalOpen(false);
-  };
-  
   const handleLogout = () => {
-    logout();
+    signOut();
   };
   
   const handleAddFunds = () => {
@@ -67,7 +54,6 @@ const Header = () => {
       }, 1500);
     } else {
       toast.error("You need to login first");
-      handleAuthModalOpen();
     }
   };
 
@@ -90,11 +76,11 @@ const Header = () => {
             </Link>
           )}
           
-          {isAuthenticated && (
+          {isAuthenticated && user && (
             <>
               <div className="flex items-center">
                 <Coins className="h-4 w-4 mr-1 text-game-gold" />
-                <span className="text-sm font-medium">{user?.balance.toFixed(2)}</span>
+                <span className="text-sm font-medium">{user.balance?.toFixed(2) || '0.00'}</span>
               </div>
               <Button 
                 variant="ghost" 
@@ -107,15 +93,13 @@ const Header = () => {
             </>
           )}
           
-          {!isAuthModalOpen && !isAuthenticated && (
-            <Dialog open={isAuthModalOpen} onOpenChange={handleAuthModalOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">Login</Button>
-              </DialogTrigger>
-            </Dialog>
+          {!isAuthenticated && (
+            <Link to="/auth">
+              <Button size="sm">Login</Button>
+            </Link>
           )}
           
-          {isAuthenticated && (
+          {isAuthenticated && user && (
             <>
               <NotificationCenter />
               
@@ -123,12 +107,12 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-2 p-1">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={`https://avatar.vercel.sh/${user?.username}`} />
-                      <AvatarFallback>{user?.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarImage src={`https://avatar.vercel.sh/${user.username}`} />
+                      <AvatarFallback>{user.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     {!isMobile && (
                       <>
-                        <span className="text-sm font-medium max-w-[80px] truncate">{user?.username}</span>
+                        <span className="text-sm font-medium max-w-[80px] truncate">{user.username}</span>
                         <ChevronDown className="h-4 w-4 opacity-50" />
                       </>
                     )}
@@ -163,9 +147,6 @@ const Header = () => {
           )}
         </div>
       </div>
-      
-      {/* AuthModal without onClose prop as it's not required */}
-      <AuthModal />
     </header>
   );
 };

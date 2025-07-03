@@ -1,52 +1,60 @@
 
-export type ColorType = 'red' | 'green' | 'purple-red';
-export type NumberType = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-export type GameMode = 'blitz' | 'quick' | 'classic' | 'extended';
-
-export interface GameModeConfig {
-  id: GameMode;
-  name: string;
-  duration: number;
-  description: string;
-}
-
-export interface GameResult {
-  id: string;
-  game_number: number;
-  result_color: ColorType;
-  result_number: NumberType;
-  start_time: string;
-  end_time: string;
-  status: string;
-}
-
-export interface Bet {
-  id: string;
-  game_id: string;
-  bet_type: 'color' | 'number';
-  bet_value: string;
-  amount: number;
-  potential_win: number;
-  is_winner?: boolean;
-  actual_win?: number;
-}
+import { GAME_MODES } from '@/config/gameModes';
 
 export interface GameState {
-  currentGame: GameResult | null;
+  currentGame: SupabaseGame | null;
   timeRemaining: number;
   isAcceptingBets: boolean;
-  gameHistory: GameResult[];
-  currentBets: Bet[];
+  gameHistory: SupabaseGame[];
+  currentBets: SupabaseBet[];
   betAmount: number;
-  currentGameMode: GameMode;
-  gameModesConfig: GameModeConfig[];
+  currentGameMode: string;
+  gameModesConfig: typeof GAME_MODES;
   isLoading: boolean;
-  
+
   // Actions
   initialize: () => Promise<void>;
   placeBet: (type: 'color' | 'number', value: string) => Promise<void>;
   setBetAmount: (amount: number) => void;
-  setGameMode: (mode: GameMode) => void;
+  setGameMode: (mode: string) => void;
   loadGameHistory: () => Promise<void>;
   loadCurrentBets: () => Promise<void>;
+  loadCurrentData: () => Promise<void>;
+  startGameTimer: () => void;
+}
+
+export interface SupabaseGame {
+  id: string;
+  game_number: number;
+  start_time: string;
+  end_time: string;
+  status: string;
+  result_color: string | null;
+  result_number: number | null;
+  game_mode: string;
+  created_at: string;
+}
+
+export interface SupabaseBet {
+  id: string;
+  game_id: string;
+  user_id: string;
+  bet_type: string;
+  bet_value: string;
+  amount: number;
+  potential_win: number;
+  is_winner: boolean | null;
+  actual_win: number | null;
+  created_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  username: string;
+  balance: number;
+  referral_code: string | null;
+  referred_by: string | null;
+  created_at: string;
+  updated_at: string;
 }

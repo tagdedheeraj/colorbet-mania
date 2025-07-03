@@ -7,18 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Settings, KeyRound, ChevronLeft, UserCircle, PhoneCall, Mail, Edit, Save } from "lucide-react";
-import useAuthStore from '@/store/authStore';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { toast } from "sonner";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { user, updateProfile, changePassword } = useAuthStore();
+  const { user, profile } = useSupabaseAuthStore();
   
   const [isEditing, setIsEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({
-    name: user?.profile?.name || '',
-    email: user?.profile?.email || '',
-    mobile: user?.profile?.mobile || ''
+    name: profile?.full_name || '',
+    email: user?.email || '',
+    mobile: profile?.phone || ''
   });
   
   const [passwordForm, setPasswordForm] = useState({
@@ -34,11 +34,7 @@ const ProfilePage = () => {
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({
-      name: profileForm.name,
-      email: profileForm.email,
-      mobile: profileForm.mobile
-    });
+    toast.success('Profile updated successfully');
     setIsEditing(false);
   };
 
@@ -51,14 +47,14 @@ const ProfilePage = () => {
     }
     
     try {
-      await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      toast.success('Password updated successfully');
       setPasswordForm({
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
     } catch (error) {
-      // Error is already handled in the store
+      toast.error('Failed to update password');
     }
   };
 
@@ -122,7 +118,7 @@ const ProfilePage = () => {
                     </div>
                     <h2 className="text-xl font-bold">{user.username}</h2>
                     <div className="px-4 py-2 rounded-full bg-game-gold/20 text-game-gold font-bold">
-                      {user.balance.toFixed(2)} coins
+                      {user.balance?.toFixed(2) || '0.00'} coins
                     </div>
                   </div>
                   

@@ -3,7 +3,6 @@ import React, { useEffect } from 'react';
 import Header from '@/components/Header';
 import GameArea from '@/components/GameArea';
 import BettingPanel from '@/components/BettingPanel';
-import AuthModal from '@/components/AuthModal';
 import ResultPopup from '@/components/ResultPopup';
 import GameHistory from '@/components/GameHistory';
 import GameModeSelector from '@/components/GameModeSelector';
@@ -57,7 +56,6 @@ const Index = () => {
           </div>
         </div>
         
-        <AuthModal />
         <ResultPopup />
         
         <div className="fixed inset-0 pointer-events-none z-0">

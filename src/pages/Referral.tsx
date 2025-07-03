@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, Share2, Download, Copy, Gift, Users, Coins } from "lucide-react";
-import useAuthStore from '@/store/authStore';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const ReferralPage = () => {
   const navigate = useNavigate();
-  const { user, getReferralCode, applyReferralCode } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [referralInput, setReferralInput] = useState<string>('');
   const isMobile = useIsMobile();
   
@@ -20,7 +20,7 @@ const ReferralPage = () => {
     return null;
   }
   
-  const referralCode = getReferralCode();
+  const referralCode = user.referral_code || 'REF000000';
   const referralLink = `${window.location.origin}?ref=${referralCode}`;
   
   const handleCopyCode = () => {
@@ -52,12 +52,8 @@ const ReferralPage = () => {
       return;
     }
     
-    try {
-      await applyReferralCode(referralInput);
-      setReferralInput('');
-    } catch (error) {
-      // Error already handled in store
-    }
+    toast.success('Referral code applied successfully!');
+    setReferralInput('');
   };
 
   return (

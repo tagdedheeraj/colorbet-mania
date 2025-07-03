@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { GameState, Bet, GameResult, ColorType, NumberType, WinLossPopup, GameMode, GameModeConfig } from '../types/game';
 import { toast } from "sonner";
-import useAuthStore from './authStore';
+import useSupabaseAuthStore from './supabaseAuthStore';
 
 // Game mode configurations
 export const GAME_MODES: GameModeConfig[] = [
@@ -86,12 +86,11 @@ const useGameStore = create<GameStoreState>((set, get) => ({
 
   placeBet: (type: 'color' | 'number', value: ColorType | NumberType) => {
     const { betAmount, isAcceptingBets, currentBets, currentGameId } = get();
-    const authStore = useAuthStore();
+    const authStore = useSupabaseAuthStore.getState();
     const user = authStore.user;
 
     if (!user) {
       toast.error("Please log in to place bets");
-      authStore.setAuthModalOpen(true);
       return;
     }
 
@@ -100,7 +99,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       return;
     }
 
-    if (user.balance < betAmount) {
+    if (user.balance && user.balance < betAmount) {
       toast.error("Insufficient balance");
       return;
     }
@@ -233,7 +232,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
     let isWin = false;
     let userWonAnyBet = false;
     
-    const authStore = useAuthStore();
+    const authStore = useSupabaseAuthStore.getState();
     const user = authStore.user;
     
     const processedBets = currentBets.map(bet => {
@@ -257,17 +256,6 @@ const useGameStore = create<GameStoreState>((set, get) => ({
       
       return updatedBet;
     });
-    
-    if (user) {
-      const userBets = user.bets || [];
-      const updatedUserBets = [...userBets, ...processedBets];
-      const updatedUser = {
-        ...user,
-        bets: updatedUserBets
-      };
-      authStore.user = updatedUser;
-      localStorage.setItem('current-user', JSON.stringify(updatedUser));
-    }
     
     const updatedResults = [result, ...lastResults].slice(0, RESULTS_HISTORY_COUNT);
     set({ lastResults: updatedResults });
