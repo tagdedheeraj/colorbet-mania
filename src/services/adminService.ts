@@ -77,9 +77,16 @@ export class AdminService {
 
   static async logAdminAction(action: string, targetType?: string, targetId?: string, details?: any) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { error: 'No authenticated user' };
+      }
+
       const { error } = await supabase
         .from('admin_logs')
         .insert({
+          admin_user_id: user.id,
           action,
           target_type: targetType,
           target_id: targetId,

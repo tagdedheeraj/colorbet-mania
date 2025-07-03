@@ -3,13 +3,14 @@ import React from 'react';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import useSupabaseGameStore from '@/store/supabaseGameStore';
 import { Clock, Timer } from 'lucide-react';
+import { GameMode } from '@/types/supabaseGame';
 
 const GameModeSelector: React.FC = () => {
   const { currentGameMode, setGameMode, gameModesConfig } = useSupabaseGameStore();
   
   const handleModeChange = (value: string) => {
-    if (value) {
-      setGameMode(value);
+    if (value && (value === 'blitz' || value === 'quick' || value === 'classic' || value === 'extended')) {
+      setGameMode(value as GameMode);
     }
   };
   

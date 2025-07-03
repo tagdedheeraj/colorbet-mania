@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import useSupabaseGameStore from '@/store/supabaseGameStore';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { BetHistoryService } from '@/services/betHistoryService';
-import { ColorType } from '@/types/supabaseGame';
+import { ColorType, BetWithGame } from '@/types/supabaseGame';
 
 const GameHistory: React.FC = () => {
   const { user } = useSupabaseAuthStore();
@@ -22,7 +21,7 @@ const GameHistory: React.FC = () => {
     if (!user) return;
     
     try {
-      const results = await BetHistoryService.loadAllUserBets(user.id);
+      const results: BetWithGame[] = await BetHistoryService.loadAllUserBets(user.id);
       
       // Group bets by game
       const gameGroups = results.reduce((acc, bet) => {

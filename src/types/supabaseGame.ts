@@ -1,3 +1,4 @@
+
 import { GAME_MODES } from '@/config/gameModes';
 
 export type ColorType = 'red' | 'green' | 'purple-red';
@@ -34,6 +35,11 @@ export interface Bet {
   is_winner: boolean;
   actual_win: number;
   created_at: string;
+}
+
+// Extended bet type that includes game data for history display
+export interface BetWithGame extends SupabaseBet {
+  game: SupabaseGame;
 }
 
 export interface GameState {

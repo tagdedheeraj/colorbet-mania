@@ -1,9 +1,9 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { SupabaseBet } from '@/types/supabaseGame';
+import { BetWithGame } from '@/types/supabaseGame';
 
 export class BetHistoryService {
-  static async loadAllUserBets(userId: string): Promise<SupabaseBet[]> {
+  static async loadAllUserBets(userId: string): Promise<BetWithGame[]> {
     try {
       const { data, error } = await supabase
         .from('bets')
