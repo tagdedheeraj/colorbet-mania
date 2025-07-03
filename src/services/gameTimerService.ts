@@ -6,7 +6,7 @@ export class GameTimerService {
 
   static startGameTimer(
     currentGame: any,
-    currentGameMode: string,
+    gameMode: string,
     onTimerUpdate: (timeRemaining: number, isAcceptingBets: boolean) => void,
     onGameEnd: () => void
   ) {
@@ -17,11 +17,12 @@ export class GameTimerService {
 
     const updateTimer = () => {
       const timeRemaining = GameService.calculateTimeRemaining(currentGame.end_time);
-      const isAcceptingBets = GameService.isAcceptingBets(timeRemaining, currentGameMode, currentGame.status);
+      const isAcceptingBets = GameService.isAcceptingBets(timeRemaining, gameMode, currentGame.status);
       
       console.log('Timer update:', {
         gameId: currentGame.id,
         gameNumber: currentGame.game_number,
+        gameMode: gameMode,
         timeRemaining,
         isAcceptingBets,
         status: currentGame.status,

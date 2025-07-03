@@ -13,9 +13,11 @@ const GameArea: React.FC = () => {
     gameModesConfig
   } = useSupabaseGameStore();
   
-  const currentModeConfig = gameModesConfig.find(mode => mode.id === currentGameMode);
+  const currentModeConfig = gameModesConfig.find(mode => 
+    mode.id === (currentGame?.game_mode || currentGameMode)
+  );
   
-  const getColorStyle = (color: ColorType) => {
+  const getColorStyle = (color: ColorType | string) => {
     switch (color) {
       case 'red':
         return 'bg-red-500';
@@ -36,11 +38,11 @@ const GameArea: React.FC = () => {
   };
   
   // Get a display-friendly color name with null safety
-  const getColorDisplayName = (color: ColorType | null | undefined): string => {
+  const getColorDisplayName = (color: ColorType | string | null | undefined): string => {
     if (!color || color === null || color === undefined) {
       return 'Unknown';
     }
-    return color === 'purple-red' ? 'Purple' : color.charAt(0).toUpperCase() + color.slice(1);
+    return color === 'purple-red' ? 'Purple' : String(color).charAt(0).toUpperCase() + String(color).slice(1);
   };
   
   // If no results yet, show placeholder
@@ -56,7 +58,7 @@ const GameArea: React.FC = () => {
               {isAcceptingBets ? 'Betting Open' : 'Betting Closed'}
             </p>
             <p className="text-xs px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 inline-block">
-              {currentModeConfig?.name || 'Quick'} Mode
+              {currentModeConfig?.name || 'Quick'} Mode ({currentModeConfig?.duration || 60}s)
             </p>
           </div>
         </div>
@@ -90,7 +92,7 @@ const GameArea: React.FC = () => {
                 {isAcceptingBets ? 'Betting Open' : 'Betting Closed'}
               </p>
               <p className="text-xs font-medium px-2 py-1 rounded-full bg-blue-500/20 text-blue-300 inline-block">
-                {currentModeConfig?.name || 'Quick'} Mode
+                {currentModeConfig?.name || 'Quick'} ({currentModeConfig?.duration || 60}s)
               </p>
             </div>
           </div>

@@ -28,12 +28,12 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     set({ isLoading: true });
     
     try {
-      // Set timeout to prevent infinite loading - reduced to 5 seconds
+      // Set timeout to prevent infinite loading
       const timeout = setTimeout(() => {
         console.log('Game initialization timeout');
         set({ isLoading: false });
         isInitializing = false;
-      }, 5000);
+      }, 8000);
 
       // First clean up old active games in database
       await GameInitializationService.cleanupOldGames();
@@ -42,12 +42,13 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       const gameHistory = await GameService.loadGameHistory();
       set({ gameHistory });
 
-      // Try to load or create active game
+      // Try to load or create active game with current game mode
       let activeGame = await GameService.loadActiveGame();
       
       if (!activeGame) {
         console.log('No active game found, creating new game...');
-        await GameInitializationService.createDemoGameIfNeeded();
+        const currentGameMode = get().currentGameMode;
+        await GameInitializationService.createDemoGameIfNeeded(currentGameMode);
         activeGame = await GameService.loadActiveGame();
       }
 
@@ -82,7 +83,8 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
 
   createDemoGameIfNeeded: async () => {
     try {
-      await GameInitializationService.createDemoGameIfNeeded();
+      const currentGameMode = get().currentGameMode;
+      await GameInitializationService.createDemoGameIfNeeded(currentGameMode);
     } catch (error) {
       console.error('Error creating demo game:', error);
     }
@@ -117,7 +119,16 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
   },
 
   setGameMode: (mode) => {
+    console.log('Setting game mode to:', mode);
     set({ currentGameMode: mode });
+    
+    // If no active game, create new one with selected mode
+    const { currentGame } = get();
+    if (!currentGame) {
+      setTimeout(() => {
+        get().createDemoGameIfNeeded();
+      }, 500);
+    }
   },
 
   loadGameHistory: async () => {
@@ -173,16 +184,23 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     const { currentGame, currentGameMode } = get();
     if (!currentGame) return;
 
-    console.log('Starting game timer for game:', currentGame.game_number);
+    console.log('Starting game timer for game:', currentGame.game_number, 'mode:', currentGameMode);
 
     GameTimerService.startGameTimer(
       currentGame,
-      currentGameMode,
+      currentGame.game_mode || currentGameMode, // Use game's mode, fallback to selected mode
       (timeRemaining, isAcceptingBets) => {
         set({ timeRemaining, isAcceptingBets });
       },
-      () => {
-        console.log('Game ended, creating new game...');
+      async () => {
+        console.log('Game ended, completing and creating new game...');
+        
+        // Complete the current game first
+        if (currentGame) {
+          await GameInitializationService.completeExpiredGame(currentGame.id);
+        }
+        
+        // Wait a bit then create new game
         setTimeout(() => {
           get().createDemoGameIfNeeded().then(() => {
             get().loadCurrentData();

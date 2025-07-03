@@ -18,7 +18,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { action, gameMode = 'quick' } = await req.json()
+    const requestBody = await req.json()
+    const { action, gameMode = 'quick', gameId } = requestBody
 
     if (action === 'start_game') {
       // Generate game number
@@ -58,6 +59,8 @@ serve(async (req) => {
 
       if (error) throw error
 
+      console.log(`Created new ${gameMode} game #${gameNumber} (${duration}s)`)
+
       return new Response(
         JSON.stringify({ success: true, game }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -65,12 +68,18 @@ serve(async (req) => {
     }
 
     if (action === 'complete_game') {
-      const { gameId } = await req.json()
+      if (!gameId) {
+        throw new Error('Game ID is required for completing game')
+      }
+      
+      console.log('Completing game:', gameId)
       
       // Generate random result
       const colors = ['red', 'green', 'purple-red']
       const resultColor = colors[Math.floor(Math.random() * colors.length)]
       const resultNumber = Math.floor(Math.random() * 10)
+
+      console.log('Generated result:', { resultColor, resultNumber })
 
       // Update game with result
       const { error: updateError } = await supabaseClient
@@ -82,15 +91,29 @@ serve(async (req) => {
         })
         .eq('id', gameId)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Error updating game:', updateError)
+        throw updateError
+      }
 
       // Process all bets for this game
-      const { data: bets } = await supabaseClient
+      const { data: bets, error: betsError } = await supabaseClient
         .from('bets')
         .select('*')
         .eq('game_id', gameId)
 
-      if (bets) {
+      if (betsError) {
+        console.error('Error loading bets:', betsError)
+        throw betsError
+      }
+
+      console.log(`Processing ${bets?.length || 0} bets for game ${gameId}`)
+
+      if (bets && bets.length > 0) {
+        const betUpdates = []
+        const balanceUpdates = []
+        const transactions = []
+
         for (const bet of bets) {
           let isWinner = false
           let actualWin = 0
@@ -104,47 +127,75 @@ serve(async (req) => {
             actualWin = bet.potential_win
           }
 
-          // Update bet result
-          await supabaseClient
-            .from('bets')
-            .update({
-              is_winner: isWinner,
-              actual_win: actualWin
-            })
-            .eq('id', bet.id)
+          console.log(`Bet ${bet.id}: ${bet.bet_type} ${bet.bet_value} - ${isWinner ? 'WON' : 'LOST'} ${actualWin}`)
 
-          // Update user balance if won
-          if (isWinner) {
-            const { data: user } = await supabaseClient
+          // Prepare bet update
+          betUpdates.push({
+            id: bet.id,
+            is_winner: isWinner,
+            actual_win: actualWin
+          })
+
+          // If user won, prepare balance update and transaction
+          if (isWinner && actualWin > 0) {
+            const { data: user, error: userError } = await supabaseClient
               .from('users')
               .select('balance')
               .eq('id', bet.user_id)
               .single()
 
-            if (user) {
-              await supabaseClient
-                .from('users')
-                .update({ balance: user.balance + actualWin })
-                .eq('id', bet.user_id)
+            if (!userError && user) {
+              const newBalance = (user.balance || 0) + actualWin
+              
+              balanceUpdates.push({
+                userId: bet.user_id,
+                newBalance: newBalance
+              })
 
-              // Add win transaction
-              await supabaseClient
-                .from('transactions')
-                .insert({
-                  user_id: bet.user_id,
-                  type: 'win',
-                  amount: actualWin,
-                  description: `Game #${gameId} win`
-                })
+              transactions.push({
+                user_id: bet.user_id,
+                type: 'win',
+                amount: actualWin,
+                description: `Win from Game #${gameId} - ${bet.bet_type}: ${bet.bet_value}`
+              })
             }
           }
         }
+
+        // Update all bets
+        for (const betUpdate of betUpdates) {
+          await supabaseClient
+            .from('bets')
+            .update({
+              is_winner: betUpdate.is_winner,
+              actual_win: betUpdate.actual_win
+            })
+            .eq('id', betUpdate.id)
+        }
+
+        // Update user balances
+        for (const balanceUpdate of balanceUpdates) {
+          await supabaseClient
+            .from('users')
+            .update({ balance: balanceUpdate.newBalance })
+            .eq('id', balanceUpdate.userId)
+        }
+
+        // Add win transactions
+        if (transactions.length > 0) {
+          await supabaseClient
+            .from('transactions')
+            .insert(transactions)
+        }
+
+        console.log(`Processed game completion: ${betUpdates.length} bets, ${balanceUpdates.length} winners`)
       }
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          result: { color: resultColor, number: resultNumber }
+          result: { color: resultColor, number: resultNumber },
+          processedBets: bets?.length || 0
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -156,6 +207,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
+    console.error('Game manager error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

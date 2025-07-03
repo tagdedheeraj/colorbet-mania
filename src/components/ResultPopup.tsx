@@ -1,28 +1,162 @@
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import useSupabaseGameStore from '@/store/supabaseGameStore';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from "sonner";
 
+interface ResultState {
+  show: boolean;
+  isWin: boolean;
+  amount: number;
+  message: string;
+  bets: any[];
+}
+
 const ResultPopup = () => {
-  const { currentBets } = useSupabaseGameStore();
+  const { currentBets, gameHistory } = useSupabaseGameStore();
+  const { user } = useSupabaseAuthStore();
   const isMobile = useIsMobile();
-  
-  // For now, we'll show toast notifications for bet results
-  // This can be enhanced later with a proper popup system
+  const [resultState, setResultState] = useState<ResultState>({
+    show: false,
+    isWin: false,
+    amount: 0,
+    message: '',
+    bets: []
+  });
+  const [processedGames, setProcessedGames] = useState<Set<string>>(new Set());
+
   useEffect(() => {
-    const recentWins = currentBets.filter(bet => bet.is_winner && bet.actual_win);
-    if (recentWins.length > 0) {
-      const totalWin = recentWins.reduce((sum, bet) => sum + (bet.actual_win || 0), 0);
-      toast.success(`You won ${totalWin.toFixed(2)} coins!`, {
-        description: `${recentWins.length} winning bet${recentWins.length > 1 ? 's' : ''}`,
-        duration: 5000,
-      });
+    if (!user || !gameHistory.length) return;
+
+    // Check for newly completed games with results
+    const completedGamesWithResults = gameHistory.filter(game => 
+      game.status === 'completed' && 
+      game.result_color && 
+      game.result_number !== null &&
+      !processedGames.has(game.id)
+    );
+
+    if (completedGamesWithResults.length > 0) {
+      const latestGame = completedGamesWithResults[0];
+      
+      // Find user bets for this game
+      const gameBets = currentBets.filter(bet => bet.game_id === latestGame.id);
+      
+      if (gameBets.length > 0) {
+        const winningBets = gameBets.filter(bet => bet.is_winner === true);
+        const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.actual_win || 0), 0);
+        const totalBetAmount = gameBets.reduce((sum, bet) => sum + bet.amount, 0);
+        
+        if (winningBets.length > 0) {
+          // User won
+          setResultState({
+            show: true,
+            isWin: true,
+            amount: totalWinAmount,
+            message: `Congratulations! You won ${totalWinAmount.toFixed(2)} coins!`,
+            bets: winningBets
+          });
+          
+          toast.success(`🎉 You won ${totalWinAmount.toFixed(2)} coins!`, {
+            description: `${winningBets.length} winning bet${winningBets.length > 1 ? 's' : ''} on Game #${latestGame.game_number}`,
+            duration: 5000,
+          });
+        } else {
+          // User lost
+          setResultState({
+            show: true,
+            isWin: false,
+            amount: totalBetAmount,
+            message: `You lost ${totalBetAmount.toFixed(2)} coins. Better luck next time!`,
+            bets: gameBets
+          });
+          
+          toast.error(`😔 You lost ${totalBetAmount.toFixed(2)} coins`, {
+            description: `No winning bets on Game #${latestGame.game_number}`,
+            duration: 4000,
+          });
+        }
+        
+        // Mark this game as processed
+        setProcessedGames(prev => new Set(prev).add(latestGame.id));
+        
+        // Hide popup after 5 seconds
+        setTimeout(() => {
+          setResultState(prev => ({ ...prev, show: false }));
+        }, 5000);
+      }
     }
-  }, [currentBets]);
-  
-  return null; // For now, we're using toast notifications instead of popup
+  }, [gameHistory, currentBets, user, processedGames]);
+
+  const handleClose = () => {
+    setResultState(prev => ({ ...prev, show: false }));
+  };
+
+  return (
+    <AnimatePresence>
+      {resultState.show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={handleClose}
+        >
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            className={`bg-white rounded-xl p-6 max-w-md w-full mx-4 ${
+              resultState.isWin ? 'border-2 border-green-500' : 'border-2 border-red-500'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className={`text-6xl mb-4 ${resultState.isWin ? 'text-green-500' : 'text-red-500'}`}>
+                {resultState.isWin ? '🎉' : '😔'}
+              </div>
+              
+              <h2 className={`text-2xl font-bold mb-2 ${
+                resultState.isWin ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {resultState.isWin ? 'You Won!' : 'You Lost!'}
+              </h2>
+              
+              <p className="text-gray-700 mb-4">{resultState.message}</p>
+              
+              <div className="bg-gray-100 rounded-lg p-4 mb-4">
+                <h3 className="font-semibold mb-2">Your Bets:</h3>
+                {resultState.bets.map((bet, index) => (
+                  <div key={bet.id} className="flex justify-between items-center py-1">
+                    <span className="text-sm">
+                      {bet.bet_type === 'color' ? 
+                        `Color: ${bet.bet_value}` : 
+                        `Number: ${bet.bet_value}`
+                      }
+                    </span>
+                    <span className={`text-sm font-medium ${
+                      bet.is_winner ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {bet.is_winner ? `+${bet.actual_win}` : `-${bet.amount}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              <button
+                onClick={handleClose}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 };
 
 export default ResultPopup;

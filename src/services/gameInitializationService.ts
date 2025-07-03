@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { GameService } from './gameService';
 import { GameRealtimeService } from './gameRealtimeService';
+import { GAME_MODES } from '@/config/gameModes';
 
 export class GameInitializationService {
   static async cleanupOldGames(): Promise<void> {
@@ -43,7 +44,7 @@ export class GameInitializationService {
     }
   }
 
-  static async createDemoGameIfNeeded(): Promise<void> {
+  static async createDemoGameIfNeeded(gameMode: string = 'quick'): Promise<void> {
     try {
       console.log('Checking for active games...');
       
@@ -68,21 +69,21 @@ export class GameInitializationService {
         if (timeRemaining > 0) {
           needsNewGame = false;
         } else {
-          // Mark expired game as completed
-          await supabase
-            .from('games')
-            .update({ status: 'completed' })
-            .eq('id', activeGame.id);
-          console.log('Marked expired game as completed:', activeGame.game_number);
+          // Mark expired game as completed and process results
+          await this.completeExpiredGame(activeGame.id);
         }
       }
 
       if (needsNewGame) {
-        console.log('Creating new demo game...');
+        console.log('Creating new demo game with mode:', gameMode);
+        
+        // Get duration from game mode config
+        const modeConfig = GAME_MODES.find(mode => mode.id === gameMode);
+        const duration = modeConfig ? modeConfig.duration : 60; // fallback to 60 seconds
         
         const gameNumber = Math.floor(Math.random() * 10000) + 1000;
         const startTime = new Date();
-        const endTime = new Date(startTime.getTime() + 60000); // 60 seconds
+        const endTime = new Date(startTime.getTime() + duration * 1000);
 
         const { data: newGame, error: createError } = await supabase
           .from('games')
@@ -91,7 +92,7 @@ export class GameInitializationService {
             start_time: startTime.toISOString(),
             end_time: endTime.toISOString(),
             status: 'active',
-            game_mode: 'quick'
+            game_mode: gameMode
           })
           .select()
           .single();
@@ -99,11 +100,30 @@ export class GameInitializationService {
         if (createError) {
           console.error('Error creating demo game:', createError);
         } else {
-          console.log('Demo game created successfully:', gameNumber);
+          console.log(`Demo game created successfully: ${gameNumber} (${duration}s, ${gameMode} mode)`);
         }
       }
     } catch (error) {
       console.error('Error in createDemoGameIfNeeded:', error);
+    }
+  }
+
+  static async completeExpiredGame(gameId: string): Promise<void> {
+    try {
+      console.log('Completing expired game:', gameId);
+      
+      // Call game-manager edge function to complete the game
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { action: 'complete_game', gameId }
+      });
+
+      if (error) {
+        console.error('Error completing game:', error);
+      } else {
+        console.log('Game completed successfully:', data);
+      }
+    } catch (error) {
+      console.error('Error in completeExpiredGame:', error);
     }
   }
 
