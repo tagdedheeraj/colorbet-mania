@@ -1,149 +1,118 @@
 
-import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChevronDown, Plus, UserRound, LogOut, Settings, Coins, Info } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  DropdownMenuSeparator 
+} from '@/components/ui/dropdown-menu';
+import { User, Settings, LogOut, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
-import NotificationCenter from './NotificationCenter';
-import { toast } from "sonner";
-import { useIsMobile } from '@/hooks/use-mobile';
+import { AdminService } from '@/services/adminService';
 
-const Header = () => {
-  const [showBackground, setShowBackground] = useState(false);
-  const { user, profile, isAuthenticated, signOut } = useSupabaseAuthStore();
-  const location = useLocation();
-  const isMobile = useIsMobile();
-  
+const Header: React.FC = () => {
+  const { user, profile, signOut, isAuthenticated } = useSupabaseAuthStore();
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
   useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 0) {
-        setShowBackground(true);
-      } else {
-        setShowBackground(false);
-      }
-    };
-    
-    window.addEventListener('scroll', handleScroll);
-    handleScroll(); // Check initial scroll position
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
-  
-  const handleLogout = () => {
-    signOut();
-  };
-  
-  const handleAddFunds = () => {
-    // For demo purposes, just add funds directly
-    if (isAuthenticated) {
-      // Show toast notification for demonstration purposes
-      toast.success("Demo mode: 100 coins added to your account");
-      
-      // Simulate adding funds
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-    } else {
-      toast.error("You need to login first");
+    if (user) {
+      checkAdminStatus();
+    }
+  }, [user]);
+
+  const checkAdminStatus = async () => {
+    if (user) {
+      const adminStatus = await AdminService.isAdmin(user.id);
+      setIsAdmin(adminStatus);
     }
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  const formatBalance = (balance: number) => {
+    return balance.toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+  };
+
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${showBackground ? 'bg-background/80 backdrop-blur-md border-b border-border/40' : ''}`}>
-      <div className="container mx-auto flex items-center justify-between py-3 px-4">
-        <Link to="/" className="flex items-center">
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-            Trade Hue
-          </span>
-        </Link>
-        
-        <div className="flex items-center gap-2 sm:gap-4">
-          {!isMobile && (
-            <Link to="/about">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <Info className="h-4 w-4" />
-                <span>About</span>
-              </Button>
-            </Link>
-          )}
-          
+    <header className="glass-panel sticky top-0 z-50 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center">
+            <span className="text-white font-bold text-sm">G</span>
+          </div>
+          <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Game Hub
+          </h1>
+        </div>
+
+        <div className="flex items-center space-x-4">
           {isAuthenticated && profile && (
-            <>
-              <div className="flex items-center">
-                <Coins className="h-4 w-4 mr-1 text-game-gold" />
-                <span className="text-sm font-medium">{profile.balance?.toFixed(2) || '0.00'}</span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="bg-primary/10 hover:bg-primary/20 text-primary"
-                onClick={handleAddFunds}
-              >
-                <Plus className="h-4 w-4 mr-1" /> Add
-              </Button>
-            </>
-          )}
-          
-          {!isAuthenticated && (
-            <Link to="/auth">
-              <Button size="sm">Login</Button>
-            </Link>
-          )}
-          
-          {isAuthenticated && profile && (
-            <>
-              <NotificationCenter />
+            <div className="flex items-center space-x-3">
+              <Badge variant="secondary" className="bg-primary/10 text-primary">
+                {formatBalance(profile.balance)} coins
+              </Badge>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2 p-1">
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={`https://avatar.vercel.sh/${profile.username}`} />
-                      <AvatarFallback>{profile.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {profile.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                      </AvatarFallback>
                     </Avatar>
-                    {!isMobile && (
-                      <>
-                        <span className="text-sm font-medium max-w-[80px] truncate">{profile.username}</span>
-                        <ChevronDown className="h-4 w-4 opacity-50" />
-                      </>
-                    )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile" className="flex items-center cursor-pointer">
-                      <UserRound className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </Link>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium text-sm">
+                        {profile.full_name || 'User'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {user?.email}
+                      </p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/wallet" className="flex items-center cursor-pointer">
-                      <Coins className="mr-2 h-4 w-4" />
-                      <span>Wallet</span>
-                    </Link>
+                  <DropdownMenuItem onClick={() => navigate('/wallet')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Wallet</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/referral" className="flex items-center cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Refer & Earn</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate('/admin')}>
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Admin Panel</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Logout</span>
+                    <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </>
+            </div>
+          )}
+
+          {!isAuthenticated && (
+            <Button onClick={() => navigate('/auth')}>
+              Sign In
+            </Button>
           )}
         </div>
       </div>

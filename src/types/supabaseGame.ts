@@ -1,4 +1,3 @@
-
 import { GAME_MODES } from '@/config/gameModes';
 
 export type ColorType = 'red' | 'green' | 'purple-red';
@@ -44,20 +43,25 @@ export interface GameState {
   gameHistory: SupabaseGame[];
   currentBets: SupabaseBet[];
   betAmount: number;
-  currentGameMode: string;
-  gameModesConfig: typeof GAME_MODES;
+  currentGameMode: GameMode;
+  gameModesConfig: GameModeConfig[];
   isLoading: boolean;
+  showResultPopup?: boolean;
+  lastCompletedGame?: SupabaseGame | null;
+  userGameResults?: any[];
 
   // Actions
   initialize: () => Promise<void>;
   createDemoGameIfNeeded: () => Promise<void>;
   placeBet: (type: 'color' | 'number', value: string) => Promise<boolean>;
   setBetAmount: (amount: number) => void;
-  setGameMode: (mode: string) => void;
+  setGameMode: (mode: GameMode) => void;
   loadGameHistory: () => Promise<void>;
   loadCurrentBets: () => Promise<void>;
+  loadUserGameResults?: (userId: string) => Promise<void>;
   loadCurrentData: () => Promise<void>;
   startGameTimer: () => void;
+  closeResultPopup?: () => void;
 }
 
 export interface SupabaseGame {

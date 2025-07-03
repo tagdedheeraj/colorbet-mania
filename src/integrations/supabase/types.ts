@@ -9,6 +9,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_logs: {
+        Row: {
+          action: string
+          admin_user_id: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_logs_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bets: {
         Row: {
           actual_win: number | null
@@ -192,6 +230,7 @@ export type Database = {
           id: string
           referral_code: string | null
           referred_by: string | null
+          role: string | null
           updated_at: string | null
           username: string
         }
@@ -202,6 +241,7 @@ export type Database = {
           id?: string
           referral_code?: string | null
           referred_by?: string | null
+          role?: string | null
           updated_at?: string | null
           username: string
         }
@@ -212,6 +252,7 @@ export type Database = {
           id?: string
           referral_code?: string | null
           referred_by?: string | null
+          role?: string | null
           updated_at?: string | null
           username?: string
         }

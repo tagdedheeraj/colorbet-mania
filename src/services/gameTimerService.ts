@@ -39,10 +39,8 @@ export class GameTimerService {
         console.log('Game ended, clearing timer and triggering completion');
         this.clearTimer(currentGame.id);
         
-        // Call onGameEnd which should handle the completion
-        setTimeout(() => {
-          onGameEnd();
-        }, 100); // Small delay to ensure state is updated
+        // Call the game completion handler
+        onGameEnd();
       }
     };
 

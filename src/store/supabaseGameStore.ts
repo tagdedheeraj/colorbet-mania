@@ -4,8 +4,10 @@ import { GameState } from '@/types/supabaseGame';
 import { GameService } from '@/services/gameService';
 import { GameInitializationService } from '@/services/gameInitializationService';
 import { BetManagementService } from '@/services/betManagementService';
+import { BetHistoryService } from '@/services/betHistoryService';
 import { GameTimerService } from '@/services/gameTimerService';
 import { GAME_MODES } from '@/config/gameModes';
+import { toast } from 'sonner';
 
 let isInitializing = false;
 
@@ -19,6 +21,9 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
   currentGameMode: 'quick',
   gameModesConfig: GAME_MODES,
   isLoading: false,
+  showResultPopup: false,
+  lastCompletedGame: null,
+  userGameResults: [],
 
   initialize: async () => {
     if (isInitializing) return;
@@ -156,6 +161,15 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  loadUserGameResults: async (userId: string) => {
+    try {
+      const userGameResults = await BetHistoryService.loadAllUserBets(userId);
+      set({ userGameResults });
+    } catch (error) {
+      console.error('Error loading user game results:', error);
+    }
+  },
+
   loadCurrentData: async () => {
     try {
       console.log('Loading current data...');
@@ -201,7 +215,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         set({ timeRemaining, isAcceptingBets });
       },
       async () => {
-        console.log('Game timer ended, completing game and creating new one...');
+        console.log('Game timer ended, completing game and showing results...');
         
         const { currentGame: gameToComplete } = get();
         if (gameToComplete) {
@@ -209,8 +223,21 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
             // Complete the current game
             await GameInitializationService.completeExpiredGame(gameToComplete.id);
             
-            // Wait a moment for the edge function to process
+            // Wait for the edge function to process
             setTimeout(async () => {
+              // Get the completed game details
+              const completedGame = await BetHistoryService.getLatestCompletedGame();
+              
+              if (completedGame) {
+                set({ 
+                  lastCompletedGame: completedGame,
+                  showResultPopup: true 
+                });
+                
+                // Show result toast
+                toast.success(`Game ${completedGame.game_number} completed! Result: ${completedGame.result_color} ${completedGame.result_number}`);
+              }
+              
               // Refresh all data to get the completed game and results
               await get().loadCurrentData();
               
@@ -230,6 +257,10 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         }
       }
     );
+  },
+
+  closeResultPopup: () => {
+    set({ showResultPopup: false, lastCompletedGame: null });
   }
 }));
 
