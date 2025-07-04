@@ -13,7 +13,7 @@ export class BetManagementService {
   ): Promise<boolean> {
     console.log('Attempting to place bet:', {
       gameId: currentGame?.id,
-      gameNumber: currentGame?.game_number,
+      gameNumber: currentGame?.period_number,
       betAmount,
       type,
       value
@@ -34,7 +34,7 @@ export class BetManagementService {
       }
 
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('balance')
         .eq('id', session.user.id)
         .single();
@@ -58,7 +58,7 @@ export class BetManagementService {
         value,
         betAmount,
         userProfile.balance || 0,
-        currentGame.game_number
+        currentGame.period_number
       );
 
       return success;

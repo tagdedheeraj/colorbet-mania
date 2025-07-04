@@ -1,180 +1,69 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { GameService } from './gameService';
-import { GameRealtimeService } from './gameRealtimeService';
-import { GAME_MODES } from '@/config/gameModes';
 
 export class GameInitializationService {
-  static async cleanupOldGames(): Promise<void> {
+  static async initializeGame() {
     try {
-      console.log('Cleaning up old active games...');
+      console.log('Initializing game...');
       
-      // Mark all old active games as completed
-      const { data: oldGames, error: fetchError } = await supabase
-        .from('games')
-        .select('id, end_time, game_number')
-        .eq('status', 'active');
-
-      if (fetchError) {
-        console.error('Error fetching old games:', fetchError);
-        return;
-      }
-
-      if (oldGames && oldGames.length > 0) {
-        const now = new Date();
-        const expiredGames = oldGames.filter(game => 
-          new Date(game.end_time) < now
-        );
-
-        if (expiredGames.length > 0) {
-          console.log(`Found ${expiredGames.length} expired games to complete`);
-          
-          // Complete each expired game through the edge function
-          for (const game of expiredGames) {
-            try {
-              console.log(`Completing expired game: ${game.game_number} (${game.id})`);
-              await this.completeExpiredGame(game.id);
-            } catch (error) {
-              console.error(`Error completing game ${game.id}:`, error);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error in cleanupOldGames:', error);
-    }
-  }
-
-  static async createDemoGameIfNeeded(gameMode: string = 'quick'): Promise<void> {
-    try {
-      console.log('Checking for active games with mode:', gameMode);
-      
-      const { data: activeGames, error } = await supabase
-        .from('games')
-        .select('id, end_time, status, game_number, game_mode')
+      // Check for active games in game_periods table
+      const { data: activeGames, error: activeError } = await supabase
+        .from('game_periods')
+        .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1);
 
-      if (error) {
-        console.error('Error checking for active games:', error);
-        return;
+      if (activeError) {
+        console.error('Error checking active games:', activeError);
+        return null;
       }
 
-      let needsNewGame = true;
+      // If there's an active game, check if it's expired
       if (activeGames && activeGames.length > 0) {
         const activeGame = activeGames[0];
-        const timeRemaining = GameService.calculateTimeRemaining(activeGame.end_time);
-        console.log(`Active game ${activeGame.game_number} has ${timeRemaining}s remaining`);
+        const now = new Date();
+        const endTime = new Date(activeGame.end_time || now);
         
-        if (timeRemaining > 0) {
-          needsNewGame = false;
-        } else {
-          // Mark expired game as completed and process results
-          console.log('Active game has expired, completing it...');
-          await this.completeExpiredGame(activeGame.id);
+        if (endTime > now) {
+          console.log('Found active game:', activeGame.period_number, 'ending at:', endTime);
+          return {
+            id: activeGame.id,
+            period_number: activeGame.period_number,
+            end_time: activeGame.end_time,
+            status: activeGame.status,
+            created_at: activeGame.created_at
+          };
         }
       }
 
-      if (needsNewGame) {
-        console.log('Creating new game with mode:', gameMode);
-        
-        // Get duration from game mode config
-        const modeConfig = GAME_MODES.find(mode => mode.id === gameMode);
-        const duration = modeConfig ? modeConfig.duration : 60;
-        
-        const gameNumber = Math.floor(Math.random() * 10000) + 1000;
-        const startTime = new Date();
-        const endTime = new Date(startTime.getTime() + duration * 1000);
-
-        const { data: newGame, error: createError } = await supabase
-          .from('games')
-          .insert({
-            game_number: gameNumber,
-            start_time: startTime.toISOString(),
-            end_time: endTime.toISOString(),
-            status: 'active',
-            game_mode: gameMode
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating demo game:', createError);
-        } else {
-          console.log(`New ${gameMode} game created: #${gameNumber} (${duration}s)`);
-        }
-      }
+      console.log('No active game found, would need to create one');
+      return null;
     } catch (error) {
-      console.error('Error in createDemoGameIfNeeded:', error);
+      console.error('Game initialization error:', error);
+      return null;
     }
   }
 
-  static async completeExpiredGame(gameId: string): Promise<void> {
+  static async getCurrentGame() {
     try {
-      console.log('Completing expired game:', gameId);
-      
-      // Call game-manager edge function to complete the game
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'complete_game', gameId }
-      });
+      const { data: games, error } = await supabase
+        .from('game_periods')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (error) {
-        console.error('Error completing game via edge function:', error);
-        
-        // Fallback: Mark as completed directly if edge function fails
-        await supabase
-          .from('games')
-          .update({ status: 'completed' })
-          .eq('id', gameId);
-        
-        console.log('Game marked as completed (fallback)');
-      } else {
-        console.log('Game completed successfully via edge function:', data);
+        console.error('Error fetching current game:', error);
+        return null;
       }
-    } catch (error) {
-      console.error('Error in completeExpiredGame:', error);
-    }
-  }
 
-  static async loadInitialData() {
-    try {
-      console.log('Loading initial game data...');
-      const activeGame = await GameService.loadActiveGame();
-      const gameHistory = await GameService.loadGameHistory();
-      
-      console.log('Initial data loaded:', {
-        activeGame: activeGame ? `Game #${activeGame.game_number}` : 'None',
-        historyCount: gameHistory.length
-      });
-      
-      return { activeGame, gameHistory };
+      return games;
     } catch (error) {
-      console.error('Error loading initial data:', error);
-      return { activeGame: null, gameHistory: [] };
-    }
-  }
-
-  static setupRealtimeSubscriptions(
-    onGameUpdate: () => void,
-    onBetUpdate: () => void
-  ) {
-    try {
-      const realtimeService = GameRealtimeService.getInstance();
-      
-      realtimeService.setupGameSubscription(() => {
-        console.log('Game update received, refreshing data...');
-        setTimeout(() => {
-          onGameUpdate();
-        }, 500); // Small delay to ensure data is consistent
-      });
-
-      realtimeService.setupBetSubscription(() => {
-        console.log('Bet update received, refreshing bets...');
-        onBetUpdate();
-      });
-    } catch (error) {
-      console.error('Error setting up realtime subscriptions:', error);
+      console.error('Error getting current game:', error);
+      return null;
     }
   }
 }
