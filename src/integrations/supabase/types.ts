@@ -9,323 +9,140 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      admin_accounts: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          full_name: string | null
-          id: string
-          is_active: boolean | null
-          last_login: string | null
-          password_hash: string
-          updated_at: string | null
-          username: string
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          is_active?: boolean | null
-          last_login?: string | null
-          password_hash: string
-          updated_at?: string | null
-          username: string
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          is_active?: boolean | null
-          last_login?: string | null
-          password_hash?: string
-          updated_at?: string | null
-          username?: string
-        }
-        Relationships: []
-      }
-      admin_logs: {
-        Row: {
-          action: string
-          admin_user_id: string
-          created_at: string | null
-          details: Json | null
-          id: string
-          target_id: string | null
-          target_type: string | null
-        }
-        Insert: {
-          action: string
-          admin_user_id: string
-          created_at?: string | null
-          details?: Json | null
-          id?: string
-          target_id?: string | null
-          target_type?: string | null
-        }
-        Update: {
-          action?: string
-          admin_user_id?: string
-          created_at?: string | null
-          details?: Json | null
-          id?: string
-          target_id?: string | null
-          target_type?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "admin_logs_admin_user_id_fkey"
-            columns: ["admin_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      admin_sessions: {
-        Row: {
-          admin_id: string | null
-          created_at: string | null
-          expires_at: string
-          id: string
-          last_accessed: string | null
-          session_token: string
-        }
-        Insert: {
-          admin_id?: string | null
-          created_at?: string | null
-          expires_at: string
-          id?: string
-          last_accessed?: string | null
-          session_token: string
-        }
-        Update: {
-          admin_id?: string | null
-          created_at?: string | null
-          expires_at?: string
-          id?: string
-          last_accessed?: string | null
-          session_token?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "admin_sessions_admin_id_fkey"
-            columns: ["admin_id"]
-            isOneToOne: false
-            referencedRelation: "admin_accounts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       bets: {
         Row: {
-          actual_win: number | null
           amount: number
           bet_type: string
           bet_value: string
           created_at: string | null
-          game_id: string | null
           id: string
-          is_winner: boolean | null
-          potential_win: number
-          user_id: string | null
+          period_number: number
+          profit: number | null
+          status: string | null
+          user_id: string
         }
         Insert: {
-          actual_win?: number | null
           amount: number
           bet_type: string
           bet_value: string
           created_at?: string | null
-          game_id?: string | null
           id?: string
-          is_winner?: boolean | null
-          potential_win: number
-          user_id?: string | null
+          period_number: number
+          profit?: number | null
+          status?: string | null
+          user_id: string
         }
         Update: {
-          actual_win?: number | null
           amount?: number
           bet_type?: string
           bet_value?: string
           created_at?: string | null
-          game_id?: string | null
           id?: string
-          is_winner?: boolean | null
-          potential_win?: number
-          user_id?: string | null
+          period_number?: number
+          profit?: number | null
+          status?: string | null
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "bets_game_id_fkey"
-            columns: ["game_id"]
+            foreignKeyName: "bets_period_number_fkey"
+            columns: ["period_number"]
             isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bets_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
+            referencedRelation: "game_periods"
+            referencedColumns: ["period_number"]
           },
         ]
       }
-      games: {
+      game_periods: {
         Row: {
           created_at: string | null
-          end_time: string
-          game_mode: string | null
-          game_number: number
+          end_time: string | null
           id: string
+          period_number: number
           result_color: string | null
           result_number: number | null
-          start_time: string
+          start_time: string | null
           status: string | null
         }
         Insert: {
           created_at?: string | null
-          end_time: string
-          game_mode?: string | null
-          game_number: number
+          end_time?: string | null
           id?: string
+          period_number: number
           result_color?: string | null
           result_number?: number | null
-          start_time: string
+          start_time?: string | null
           status?: string | null
         }
         Update: {
           created_at?: string | null
-          end_time?: string
-          game_mode?: string | null
-          game_number?: number
+          end_time?: string | null
           id?: string
+          period_number?: number
           result_color?: string | null
           result_number?: number | null
-          start_time?: string
+          start_time?: string | null
           status?: string | null
         }
         Relationships: []
       }
       profiles: {
         Row: {
-          avatar_url: string | null
+          balance: number | null
           created_at: string | null
-          full_name: string | null
+          email: string | null
           id: string
-          phone: string | null
-          preferences: Json | null
           updated_at: string | null
-          user_id: string | null
         }
         Insert: {
-          avatar_url?: string | null
+          balance?: number | null
           created_at?: string | null
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          preferences?: Json | null
+          email?: string | null
+          id: string
           updated_at?: string | null
-          user_id?: string | null
         }
         Update: {
-          avatar_url?: string | null
+          balance?: number | null
           created_at?: string | null
-          full_name?: string | null
+          email?: string | null
           id?: string
-          phone?: string | null
-          preferences?: Json | null
           updated_at?: string | null
-          user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       transactions: {
         Row: {
           amount: number
+          balance_after: number
+          balance_before: number
           created_at: string | null
           description: string | null
           id: string
-          payment_method: string | null
-          status: string | null
-          transaction_reference: string | null
+          reference_id: string | null
           type: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           amount: number
+          balance_after: number
+          balance_before: number
           created_at?: string | null
           description?: string | null
           id?: string
-          payment_method?: string | null
-          status?: string | null
-          transaction_reference?: string | null
+          reference_id?: string | null
           type: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           amount?: number
+          balance_after?: number
+          balance_before?: number
           created_at?: string | null
           description?: string | null
           id?: string
-          payment_method?: string | null
-          status?: string | null
-          transaction_reference?: string | null
+          reference_id?: string | null
           type?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      users: {
-        Row: {
-          balance: number | null
-          created_at: string | null
-          email: string
-          id: string
-          referral_code: string | null
-          referred_by: string | null
-          role: string | null
-          updated_at: string | null
-          username: string
-        }
-        Insert: {
-          balance?: number | null
-          created_at?: string | null
-          email: string
-          id?: string
-          referral_code?: string | null
-          referred_by?: string | null
-          role?: string | null
-          updated_at?: string | null
-          username: string
-        }
-        Update: {
-          balance?: number | null
-          created_at?: string | null
-          email?: string
-          id?: string
-          referral_code?: string | null
-          referred_by?: string | null
-          role?: string | null
-          updated_at?: string | null
-          username?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -334,45 +151,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_admin_account: {
+      update_user_balance: {
         Args: {
-          p_username: string
-          p_password: string
-          p_email?: string
-          p_full_name?: string
+          user_id_param: string
+          amount_param: number
+          transaction_type_param: string
+          reference_id_param?: string
+          description_param?: string
         }
-        Returns: string
-      }
-      create_admin_session: {
-        Args: { p_admin_id: string }
-        Returns: string
-      }
-      generate_referral_code: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      logout_admin_session: {
-        Args: { p_session_token: string }
         Returns: boolean
-      }
-      verify_admin_login: {
-        Args: { p_username: string; p_password: string }
-        Returns: {
-          admin_id: string
-          username: string
-          email: string
-          full_name: string
-          is_active: boolean
-        }[]
-      }
-      verify_admin_session: {
-        Args: { p_session_token: string }
-        Returns: {
-          admin_id: string
-          username: string
-          email: string
-          full_name: string
-        }[]
       }
     }
     Enums: {
