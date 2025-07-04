@@ -258,7 +258,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
                 // Transform completedGame to match SupabaseGame format
                 const formattedCompletedGame = {
                   id: completedGame.id,
-                  game_number: completedGame.period_number || completedGame.game_number,
+                  game_number: completedGame.period_number || (completedGame as any).game_number,
                   result_color: completedGame.result_color,
                   result_number: completedGame.result_number,
                   start_time: completedGame.start_time,
