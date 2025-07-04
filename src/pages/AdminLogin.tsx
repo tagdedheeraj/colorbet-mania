@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Shield, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 
 const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -28,45 +27,20 @@ const AdminLogin: React.FC = () => {
 
     setLoading(true);
     try {
-      // Verify admin login
-      const { data, error } = await supabase.rpc('verify_admin_login', {
-        p_username: formData.username,
-        p_password: formData.password
-      });
+      // Simple demo admin check
+      if (formData.username === 'admin' && formData.password === 'admin123') {
+        // Store admin session in localStorage
+        localStorage.setItem('admin_session', JSON.stringify({
+          isAdmin: true,
+          username: formData.username,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        }));
 
-      if (error) {
-        console.error('Admin login error:', error);
-        toast.error('Login failed. Please check your credentials.');
-        return;
-      }
-
-      if (!data || data.length === 0) {
+        toast.success('Admin login successful');
+        navigate('/admin');
+      } else {
         toast.error('Invalid username or password');
-        return;
       }
-
-      const adminData = data[0];
-      
-      // Create admin session
-      const { data: sessionToken, error: sessionError } = await supabase.rpc('create_admin_session', {
-        p_admin_id: adminData.admin_id
-      });
-
-      if (sessionError) {
-        console.error('Session creation error:', sessionError);
-        toast.error('Failed to create session');
-        return;
-      }
-
-      // Store admin session in localStorage
-      localStorage.setItem('admin_session', JSON.stringify({
-        token: sessionToken,
-        admin: adminData,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-      }));
-
-      toast.success('Admin login successful');
-      navigate('/admin');
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An error occurred during login');

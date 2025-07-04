@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Calendar, Trophy, LogOut, ArrowLeft } from 'lucide-react';
@@ -17,9 +18,7 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [formData, setFormData] = useState({
-    username: '',
-    full_name: '',
-    phone: ''
+    email: ''
   });
 
   useEffect(() => {
@@ -35,25 +34,14 @@ const Profile: React.FC = () => {
 
     setLoading(true);
     try {
-      // Load user data
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) throw userError;
-
       // Load profile data
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .single();
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        throw profileError;
-      }
+      if (profileError) throw profileError;
 
       // Load user stats
       const { data: betsData, error: betsError } = await supabase
@@ -64,8 +52,8 @@ const Profile: React.FC = () => {
       if (betsError) throw betsError;
 
       const totalBets = betsData?.length || 0;
-      const totalWins = betsData?.filter(bet => bet.is_winner).length || 0;
-      const totalWinnings = betsData?.filter(bet => bet.is_winner).reduce((sum, bet) => sum + (bet.actual_win || 0), 0) || 0;
+      const totalWins = betsData?.filter(bet => bet.profit && bet.profit > 0).length || 0;
+      const totalWinnings = betsData?.filter(bet => bet.profit && bet.profit > 0).reduce((sum, bet) => sum + (bet.profit || 0), 0) || 0;
 
       setProfile(profileData);
       setUserStats({
@@ -76,9 +64,7 @@ const Profile: React.FC = () => {
       });
 
       setFormData({
-        username: userData?.username || '',
-        full_name: profileData?.full_name || '',
-        phone: profileData?.phone || ''
+        email: profileData?.email || user.email || ''
       });
     } catch (error) {
       console.error('Error loading profile data:', error);
@@ -94,22 +80,13 @@ const Profile: React.FC = () => {
 
     setUpdating(true);
     try {
-      // Update username in users table
-      const { error: userError } = await supabase
-        .from('users')
-        .update({ username: formData.username })
-        .eq('id', user.id);
-
-      if (userError) throw userError;
-
-      // Update or create profile
+      // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert({
-          user_id: user.id,
-          full_name: formData.full_name,
-          phone: formData.phone
-        });
+        .update({
+          email: formData.email
+        })
+        .eq('id', user.id);
 
       if (profileError) throw profileError;
 
@@ -194,45 +171,20 @@ const Profile: React.FC = () => {
                     <Input
                       id="email"
                       type="email"
-                      value={user?.email || ''}
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="Enter email"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="balance">Current Balance</Label>
+                    <Input
+                      id="balance"
+                      type="text"
+                      value={`${profile?.balance || 0} coins`}
                       disabled
                       className="bg-muted"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Email cannot be changed
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      type="text"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      placeholder="Enter username"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="full_name">Full Name</Label>
-                    <Input
-                      id="full_name"
-                      type="text"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      placeholder="Enter full name"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="Enter phone number"
                     />
                   </div>
 
@@ -286,7 +238,7 @@ const Profile: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Member since:</span>
                   <span className="font-semibold">
-                    {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                    {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">

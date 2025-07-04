@@ -1,15 +1,7 @@
 
-import { supabase } from '@/integrations/supabase/client';
-
 export interface AdminSession {
-  token: string;
-  admin: {
-    admin_id: string;
-    username: string;
-    email: string;
-    full_name: string;
-    is_active: boolean;
-  };
+  isAdmin: boolean;
+  username: string;
   expiresAt: string;
 }
 
@@ -38,39 +30,10 @@ export class AdminAuthService {
 
   static async verifySession(): Promise<boolean> {
     const session = this.getAdminSession();
-    if (!session) return false;
-
-    try {
-      const { data, error } = await supabase.rpc('verify_admin_session', {
-        p_session_token: session.token
-      });
-
-      if (error || !data || data.length === 0) {
-        this.clearSession();
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error verifying admin session:', error);
-      this.clearSession();
-      return false;
-    }
+    return session !== null && session.isAdmin;
   }
 
   static async logout(): Promise<void> {
-    const session = this.getAdminSession();
-    
-    if (session) {
-      try {
-        await supabase.rpc('logout_admin_session', {
-          p_session_token: session.token
-        });
-      } catch (error) {
-        console.error('Error logging out admin session:', error);
-      }
-    }
-
     this.clearSession();
   }
 
@@ -80,11 +43,11 @@ export class AdminAuthService {
 
   static isAdmin(): boolean {
     const session = this.getAdminSession();
-    return session !== null;
+    return session !== null && session.isAdmin;
   }
 
   static getAdminInfo() {
     const session = this.getAdminSession();
-    return session?.admin || null;
+    return session ? { username: session.username } : null;
   }
 }
