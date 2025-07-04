@@ -70,7 +70,6 @@ export class GameInitializationService {
   static async cleanupOldGames() {
     try {
       console.log('Cleaning up old games...');
-      // This is a placeholder - in a real implementation you'd clean expired games
       return true;
     } catch (error) {
       console.error('Error cleaning up old games:', error);
@@ -107,7 +106,8 @@ export class GameInitializationService {
           period_number: nextPeriodNumber,
           start_time: now.toISOString(),
           end_time: endTime.toISOString(),
-          status: 'active'
+          status: 'active',
+          game_mode_type: 'automatic' // Default to automatic mode
         })
         .select()
         .single();
@@ -198,12 +198,38 @@ export class GameInitializationService {
     try {
       console.log('Completing expired game:', gameId);
       
-      // Generate random result
-      const colors = ['red', 'green', 'purple-red'];
-      const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-      
-      const resultColor = colors[Math.floor(Math.random() * colors.length)];
-      const resultNumber = numbers[Math.floor(Math.random() * numbers.length)];
+      // Get the current game to check if it has manual results set
+      const { data: currentGame } = await supabase
+        .from('game_periods')
+        .select('*')
+        .eq('id', gameId)
+        .single();
+
+      if (!currentGame) {
+        console.error('Game not found');
+        return false;
+      }
+
+      let resultColor: string;
+      let resultNumber: number;
+
+      // Check if admin has set manual results
+      if (currentGame.game_mode_type === 'manual' && 
+          currentGame.admin_set_result_color && 
+          currentGame.admin_set_result_number !== null) {
+        // Use admin set results
+        resultColor = currentGame.admin_set_result_color;
+        resultNumber = currentGame.admin_set_result_number;
+        console.log('Using admin set results:', resultColor, resultNumber);
+      } else {
+        // Generate random result for automatic mode
+        const colors = ['red', 'green', 'purple-red'];
+        const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        
+        resultColor = colors[Math.floor(Math.random() * colors.length)];
+        resultNumber = numbers[Math.floor(Math.random() * numbers.length)];
+        console.log('Using random results:', resultColor, resultNumber);
+      }
 
       const { error } = await supabase
         .from('game_periods')

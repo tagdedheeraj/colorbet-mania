@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_logs: {
+        Row: {
+          action: string
+          admin_user_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          ip_address: string | null
+          target_id: string | null
+          target_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          target_id?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          target_id?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       bets: {
         Row: {
           amount: number
@@ -55,9 +91,13 @@ export type Database = {
       }
       game_periods: {
         Row: {
+          admin_set_result_color: string | null
+          admin_set_result_number: number | null
           created_at: string | null
           end_time: string | null
+          game_mode_type: string | null
           id: string
+          is_result_locked: boolean | null
           period_number: number
           result_color: string | null
           result_number: number | null
@@ -65,9 +105,13 @@ export type Database = {
           status: string | null
         }
         Insert: {
+          admin_set_result_color?: string | null
+          admin_set_result_number?: number | null
           created_at?: string | null
           end_time?: string | null
+          game_mode_type?: string | null
           id?: string
+          is_result_locked?: boolean | null
           period_number: number
           result_color?: string | null
           result_number?: number | null
@@ -75,9 +119,13 @@ export type Database = {
           status?: string | null
         }
         Update: {
+          admin_set_result_color?: string | null
+          admin_set_result_number?: number | null
           created_at?: string | null
           end_time?: string | null
+          game_mode_type?: string | null
           id?: string
+          is_result_locked?: boolean | null
           period_number?: number
           result_color?: string | null
           result_number?: number | null

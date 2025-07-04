@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Users, GamepadIcon, DollarSign, Activity, Settings, LogOut, ArrowLeft } from 'lucide-react';
+import { Users, GamepadIcon, DollarSign, Activity, Settings, LogOut, ArrowLeft, MonitorSpeaker } from 'lucide-react';
+import LiveGameManagement from '@/components/admin/LiveGameManagement';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -200,13 +201,29 @@ const Admin: React.FC = () => {
         </div>
 
         {/* Main Content */}
-        <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="live" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="live">Live Game</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="games">Games</TabsTrigger>
             <TabsTrigger value="bets">Bets</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="live" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MonitorSpeaker className="h-5 w-5" />
+                  Live Game Management
+                </CardTitle>
+                <CardDescription>Monitor and control active games in real-time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LiveGameManagement />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="users" className="space-y-4">
             <Card>
@@ -215,7 +232,6 @@ const Admin: React.FC = () => {
                 <CardDescription>Manage user accounts and balances</CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Balance Update Section */}
                 <div className="mb-6 p-4 border rounded-lg">
                   <h3 className="text-lg font-semibold mb-4">Update User Balance</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -251,7 +267,6 @@ const Admin: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Users Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse border border-gray-300">
                     <thead>
