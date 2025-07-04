@@ -7,69 +7,41 @@ export const UserCreationService = {
     try {
       console.log('Creating missing user data for:', user.id);
       
-      // Check if user already exists first
-      const { data: existingUser } = await supabase
-        .from('users')
+      // Check if user profile already exists
+      const { data: existingProfile } = await supabase
+        .from('profiles')
         .select('id')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (existingUser) {
-        console.log('User already exists, skipping creation');
+      if (existingProfile) {
+        console.log('User profile already exists, skipping creation');
         return;
       }
 
-      // Generate unique username
-      let username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
-      let attempts = 0;
-      const maxAttempts = 3;
-      
-      while (attempts < maxAttempts) {
-        try {
-          const finalUsername = attempts === 0 ? username : `${username}${Math.floor(Math.random() * 1000)}`;
-          
-          const { error: userError } = await supabase
-            .from('users')
-            .insert({
-              id: user.id,
-              email: user.email!,
-              username: finalUsername,
-              balance: 1000.00,
-              referral_code: 'REF' + Math.floor(Math.random() * 999999).toString().padStart(6, '0')
-            });
-
-          if (userError) {
-            if (userError.message.includes('duplicate key') && userError.message.includes('username')) {
-              attempts++;
-              continue;
-            }
-            throw userError;
-          }
-          break;
-        } catch (error) {
-          attempts++;
-          if (attempts >= maxAttempts) {
-            throw error;
-          }
-        }
-      }
-
-      // Create profile
+      // Create profile with initial balance
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({ user_id: user.id });
+        .insert({
+          id: user.id,
+          email: user.email,
+          balance: 1000.00
+        });
 
-      if (profileError && !profileError.message.includes('duplicate key')) {
-        console.error('Profile creation error (non-critical):', profileError);
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        throw profileError;
       }
 
-      // Add signup bonus
+      // Add signup bonus transaction
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
           type: 'signup_bonus',
           amount: 1000.00,
+          balance_before: 0,
+          balance_after: 1000.00,
           description: 'Welcome bonus'
         });
 
