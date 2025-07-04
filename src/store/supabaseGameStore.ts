@@ -190,10 +190,23 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         game_mode: 'quick', // Default since not in schema
         created_at: activeGame.created_at || new Date().toISOString()
       } : null;
+
+      // Transform gameHistory to match SupabaseGame format
+      const formattedGameHistory = gameHistory.map((game: any) => ({
+        id: game.id,
+        game_number: game.period_number,
+        result_color: game.result_color,
+        result_number: game.result_number,
+        start_time: game.start_time,
+        end_time: game.end_time,
+        status: game.status || 'completed',
+        game_mode: 'quick', // Default since not in schema
+        created_at: game.created_at || new Date().toISOString()
+      }));
       
       set({ 
         currentGame: formattedActiveGame,
-        gameHistory 
+        gameHistory: formattedGameHistory
       });
 
       if (formattedActiveGame && gameChanged) {
@@ -242,13 +255,26 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
               const completedGame = await BetHistoryService.getLatestCompletedGame();
               
               if (completedGame) {
+                // Transform completedGame to match SupabaseGame format
+                const formattedCompletedGame = {
+                  id: completedGame.id,
+                  game_number: completedGame.period_number || completedGame.game_number,
+                  result_color: completedGame.result_color,
+                  result_number: completedGame.result_number,
+                  start_time: completedGame.start_time,
+                  end_time: completedGame.end_time,
+                  status: completedGame.status || 'completed',
+                  game_mode: 'quick', // Default since not in schema
+                  created_at: completedGame.created_at || new Date().toISOString()
+                };
+
                 set({ 
-                  lastCompletedGame: completedGame,
+                  lastCompletedGame: formattedCompletedGame,
                   showResultPopup: true 
                 });
                 
                 // Show result toast
-                toast.success(`Game ${completedGame.game_number} completed! Result: ${completedGame.result_color} ${completedGame.result_number}`);
+                toast.success(`Game ${formattedCompletedGame.game_number} completed! Result: ${formattedCompletedGame.result_color} ${formattedCompletedGame.result_number}`);
               }
               
               // Refresh all data to get the completed game and results
