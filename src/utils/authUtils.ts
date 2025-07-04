@@ -20,9 +20,9 @@ export const cleanupAuthState = () => {
 
 export const ensureUserDataExists = async (user: any) => {
   try {
-    // Check if user exists in public.users table
+    // Check if user exists in profiles table
     const { data: existingUser, error: userCheckError } = await supabase
-      .from('users')
+      .from('profiles')
       .select('id')
       .eq('id', user.id)
       .maybeSingle();
@@ -33,32 +33,18 @@ export const ensureUserDataExists = async (user: any) => {
     }
 
     if (!existingUser) {
-      console.log('User not found in public.users, creating...');
+      console.log('User not found in profiles, creating...');
       
       // Extract username from metadata or email
       const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
       
-      // Insert into users table
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: user.id,
-          email: user.email,
-          username: username,
-          balance: 1000.00,
-          referral_code: 'REF' + Math.floor(Math.random() * 999999).toString().padStart(6, '0')
-        });
-
-      if (userError && !userError.message.includes('duplicate key')) {
-        console.error('User creation error:', userError);
-        throw userError;
-      }
-
       // Insert into profiles table
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
-          user_id: user.id
+          id: user.id,
+          email: user.email,
+          balance: 1000.00
         });
 
       if (profileError && !profileError.message.includes('duplicate key')) {
@@ -73,6 +59,8 @@ export const ensureUserDataExists = async (user: any) => {
           user_id: user.id,
           type: 'signup_bonus',
           amount: 1000.00,
+          balance_before: 0,
+          balance_after: 1000.00,
           description: 'Welcome bonus'
         });
 

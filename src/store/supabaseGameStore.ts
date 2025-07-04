@@ -178,12 +178,25 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
       const prevGame = get().currentGame;
       const gameChanged = !prevGame || prevGame.id !== activeGame?.id;
       
+      // Convert activeGame to SupabaseGame format if it exists
+      const formattedActiveGame = activeGame ? {
+        id: activeGame.id,
+        game_number: activeGame.period_number,
+        result_color: activeGame.result_color,
+        result_number: activeGame.result_number,
+        start_time: activeGame.start_time,
+        end_time: activeGame.end_time,
+        status: activeGame.status || 'active',
+        game_mode: 'quick', // Default since not in schema
+        created_at: activeGame.created_at || new Date().toISOString()
+      } : null;
+      
       set({ 
-        currentGame: activeGame,
+        currentGame: formattedActiveGame,
         gameHistory 
       });
 
-      if (activeGame && gameChanged) {
+      if (formattedActiveGame && gameChanged) {
         console.log('Game changed, updating bets and timer');
         if (prevGame) {
           GameTimerService.clearTimer(prevGame.id);
@@ -192,7 +205,7 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
         // Load bets first, then start timer
         await get().loadCurrentBets();
         get().startGameTimer();
-      } else if (activeGame) {
+      } else if (formattedActiveGame) {
         // Same game, just refresh bets
         await get().loadCurrentBets();
       }
