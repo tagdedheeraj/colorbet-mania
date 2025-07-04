@@ -3,15 +3,19 @@ import { supabase } from '@/integrations/supabase/client';
 
 export class AdminService {
   static async isAdmin(userId: string): Promise<boolean> {
+    // Since there's no role column in profiles, we'll use a hardcoded admin check
+    // In a real app, you'd want to add a role column to profiles table
     try {
       const { data, error } = await supabase
-        .from('users')
-        .select('role')
+        .from('profiles')
+        .select('email')
         .eq('id', userId)
         .single();
 
       if (error) return false;
-      return data?.role === 'admin';
+      
+      // Simple admin check - in production you'd want proper role management
+      return data?.email === 'admin@example.com';
     } catch (error) {
       return false;
     }
@@ -20,7 +24,7 @@ export class AdminService {
   static async getAllUsers() {
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -33,7 +37,7 @@ export class AdminService {
   static async getAllGames() {
     try {
       const { data, error } = await supabase
-        .from('games')
+        .from('game_periods')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
@@ -50,8 +54,7 @@ export class AdminService {
         .from('bets')
         .select(`
           *,
-          users!inner(username, email),
-          games!inner(game_number, result_color, result_number)
+          profiles!inner(email)
         `)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -65,7 +68,7 @@ export class AdminService {
   static async updateUserBalance(userId: string, newBalance: number) {
     try {
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({ balance: newBalance })
         .eq('id', userId);
 
@@ -76,26 +79,16 @@ export class AdminService {
   }
 
   static async logAdminAction(action: string, targetType?: string, targetId?: string, details?: any) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return { error: 'No authenticated user' };
-      }
-
-      const { error } = await supabase
-        .from('admin_logs')
-        .insert({
-          admin_user_id: user.id,
-          action,
-          target_type: targetType,
-          target_id: targetId,
-          details
-        });
-
-      return { error };
-    } catch (error) {
-      return { error };
-    }
+    // Since admin_logs table doesn't exist, we'll just log to console
+    // In production, you'd want to create an admin_logs table
+    console.log('Admin Action:', {
+      action,
+      targetType,
+      targetId,
+      details,
+      timestamp: new Date().toISOString()
+    });
+    
+    return { error: null };
   }
 }
