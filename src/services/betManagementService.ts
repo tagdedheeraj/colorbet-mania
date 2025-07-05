@@ -33,6 +33,8 @@ export class BetManagementService {
         return false;
       }
 
+      console.log('Checking user profile for user:', session.user.id);
+
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
         .select('balance')
@@ -45,9 +47,11 @@ export class BetManagementService {
         return false;
       }
 
+      console.log('User profile loaded:', userProfile);
+
       if (!userProfile || (userProfile.balance || 0) < betAmount) {
         console.error('Insufficient balance:', userProfile?.balance, 'needed:', betAmount);
-        toast.error('Insufficient balance');
+        toast.error(`Insufficient balance! You have ${userProfile?.balance || 0} coins, need ${betAmount} coins`);
         return false;
       }
 
@@ -72,13 +76,17 @@ export class BetManagementService {
       );
 
       if (success) {
-        toast.success(`Bet placed on ${value}!`);
+        toast.success(`Bet placed on ${value}! Amount: ${betAmount} coins`);
+        console.log('Bet placed successfully');
+      } else {
+        toast.error('Failed to place bet - please try again');
+        console.error('Bet placement failed');
       }
 
       return success;
     } catch (error) {
       console.error('Bet placement error:', error);
-      toast.error('Failed to place bet');
+      toast.error('Failed to place bet - server error');
       return false;
     }
   }

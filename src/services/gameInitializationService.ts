@@ -49,11 +49,18 @@ export class GameInitializationService {
             status: activeGame.status,
             created_at: activeGame.created_at
           };
+        } else {
+          // Game has expired, complete it first
+          console.log('Game has expired, completing it...');
+          await this.completeExpiredGame(activeGame.id);
+          
+          // Create a new game after completing the expired one
+          return await this.createDemoGameIfNeeded();
         }
       }
 
-      console.log('No active game found, would need to create one');
-      return null;
+      console.log('No active game found, creating new one');
+      return await this.createDemoGameIfNeeded();
     } catch (error) {
       console.error('Game initialization error:', error);
       return null;
@@ -112,6 +119,7 @@ export class GameInitializationService {
         
       if (expiredGames && expiredGames.length > 0) {
         for (const game of expiredGames) {
+          console.log('Completing expired game:', game.period_number);
           await this.completeExpiredGame(game.id);
         }
         console.log(`Completed ${expiredGames.length} expired games`);
@@ -131,7 +139,7 @@ export class GameInitializationService {
       // Check if there's already an active game
       const activeGame = await this.getCurrentGame();
       if (activeGame) {
-        console.log('Active game already exists');
+        console.log('Active game already exists:', activeGame.period_number);
         return activeGame;
       }
 
@@ -143,9 +151,11 @@ export class GameInitializationService {
         .limit(1)
         .maybeSingle();
 
-      const nextPeriodNumber = (lastGame?.period_number || 0) + 1;
+      const nextPeriodNumber = (lastGame?.period_number || 90000) + 1;
       const now = new Date();
       const endTime = new Date(now.getTime() + 60000); // 60 seconds from now
+
+      console.log('Creating new game with period number:', nextPeriodNumber);
 
       const { data: newGame, error } = await supabase
         .from('game_periods')
@@ -164,7 +174,7 @@ export class GameInitializationService {
         return null;
       }
 
-      console.log('Created new demo game:', newGame);
+      console.log('Created new demo game:', newGame.period_number);
       return newGame;
     } catch (error) {
       console.error('Error in createDemoGameIfNeeded:', error);
