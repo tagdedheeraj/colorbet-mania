@@ -122,7 +122,7 @@ export class GameService {
   }
 
   static isAcceptingBets(timeRemaining: number, gameMode: string, status: string): boolean {
-    const modeConfig = GAME_MODES.find(m => m.id === gameMode);
+    const modeConfig = GAME_MODES[gameMode as GameMode];
     const totalDuration = modeConfig?.duration || 60;
     const betsClosingTime = Math.max(10, Math.floor(totalDuration * 0.15));
     return timeRemaining > betsClosingTime && status === 'active';

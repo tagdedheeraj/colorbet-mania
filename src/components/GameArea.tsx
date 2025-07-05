@@ -2,6 +2,7 @@
 import React from 'react';
 import { useGameState } from '@/store/gameState';
 import { ColorType } from '@/types/supabaseGame';
+import { GAME_MODES } from '@/config/gameModes';
 
 const GameArea: React.FC = () => {
   const { 
@@ -9,13 +10,10 @@ const GameArea: React.FC = () => {
     timeRemaining, 
     currentGame, 
     isAcceptingBets,
-    currentGameMode,
-    gameModesConfig
+    currentGameMode
   } = useGameState();
   
-  const currentModeConfig = gameModesConfig.find(mode => 
-    mode.id === (currentGame?.game_mode || currentGameMode)
-  );
+  const currentModeConfig = GAME_MODES[currentGame?.game_mode || currentGameMode];
   
   const getColorStyle = (color: ColorType | string) => {
     switch (color) {

@@ -4,9 +4,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useGameState } from '@/store/gameState';
 import { Clock, Timer } from 'lucide-react';
 import { GameMode } from '@/types/supabaseGame';
+import { GAME_MODES } from '@/config/gameModes';
 
 const GameModeSelector: React.FC = () => {
-  const { currentGameMode, setCurrentGameMode, gameModesConfig } = useGameState();
+  const { currentGameMode, setCurrentGameMode } = useGameState();
   
   const handleModeChange = (value: string) => {
     if (value && (value === 'blitz' || value === 'quick' || value === 'classic' || value === 'extended')) {
@@ -27,7 +28,7 @@ const GameModeSelector: React.FC = () => {
     <div className="glass-panel p-4 mb-4">
       <h3 className="text-sm font-medium mb-2 text-muted-foreground">Game Mode</h3>
       <ToggleGroup type="single" value={currentGameMode} onValueChange={handleModeChange} className="justify-between">
-        {Object.entries(gameModesConfig).map(([modeId, mode]) => (
+        {Object.entries(GAME_MODES).map(([modeId, mode]) => (
           <ToggleGroupItem 
             key={modeId} 
             value={modeId}
