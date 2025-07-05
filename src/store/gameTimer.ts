@@ -28,6 +28,9 @@ export const useGameTimer = () => {
     const gameMode = currentGame.game_mode || currentGameMode;
     console.log('Starting game timer for game:', currentGame.game_number, 'mode:', gameMode);
 
+    // Clear any existing timers first
+    GameTimerService.clearAllTimers();
+
     GameTimerService.startGameTimer(
       currentGame,
       gameMode,
@@ -51,7 +54,7 @@ export const useGameTimer = () => {
           const completed = await GameInitializationService.completeExpiredGame(gameToComplete.id);
           
           if (completed) {
-            // Wait a moment for completion to process
+            // Wait for completion to process
             setTimeout(async () => {
               try {
                 // Get the completed game details
@@ -80,7 +83,7 @@ export const useGameTimer = () => {
                   console.log('Game completion result shown:', formattedCompletedGame.game_number);
                 }
                 
-                // Create new game
+                // Create new game after showing results
                 console.log('Creating new game...');
                 const newGame = await GameInitializationService.createDemoGameIfNeeded(useGameState.getState().currentGameMode);
                 
@@ -101,7 +104,7 @@ export const useGameTimer = () => {
                   setCurrentGame(formattedNewGame);
                   console.log('New game created and set:', formattedNewGame.game_number);
                   
-                  // Start timer for the new game after a short delay
+                  // Start timer for the new game
                   setTimeout(() => {
                     console.log('Starting timer for new game');
                     startGameTimer();

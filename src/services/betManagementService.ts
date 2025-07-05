@@ -79,6 +79,10 @@ export class BetManagementService {
       if (success) {
         toast.success(`Bet placed on ${value}! Amount: ${betAmount} coins`);
         console.log('Bet placed successfully');
+        
+        // Show updated balance
+        const newBalance = currentBalance - betAmount;
+        toast.info(`New balance: ${newBalance} coins`);
       } else {
         toast.error('Failed to place bet - please try again');
         console.error('Bet placement failed');

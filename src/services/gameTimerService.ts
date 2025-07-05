@@ -10,7 +10,16 @@ export class GameTimerService {
     onTimerUpdate: (timeRemaining: number, isAcceptingBets: boolean) => void,
     onGameEnd: () => void
   ) {
-    if (!currentGame) return;
+    if (!currentGame) {
+      console.log('No game provided to start timer');
+      return;
+    }
+
+    console.log('Starting game timer:', {
+      gameId: currentGame.id,
+      gameNumber: currentGame.game_number || currentGame.period_number,
+      endTime: currentGame.end_time
+    });
 
     // Clear existing timer if any
     this.clearTimer(currentGame.id);
@@ -43,15 +52,18 @@ export class GameTimerService {
         const timerId = setTimeout(updateTimer, 1000);
         this.timers.set(currentGame.id, timerId);
       } else {
-        // Game ended - ensure completion happens
+        // Game ended - clear timer and trigger completion
         console.log('Game ended, clearing timer and triggering completion');
         this.clearTimer(currentGame.id);
         
-        // Call the game completion handler
-        onGameEnd();
+        // Delay the completion slightly to avoid race conditions
+        setTimeout(() => {
+          onGameEnd();
+        }, 500);
       }
     };
 
+    // Start the timer immediately
     updateTimer();
   }
 
@@ -68,5 +80,9 @@ export class GameTimerService {
     console.log('Clearing all timers');
     this.timers.forEach((timerId) => clearTimeout(timerId));
     this.timers.clear();
+  }
+
+  static getActiveTimers() {
+    return Array.from(this.timers.keys());
   }
 }
