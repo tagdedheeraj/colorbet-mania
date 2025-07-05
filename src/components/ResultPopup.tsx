@@ -2,13 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import useSupabaseGameStore from '@/store/supabaseGameStore';
+import { useGameState } from '@/store/gameState';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { BetHistoryService } from '@/services/betHistoryService';
 import { ColorType } from '@/types/supabaseGame';
 
 const ResultPopup: React.FC = () => {
-  const { showResultPopup, lastCompletedGame, closeResultPopup } = useSupabaseGameStore();
+  const { showResultPopup, lastCompletedGame, setShowResultPopup } = useGameState();
   const { user } = useSupabaseAuthStore();
   const [userBetsResult, setUserBetsResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -47,6 +47,10 @@ const ResultPopup: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const closeResultPopup = () => {
+    setShowResultPopup(false);
   };
 
   const getColorStyle = (color: ColorType) => {

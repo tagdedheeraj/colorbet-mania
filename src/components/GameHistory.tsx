@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
-import useSupabaseGameStore from '@/store/supabaseGameStore';
+import { useGameState } from '@/store/gameState';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { BetHistoryService } from '@/services/betHistoryService';
 import { ColorType, BetWithGame } from '@/types/supabaseGame';
