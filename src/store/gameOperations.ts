@@ -14,8 +14,7 @@ export const useGameOperations = () => {
     setIsLoading,
     setCurrentBets,
     currentGame,
-    currentGameMode,
-    betAmount
+    currentGameMode
   } = useGameState();
 
   const initialize = async () => {

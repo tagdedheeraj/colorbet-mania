@@ -9,6 +9,7 @@ export interface GameStateSlice {
   isAcceptingBets: boolean;
   gameHistory: SupabaseGame[];
   currentBets: any[];
+  betAmount: number;
   currentGameMode: GameMode;
   gameModesConfig: typeof GAME_MODES;
   isLoading: boolean;
@@ -22,6 +23,7 @@ export interface GameStateSlice {
   setIsAcceptingBets: (accepting: boolean) => void;
   setGameHistory: (history: SupabaseGame[]) => void;
   setCurrentBets: (bets: any[]) => void;
+  setBetAmount: (amount: number) => void;
   setCurrentGameMode: (mode: GameMode) => void;
   setIsLoading: (loading: boolean) => void;
   setShowResultPopup: (show: boolean) => void;
@@ -35,6 +37,7 @@ export const useGameState = create<GameStateSlice>((set) => ({
   isAcceptingBets: false,
   gameHistory: [],
   currentBets: [],
+  betAmount: 100,
   currentGameMode: 'quick',
   gameModesConfig: GAME_MODES,
   isLoading: false,
@@ -47,6 +50,7 @@ export const useGameState = create<GameStateSlice>((set) => ({
   setIsAcceptingBets: (accepting) => set({ isAcceptingBets: accepting }),
   setGameHistory: (history) => set({ gameHistory: history }),
   setCurrentBets: (bets) => set({ currentBets: bets }),
+  setBetAmount: (amount) => set({ betAmount: Math.max(10, amount) }),
   setCurrentGameMode: (mode) => set({ currentGameMode: mode }),
   setIsLoading: (loading) => set({ isLoading: loading }),
   setShowResultPopup: (show) => set({ showResultPopup: show }),

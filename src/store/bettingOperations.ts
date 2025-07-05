@@ -7,7 +7,8 @@ export const useBettingOperations = () => {
     currentGame,
     betAmount,
     isAcceptingBets,
-    setCurrentBets
+    setCurrentBets,
+    setBetAmount
   } = useGameState();
 
   const placeBet = async (type: 'color' | 'number', value: string) => {
@@ -32,9 +33,9 @@ export const useBettingOperations = () => {
     return success;
   };
 
-  const setBetAmount = (amount: number) => {
+  const updateBetAmount = (amount: number) => {
     useGameState.getState().setCurrentBets([]);
-    useGameState.setState({ betAmount: Math.max(10, amount) });
+    setBetAmount(amount);
   };
 
   const setGameMode = (mode: any) => {
@@ -66,7 +67,7 @@ export const useBettingOperations = () => {
 
   return {
     placeBet,
-    setBetAmount,
+    setBetAmount: updateBetAmount,
     setGameMode,
     loadCurrentBets
   };
