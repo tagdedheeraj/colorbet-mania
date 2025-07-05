@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { GameService } from './gameService';
 import { toast } from 'sonner';
 
 export class BetService {
@@ -14,39 +13,53 @@ export class BetService {
     periodNumber: number
   ): Promise<boolean> {
     try {
-      console.log(`Placing bet: ${betType} ${betValue} for ${amount}`);
+      console.log(`Placing bet: ${betType} ${betValue} for ${amount} on period ${periodNumber}`);
       
-      const potentialWin = GameService.calculatePotentialWin(betType, betValue, amount);
+      // Validate inputs
+      if (amount <= 0 || amount > userBalance) {
+        toast.error('Invalid bet amount');
+        return false;
+      }
 
-      // Place bet using period_number instead of game_id
-      const { error: betError } = await supabase
+      if (userBalance < amount) {
+        toast.error('Insufficient balance');
+        return false;
+      }
+
+      // Place bet
+      const { data: bet, error: betError } = await supabase
         .from('bets')
         .insert({
           user_id: userId,
           period_number: periodNumber,
           bet_type: betType,
           bet_value: betValue,
-          amount: amount
-        });
+          amount: amount,
+          status: 'pending'
+        })
+        .select()
+        .single();
 
       if (betError) {
         console.error('Bet placement error:', betError);
-        throw betError;
+        toast.error('Failed to place bet');
+        return false;
       }
 
-      // Update user balance in profiles table
+      // Update user balance
+      const newBalance = userBalance - amount;
       const { error: balanceError } = await supabase
         .from('profiles')
-        .update({ balance: userBalance - amount })
+        .update({ balance: newBalance })
         .eq('id', userId);
 
       if (balanceError) {
         console.error('Balance update error:', balanceError);
-        throw balanceError;
+        toast.error('Failed to update balance');
+        return false;
       }
 
-      // Add bet transaction with required fields
-      const newBalance = userBalance - amount;
+      // Add transaction record
       await supabase
         .from('transactions')
         .insert({
@@ -58,7 +71,7 @@ export class BetService {
           description: `Bet on ${betValue} - Game #${periodNumber}`
         });
 
-      toast.success(`Bet placed on ${betValue}`);
+      toast.success(`Bet placed successfully on ${betValue}!`);
       console.log(`Bet placed successfully: ${betType} ${betValue}`);
       return true;
     } catch (error) {

@@ -1,29 +1,31 @@
 
-import { GameModeConfig } from '@/types/supabaseGame';
+export interface GameModeConfig {
+  name: string;
+  duration: number; // in seconds
+  multiplier: number;
+}
 
-export const GAME_MODES: GameModeConfig[] = [
-  {
-    id: 'blitz',
+export const GAME_MODES: Record<string, GameModeConfig> = {
+  blitz: {
     name: 'Blitz',
     duration: 30,
-    description: 'Fast-paced 30 second rounds'
+    multiplier: 1.2
   },
-  {
-    id: 'quick',
+  quick: {
     name: 'Quick',
     duration: 60,
-    description: 'Standard 1 minute rounds'
+    multiplier: 1.0
   },
-  {
-    id: 'classic',
+  classic: {
     name: 'Classic',
     duration: 180,
-    description: 'Extended 3 minute rounds'
+    multiplier: 0.9
   },
-  {
-    id: 'extended',
+  extended: {
     name: 'Extended',
     duration: 300,
-    description: 'Long 5 minute strategy rounds'
+    multiplier: 0.8
   }
-];
+};
+
+export type GameMode = keyof typeof GAME_MODES;

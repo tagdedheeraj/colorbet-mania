@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { BetService } from './betService';
-import { GameService } from './gameService';
 import { toast } from 'sonner';
 
 export class BetManagementService {
@@ -33,23 +32,22 @@ export class BetManagementService {
         return false;
       }
 
-      console.log('Checking user profile for user:', session.user.id);
-
+      // Get user profile with fresh balance
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
         .select('balance')
         .eq('id', session.user.id)
         .single();
 
-      if (profileError) {
+      if (profileError || !userProfile) {
         console.error('Error fetching user profile:', profileError);
         toast.error('Error loading user data');
         return false;
       }
 
-      console.log('User profile loaded:', userProfile);
+      console.log('User balance:', userProfile.balance);
 
-      const currentBalance = userProfile?.balance || 0;
+      const currentBalance = userProfile.balance || 0;
       if (currentBalance < betAmount) {
         console.error('Insufficient balance:', currentBalance, 'needed:', betAmount);
         toast.error(`Insufficient balance! You have ${currentBalance} coins, need ${betAmount} coins`);
@@ -57,9 +55,9 @@ export class BetManagementService {
       }
 
       // Use game_number (period_number) for bet placement
-      const periodNumber = currentGame.game_number || currentGame.period_number;
+      const periodNumber = currentGame.game_number;
       if (!periodNumber) {
-        console.error('Invalid game number/period number');
+        console.error('Invalid game number');
         toast.error('Invalid game data');
         return false;
       }
@@ -77,15 +75,9 @@ export class BetManagementService {
       );
 
       if (success) {
-        toast.success(`Bet placed on ${value}! Amount: ${betAmount} coins`);
         console.log('Bet placed successfully');
-        
-        // Show updated balance
         const newBalance = currentBalance - betAmount;
         toast.info(`New balance: ${newBalance} coins`);
-      } else {
-        toast.error('Failed to place bet - please try again');
-        console.error('Bet placement failed');
       }
 
       return success;
@@ -103,10 +95,34 @@ export class BetManagementService {
         return [];
       }
 
-      console.log('Loading current bets for game:', gameId);
-      const bets = await GameService.loadCurrentBets(gameId, session.user.id);
-      console.log('Current bets loaded:', bets.length);
-      return bets;
+      // Get current game data
+      const { data: currentGame } = await supabase
+        .from('game_periods')
+        .select('period_number')
+        .eq('id', gameId)
+        .single();
+
+      if (!currentGame) {
+        return [];
+      }
+
+      console.log('Loading bets for period:', currentGame.period_number);
+
+      const { data: bets, error } = await supabase
+        .from('bets')
+        .select('*')
+        .eq('period_number', currentGame.period_number)
+        .eq('user_id', session.user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading current bets:', error);
+        return [];
+      }
+
+      console.log('Current bets loaded:', bets?.length || 0);
+      return bets || [];
     } catch (error) {
       console.error('Error loading current bets:', error);
       return [];
