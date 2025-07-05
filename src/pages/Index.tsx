@@ -3,6 +3,9 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import useSupabaseGameStore from '@/store/supabaseGameStore';
+import { useGameOperations } from '@/store/gameOperations';
+import { useGameTimer } from '@/store/gameTimer';
+import { useBettingOperations } from '@/store/bettingOperations';
 import Header from '@/components/Header';
 import GameArea from '@/components/GameArea';
 import BettingPanel from '@/components/BettingPanel';
@@ -14,7 +17,12 @@ import BottomNav from '@/components/BottomNav';
 const Index = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isInitialized, user } = useSupabaseAuthStore();
-  const { initialize: initializeGame, isLoading: gameLoading, loadUserGameResults } = useSupabaseGameStore();
+  const { isLoading: gameLoading, startGameTimer } = useSupabaseGameStore();
+  
+  // Get operations hooks
+  const gameOps = useGameOperations();
+  const timer = useGameTimer();
+  const bettingOps = useBettingOperations();
 
   useEffect(() => {
     if (isInitialized && !isAuthenticated) {
@@ -24,12 +32,29 @@ const Index = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      const initializeGame = async () => {
+        console.log('Starting game initialization...');
+        
+        // Initialize game operations
+        await gameOps.initialize();
+        
+        // Load user game results if user exists
+        if (user && gameOps.loadUserGameResults) {
+          await gameOps.loadUserGameResults(user.id);
+        }
+        
+        // Start timer with state sync
+        startGameTimer();
+        
+        // Start the actual timer for the current game
+        timer.startGameTimer();
+        
+        console.log('Game initialization completed');
+      };
+      
       initializeGame();
-      if (user && loadUserGameResults) {
-        loadUserGameResults(user.id);
-      }
     }
-  }, [isAuthenticated, initializeGame, user, loadUserGameResults]);
+  }, [isAuthenticated, user]);
 
   if (!isInitialized || gameLoading) {
     return <LoadingScreen />;

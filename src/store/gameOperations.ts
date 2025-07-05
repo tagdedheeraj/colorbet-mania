@@ -32,14 +32,14 @@ export const useGameOperations = () => {
         isInitializing = false;
       }, 8000);
 
-      // First clean up old active games in database
+      // First clean up old active games
       await GameInitializationService.cleanupOldGames();
 
       // Load game history (fast operation)
       const gameHistory = await GameService.loadGameHistory();
       setGameHistory(gameHistory);
 
-      // Try to load or create active game with current game mode
+      // Try to load or create active game
       let activeGame = await GameService.loadActiveGame();
       
       if (!activeGame) {
@@ -55,7 +55,6 @@ export const useGameOperations = () => {
 
       if (activeGame) {
         await loadCurrentBets();
-        // Start timer will be handled by timer operations
       }
 
       // Setup realtime subscriptions (non-blocking)
@@ -77,7 +76,8 @@ export const useGameOperations = () => {
 
   const createDemoGameIfNeeded = async () => {
     try {
-      await GameInitializationService.createDemoGameIfNeeded(currentGameMode);
+      const gameState = useGameState.getState();
+      await GameInitializationService.createDemoGameIfNeeded(gameState.currentGameMode);
     } catch (error) {
       console.error('Error creating demo game:', error);
     }
@@ -93,12 +93,13 @@ export const useGameOperations = () => {
   };
 
   const loadCurrentBets = async () => {
-    if (!currentGame) return;
+    const gameState = useGameState.getState();
+    if (!gameState.currentGame) return;
 
     try {
       const currentBets = await BetManagementService.loadCurrentBets(
-        currentGame.id,
-        currentGame.id
+        gameState.currentGame.id,
+        gameState.currentGame.id
       );
       console.log('Current bets loaded:', currentBets.length);
       setCurrentBets(currentBets);
@@ -110,7 +111,8 @@ export const useGameOperations = () => {
   const loadUserGameResults = async (userId: string) => {
     try {
       const userGameResults = await BetHistoryService.loadAllUserBets(userId);
-      useGameState.getState().setUserGameResults(userGameResults);
+      const gameState = useGameState.getState();
+      gameState.setUserGameResults(userGameResults);
     } catch (error) {
       console.error('Error loading user game results:', error);
     }
@@ -121,7 +123,8 @@ export const useGameOperations = () => {
       console.log('Loading current data...');
       const { activeGame, gameHistory } = await GameInitializationService.loadInitialData();
       
-      const prevGame = useGameState.getState().currentGame;
+      const gameState = useGameState.getState();
+      const prevGame = gameState.currentGame;
       const gameChanged = !prevGame || prevGame.id !== activeGame?.id;
       
       // Convert activeGame to SupabaseGame format if it exists
@@ -154,12 +157,9 @@ export const useGameOperations = () => {
       setGameHistory(formattedGameHistory);
 
       if (formattedActiveGame && gameChanged) {
-        console.log('Game changed, updating bets and timer');
-        // Load bets first, then start timer
+        console.log('Game changed, updating bets');
         await loadCurrentBets();
-        // Timer will be started by timer operations
       } else if (formattedActiveGame) {
-        // Same game, just refresh bets
         await loadCurrentBets();
       }
     } catch (error) {

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export class GameInitializationService {
@@ -23,7 +22,23 @@ export class GameInitializationService {
       if (activeGames && activeGames.length > 0) {
         const activeGame = activeGames[0];
         const now = new Date();
-        const endTime = new Date(activeGame.end_time || now);
+        
+        // If end_time is null, set it to 60 seconds from now
+        if (!activeGame.end_time) {
+          const endTime = new Date(now.getTime() + 60000);
+          
+          const { error: updateError } = await supabase
+            .from('game_periods')
+            .update({ end_time: endTime.toISOString() })
+            .eq('id', activeGame.id);
+            
+          if (!updateError) {
+            activeGame.end_time = endTime.toISOString();
+            console.log('Updated active game end_time:', activeGame.period_number);
+          }
+        }
+        
+        const endTime = new Date(activeGame.end_time);
         
         if (endTime > now) {
           console.log('Found active game:', activeGame.period_number, 'ending at:', endTime);
@@ -60,6 +75,22 @@ export class GameInitializationService {
         return null;
       }
 
+      // If game exists but has no end_time, set it
+      if (games && !games.end_time) {
+        const now = new Date();
+        const endTime = new Date(now.getTime() + 60000);
+        
+        const { error: updateError } = await supabase
+          .from('game_periods')
+          .update({ end_time: endTime.toISOString() })
+          .eq('id', games.id);
+          
+        if (!updateError) {
+          games.end_time = endTime.toISOString();
+          console.log('Fixed missing end_time for game:', games.period_number);
+        }
+      }
+
       return games;
     } catch (error) {
       console.error('Error getting current game:', error);
@@ -70,6 +101,22 @@ export class GameInitializationService {
   static async cleanupOldGames() {
     try {
       console.log('Cleaning up old games...');
+      
+      // Complete any expired active games
+      const now = new Date();
+      const { data: expiredGames } = await supabase
+        .from('game_periods')
+        .select('*')
+        .eq('status', 'active')
+        .lt('end_time', now.toISOString());
+        
+      if (expiredGames && expiredGames.length > 0) {
+        for (const game of expiredGames) {
+          await this.completeExpiredGame(game.id);
+        }
+        console.log(`Completed ${expiredGames.length} expired games`);
+      }
+      
       return true;
     } catch (error) {
       console.error('Error cleaning up old games:', error);
@@ -107,7 +154,7 @@ export class GameInitializationService {
           start_time: now.toISOString(),
           end_time: endTime.toISOString(),
           status: 'active',
-          game_mode_type: 'automatic' // Default to automatic mode
+          game_mode_type: 'automatic'
         })
         .select()
         .single();
