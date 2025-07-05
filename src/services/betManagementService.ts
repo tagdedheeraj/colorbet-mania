@@ -49,9 +49,10 @@ export class BetManagementService {
 
       console.log('User profile loaded:', userProfile);
 
-      if (!userProfile || (userProfile.balance || 0) < betAmount) {
-        console.error('Insufficient balance:', userProfile?.balance, 'needed:', betAmount);
-        toast.error(`Insufficient balance! You have ${userProfile?.balance || 0} coins, need ${betAmount} coins`);
+      const currentBalance = userProfile?.balance || 0;
+      if (currentBalance < betAmount) {
+        console.error('Insufficient balance:', currentBalance, 'needed:', betAmount);
+        toast.error(`Insufficient balance! You have ${currentBalance} coins, need ${betAmount} coins`);
         return false;
       }
 
@@ -71,7 +72,7 @@ export class BetManagementService {
         type,
         value,
         betAmount,
-        userProfile.balance || 0,
+        currentBalance,
         periodNumber
       );
 

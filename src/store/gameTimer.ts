@@ -20,7 +20,10 @@ export const useGameTimer = () => {
   const gameOps = useGameOperations();
 
   const startGameTimer = () => {
-    if (!currentGame) return;
+    if (!currentGame) {
+      console.log('No current game to start timer for');
+      return;
+    }
 
     const gameMode = currentGame.game_mode || currentGameMode;
     console.log('Starting game timer for game:', currentGame.game_number, 'mode:', gameMode);
@@ -29,20 +32,26 @@ export const useGameTimer = () => {
       currentGame,
       gameMode,
       (timeRemaining, isAcceptingBets) => {
+        console.log('Timer update - Time:', timeRemaining, 'Accepting bets:', isAcceptingBets);
         setTimeRemaining(timeRemaining);
         setIsAcceptingBets(isAcceptingBets);
       },
       async () => {
-        console.log('Game timer ended, completing game and showing results...');
+        console.log('Game timer ended, processing game completion...');
         
         const gameToComplete = useGameState.getState().currentGame;
-        if (gameToComplete) {
-          try {
-            // Complete the current game
-            console.log('Completing game:', gameToComplete.game_number);
-            await GameInitializationService.completeExpiredGame(gameToComplete.id);
-            
-            // Wait for the completion to process
+        if (!gameToComplete) {
+          console.log('No game to complete');
+          return;
+        }
+
+        try {
+          // Complete the current game
+          console.log('Completing game:', gameToComplete.game_number);
+          const completed = await GameInitializationService.completeExpiredGame(gameToComplete.id);
+          
+          if (completed) {
+            // Wait a moment for completion to process
             setTimeout(async () => {
               try {
                 // Get the completed game details
@@ -67,9 +76,11 @@ export const useGameTimer = () => {
                   
                   // Show result toast
                   toast.success(`Game ${formattedCompletedGame.game_number} completed! Result: ${formattedCompletedGame.result_color} ${formattedCompletedGame.result_number}`);
+                  
+                  console.log('Game completion result shown:', formattedCompletedGame.game_number);
                 }
                 
-                // Create new game after a short delay
+                // Create new game
                 console.log('Creating new game...');
                 const newGame = await GameInitializationService.createDemoGameIfNeeded(useGameState.getState().currentGameMode);
                 
@@ -88,24 +99,32 @@ export const useGameTimer = () => {
                   };
                   
                   setCurrentGame(formattedNewGame);
-                  console.log('New game created:', formattedNewGame.game_number);
+                  console.log('New game created and set:', formattedNewGame.game_number);
                   
-                  // Start timer for the new game
+                  // Start timer for the new game after a short delay
                   setTimeout(() => {
+                    console.log('Starting timer for new game');
                     startGameTimer();
                   }, 1000);
                   
                   // Reload game data
                   await gameOps.loadCurrentData();
+                } else {
+                  console.error('Failed to create new game');
+                  toast.error('Failed to create new game');
                 }
               } catch (error) {
                 console.error('Error in post-completion processing:', error);
+                toast.error('Error processing game completion');
               }
             }, 2000);
-            
-          } catch (error) {
-            console.error('Error in game completion process:', error);
+          } else {
+            console.error('Failed to complete game');
+            toast.error('Failed to complete game');
           }
+        } catch (error) {
+          console.error('Error in game completion process:', error);
+          toast.error('Error in game completion');
         }
       }
     );

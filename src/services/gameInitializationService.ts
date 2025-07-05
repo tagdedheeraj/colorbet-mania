@@ -1,9 +1,13 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export class GameInitializationService {
   static async initializeGame() {
     try {
       console.log('Initializing game...');
+      
+      // First cleanup any expired games
+      await this.cleanupOldGames();
       
       // Check for active games in game_periods table
       const { data: activeGames, error: activeError } = await supabase
@@ -18,12 +22,12 @@ export class GameInitializationService {
         return null;
       }
 
-      // If there's an active game, check if it's expired
+      // If there's an active game, check if it's valid
       if (activeGames && activeGames.length > 0) {
         const activeGame = activeGames[0];
         const now = new Date();
         
-        // If end_time is null, set it to 60 seconds from now
+        // If end_time is null or invalid, set it properly
         if (!activeGame.end_time) {
           const endTime = new Date(now.getTime() + 60000);
           
@@ -34,14 +38,14 @@ export class GameInitializationService {
             
           if (!updateError) {
             activeGame.end_time = endTime.toISOString();
-            console.log('Updated active game end_time:', activeGame.period_number);
+            console.log('Fixed active game end_time:', activeGame.period_number);
           }
         }
         
         const endTime = new Date(activeGame.end_time);
         
         if (endTime > now) {
-          console.log('Found active game:', activeGame.period_number, 'ending at:', endTime);
+          console.log('Found valid active game:', activeGame.period_number, 'ending at:', endTime);
           return {
             id: activeGame.id,
             period_number: activeGame.period_number,
@@ -50,16 +54,14 @@ export class GameInitializationService {
             created_at: activeGame.created_at
           };
         } else {
-          // Game has expired, complete it first
+          // Game has expired, complete it
           console.log('Game has expired, completing it...');
           await this.completeExpiredGame(activeGame.id);
-          
-          // Create a new game after completing the expired one
-          return await this.createDemoGameIfNeeded();
         }
       }
 
-      console.log('No active game found, creating new one');
+      // No valid active game found, create new one
+      console.log('Creating new game...');
       return await this.createDemoGameIfNeeded();
     } catch (error) {
       console.error('Game initialization error:', error);
@@ -151,7 +153,7 @@ export class GameInitializationService {
         .limit(1)
         .maybeSingle();
 
-      const nextPeriodNumber = (lastGame?.period_number || 90000) + 1;
+      const nextPeriodNumber = (lastGame?.period_number || 90001) + 1;
       const now = new Date();
       const endTime = new Date(now.getTime() + 60000); // 60 seconds from now
 
@@ -302,11 +304,102 @@ export class GameInitializationService {
         return false;
       }
 
+      // Process bets for this game
+      await this.processBetsForCompletedGame(currentGame.period_number, resultColor, resultNumber);
+
       console.log('Game completed with result:', resultColor, resultNumber);
       return true;
     } catch (error) {
       console.error('Error in completeExpiredGame:', error);
       return false;
+    }
+  }
+
+  static async processBetsForCompletedGame(periodNumber: number, resultColor: string, resultNumber: number) {
+    try {
+      console.log('Processing bets for period:', periodNumber, 'result:', resultColor, resultNumber);
+      
+      // Get all bets for this period
+      const { data: bets, error: betsError } = await supabase
+        .from('bets')
+        .select('*')
+        .eq('period_number', periodNumber)
+        .eq('status', 'pending');
+
+      if (betsError) {
+        console.error('Error fetching bets:', betsError);
+        return;
+      }
+
+      if (!bets || bets.length === 0) {
+        console.log('No bets to process for period:', periodNumber);
+        return;
+      }
+
+      // Process each bet
+      for (const bet of bets) {
+        let profit = 0;
+        let isWinner = false;
+
+        // Check if bet is a winner
+        if (bet.bet_type === 'color' && bet.bet_value === resultColor) {
+          isWinner = true;
+          profit = bet.bet_value === 'purple-red' ? bet.amount * 0.9 : bet.amount * 0.95;
+        } else if (bet.bet_type === 'number' && parseInt(bet.bet_value) === resultNumber) {
+          isWinner = true;
+          profit = bet.amount * 9.0;
+        }
+
+        // Update bet with result
+        const { error: updateBetError } = await supabase
+          .from('bets')
+          .update({
+            profit: isWinner ? profit : -bet.amount,
+            status: 'completed'
+          })
+          .eq('id', bet.id);
+
+        if (updateBetError) {
+          console.error('Error updating bet:', bet.id, updateBetError);
+          continue;
+        }
+
+        // If winner, add winnings to user balance
+        if (isWinner) {
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('balance')
+            .eq('id', bet.user_id)
+            .single();
+
+          if (userProfile) {
+            const newBalance = (userProfile.balance || 0) + bet.amount + profit;
+            
+            await supabase
+              .from('profiles')
+              .update({ balance: newBalance })
+              .eq('id', bet.user_id);
+
+            // Record win transaction
+            await supabase
+              .from('transactions')
+              .insert({
+                user_id: bet.user_id,
+                type: 'win',
+                amount: bet.amount + profit,
+                balance_before: userProfile.balance || 0,
+                balance_after: newBalance,
+                description: `Win from ${bet.bet_type} bet on ${bet.bet_value} - Game #${periodNumber}`
+              });
+
+            console.log('Processed winning bet:', bet.id, 'profit:', profit);
+          }
+        }
+      }
+
+      console.log(`Processed ${bets.length} bets for period ${periodNumber}`);
+    } catch (error) {
+      console.error('Error processing bets:', error);
     }
   }
 }
