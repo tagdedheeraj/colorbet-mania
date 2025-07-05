@@ -1,6 +1,6 @@
 
 import React from 'react';
-import useSupabaseGameStore from '@/store/supabaseGameStore';
+import { useGameState } from '@/store/gameState';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { ColorType, NumberType } from '@/types/supabaseGame';
 import { toast } from "sonner";
@@ -18,7 +18,7 @@ const BettingPanel: React.FC = () => {
     timeRemaining, 
     currentGame,
     isLoading: gameLoading 
-  } = useSupabaseGameStore();
+  } = useGameState();
   
   const { user, profile, isAuthenticated, isLoading: authLoading } = useSupabaseAuthStore();
   
@@ -38,7 +38,7 @@ const BettingPanel: React.FC = () => {
       return;
     }
     if (!profile || (profile.balance || 0) < betAmount) {
-      toast.error('Insufficient balance');
+      toast.error(`Insufficient balance! You have ${profile?.balance || 0} coins, need ${betAmount} coins`);
       return;
     }
     
@@ -71,7 +71,7 @@ const BettingPanel: React.FC = () => {
       return;
     }
     if (!profile || (profile.balance || 0) < betAmount) {
-      toast.error('Insufficient balance');
+      toast.error(`Insufficient balance! You have ${profile?.balance || 0} coins, need ${betAmount} coins`);
       return;
     }
     
@@ -99,7 +99,8 @@ const BettingPanel: React.FC = () => {
     isAcceptingBets,
     userBalance,
     betAmount,
-    canBet
+    canBet,
+    timeRemaining
   });
 
   return (

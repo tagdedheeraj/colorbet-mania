@@ -7,25 +7,18 @@ import { useGameOperations } from './gameOperations';
 import { toast } from 'sonner';
 
 export const useGameTimer = () => {
-  const {
-    currentGame,
-    currentGameMode,
-    setTimeRemaining,
-    setIsAcceptingBets,
-    setLastCompletedGame,
-    setShowResultPopup,
-    setCurrentGame
-  } = useGameState();
-
   const gameOps = useGameOperations();
 
   const startGameTimer = () => {
+    const gameState = useGameState.getState();
+    const currentGame = gameState.currentGame;
+    
     if (!currentGame) {
       console.log('No current game to start timer for');
       return;
     }
 
-    const gameMode = currentGame.game_mode || currentGameMode;
+    const gameMode = currentGame.game_mode || gameState.currentGameMode;
     console.log('Starting game timer for game:', currentGame.game_number, 'mode:', gameMode);
 
     // Clear any existing timers first
@@ -36,13 +29,15 @@ export const useGameTimer = () => {
       gameMode,
       (timeRemaining, isAcceptingBets) => {
         console.log('Timer update - Time:', timeRemaining, 'Accepting bets:', isAcceptingBets);
-        setTimeRemaining(timeRemaining);
-        setIsAcceptingBets(isAcceptingBets);
+        useGameState.getState().setTimeRemaining(timeRemaining);
+        useGameState.getState().setIsAcceptingBets(isAcceptingBets);
       },
       async () => {
         console.log('Game timer ended, processing game completion...');
         
-        const gameToComplete = useGameState.getState().currentGame;
+        const currentGameState = useGameState.getState();
+        const gameToComplete = currentGameState.currentGame;
+        
         if (!gameToComplete) {
           console.log('No game to complete');
           return;
@@ -54,14 +49,16 @@ export const useGameTimer = () => {
           const completed = await GameInitializationService.completeExpiredGame(gameToComplete.id);
           
           if (completed) {
-            // Wait for completion to process
+            console.log('Game completed successfully, processing results...');
+            
+            // Wait for completion to process then get results
             setTimeout(async () => {
               try {
                 // Get the completed game details
                 const completedGame = await BetHistoryService.getLatestCompletedGame();
                 
                 if (completedGame) {
-                  // Transform completedGame to match SupabaseGame format
+                  // Show result popup
                   const formattedCompletedGame = {
                     id: completedGame.id,
                     game_number: completedGame.period_number || (completedGame as any).game_number,
@@ -74,21 +71,19 @@ export const useGameTimer = () => {
                     created_at: completedGame.created_at || new Date().toISOString()
                   };
 
-                  setLastCompletedGame(formattedCompletedGame);
-                  setShowResultPopup(true);
+                  useGameState.getState().setLastCompletedGame(formattedCompletedGame);
+                  useGameState.getState().setShowResultPopup(true);
                   
-                  // Show result toast
                   toast.success(`Game ${formattedCompletedGame.game_number} completed! Result: ${formattedCompletedGame.result_color} ${formattedCompletedGame.result_number}`);
-                  
                   console.log('Game completion result shown:', formattedCompletedGame.game_number);
                 }
                 
                 // Create new game after showing results
                 console.log('Creating new game...');
-                const newGame = await GameInitializationService.createDemoGameIfNeeded(useGameState.getState().currentGameMode);
+                const newGame = await GameInitializationService.createDemoGameIfNeeded(currentGameState.currentGameMode);
                 
                 if (newGame) {
-                  // Format the new game
+                  // Format and set the new game
                   const formattedNewGame = {
                     id: newGame.id,
                     game_number: newGame.period_number,
@@ -101,17 +96,17 @@ export const useGameTimer = () => {
                     created_at: newGame.created_at || new Date().toISOString()
                   };
                   
-                  setCurrentGame(formattedNewGame);
+                  useGameState.getState().setCurrentGame(formattedNewGame);
                   console.log('New game created and set:', formattedNewGame.game_number);
                   
-                  // Start timer for the new game
+                  // Reload data and start timer for new game
+                  await gameOps.loadCurrentData();
+                  
                   setTimeout(() => {
                     console.log('Starting timer for new game');
                     startGameTimer();
-                  }, 1000);
+                  }, 2000);
                   
-                  // Reload game data
-                  await gameOps.loadCurrentData();
                 } else {
                   console.error('Failed to create new game');
                   toast.error('Failed to create new game');
@@ -134,8 +129,8 @@ export const useGameTimer = () => {
   };
 
   const closeResultPopup = () => {
-    setShowResultPopup(false);
-    setLastCompletedGame(null);
+    useGameState.getState().setShowResultPopup(false);
+    useGameState.getState().setLastCompletedGame(null);
   };
 
   return {

@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
-import useSupabaseGameStore from '@/store/supabaseGameStore';
+import { useGameState } from '@/store/gameState';
 import { useGameOperations } from '@/store/gameOperations';
 import { useGameTimer } from '@/store/gameTimer';
 import { useBettingOperations } from '@/store/bettingOperations';
@@ -17,7 +17,7 @@ import BottomNav from '@/components/BottomNav';
 const Index = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isInitialized, user } = useSupabaseAuthStore();
-  const { isLoading: gameLoading, startGameTimer } = useSupabaseGameStore();
+  const { isLoading: gameLoading } = useGameState();
   
   // Get operations hooks
   const gameOps = useGameOperations();
@@ -43,10 +43,7 @@ const Index = () => {
           await gameOps.loadUserGameResults(user.id);
         }
         
-        // Start timer with state sync
-        startGameTimer();
-        
-        // Start the actual timer for the current game
+        // Start the timer for the current game
         timer.startGameTimer();
         
         console.log('Game initialization completed');

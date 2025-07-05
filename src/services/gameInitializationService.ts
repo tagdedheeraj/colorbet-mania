@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -9,8 +8,8 @@ export class GameInitializationService {
     try {
       console.log('Cleaning up old games...');
       
-      // Complete games that are older than 2 minutes and still active
-      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      // Complete games that are older than 5 minutes and still active
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       
       const { error } = await supabase
         .from('game_periods')
@@ -18,9 +17,9 @@ export class GameInitializationService {
           status: 'completed',
           result_color: 'green',
           result_number: 3,
-          end_time: twoMinutesAgo
+          end_time: fiveMinutesAgo
         })
-        .lt('start_time', twoMinutesAgo)
+        .lt('start_time', fiveMinutesAgo)
         .eq('status', 'active');
 
       if (error) {
@@ -112,7 +111,7 @@ export class GameInitializationService {
         .limit(1)
         .maybeSingle();
 
-      const nextPeriodNumber = latestGame ? latestGame.period_number + 1 : 90003;
+      const nextPeriodNumber = latestGame ? latestGame.period_number + 1 : 90004;
       const now = new Date();
       const endTime = new Date(now.getTime() + 60000); // 60 seconds from now
 
@@ -138,6 +137,7 @@ export class GameInitializationService {
       }
 
       console.log('New game created successfully:', newGame.period_number);
+      toast.success(`New game #${newGame.period_number} started!`);
       this.isInitializing = false;
       return newGame;
     } catch (error) {

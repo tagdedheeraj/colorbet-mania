@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { GameMode, SupabaseGame } from '@/types/supabaseGame';
 import { GAME_MODES } from '@/config/gameModes';
+import { BetManagementService } from '@/services/betManagementService';
 
 export interface GameStateSlice {
   currentGame: SupabaseGame | null;
@@ -29,9 +30,13 @@ export interface GameStateSlice {
   setShowResultPopup: (show: boolean) => void;
   setLastCompletedGame: (game: SupabaseGame | null) => void;
   setUserGameResults: (results: any[]) => void;
+  
+  // Game operations
+  placeBet: (type: 'color' | 'number', value: string) => Promise<boolean>;
+  loadCurrentBets: () => Promise<void>;
 }
 
-export const useGameState = create<GameStateSlice>((set) => ({
+export const useGameState = create<GameStateSlice>((set, get) => ({
   currentGame: null,
   timeRemaining: 0,
   isAcceptingBets: false,
@@ -56,4 +61,56 @@ export const useGameState = create<GameStateSlice>((set) => ({
   setShowResultPopup: (show) => set({ showResultPopup: show }),
   setLastCompletedGame: (game) => set({ lastCompletedGame: game }),
   setUserGameResults: (results) => set({ userGameResults: results }),
+
+  placeBet: async (type: 'color' | 'number', value: string) => {
+    const state = get();
+    
+    console.log('Placing bet:', { type, value, betAmount: state.betAmount, currentGame: state.currentGame?.id });
+    
+    if (!state.currentGame) {
+      console.error('No active game found');
+      return false;
+    }
+
+    if (!state.isAcceptingBets) {
+      console.error('Betting is currently closed');
+      return false;
+    }
+
+    try {
+      const success = await BetManagementService.placeBet(
+        state.currentGame,
+        state.betAmount,
+        type,
+        value
+      );
+
+      if (success) {
+        // Reload current bets after successful bet placement
+        await get().loadCurrentBets();
+        console.log('Bet placed successfully');
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Error placing bet:', error);
+      return false;
+    }
+  },
+
+  loadCurrentBets: async () => {
+    const state = get();
+    if (!state.currentGame) return;
+
+    try {
+      const currentBets = await BetManagementService.loadCurrentBets(
+        state.currentGame.id,
+        state.currentGame.id
+      );
+      console.log('Current bets loaded:', currentBets.length);
+      set({ currentBets });
+    } catch (error) {
+      console.error('Error loading current bets:', error);
+    }
+  }
 }));

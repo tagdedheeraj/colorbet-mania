@@ -39,7 +39,6 @@ export class GameTimerService {
       console.log('Timer update:', {
         gameId: currentGame.id,
         gameNumber: currentGame.game_number || currentGame.period_number,
-        gameMode: gameMode,
         timeRemaining,
         isAcceptingBets,
         status: currentGame.status,
@@ -59,7 +58,7 @@ export class GameTimerService {
         // Delay the completion slightly to avoid race conditions
         setTimeout(() => {
           onGameEnd();
-        }, 500);
+        }, 1000);
       }
     };
 
@@ -80,9 +79,5 @@ export class GameTimerService {
     console.log('Clearing all timers');
     this.timers.forEach((timerId) => clearTimeout(timerId));
     this.timers.clear();
-  }
-
-  static getActiveTimers() {
-    return Array.from(this.timers.keys());
   }
 }

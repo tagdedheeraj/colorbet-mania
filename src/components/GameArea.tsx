@@ -1,6 +1,6 @@
 
 import React from 'react';
-import useSupabaseGameStore from '@/store/supabaseGameStore';
+import { useGameState } from '@/store/gameState';
 import { ColorType } from '@/types/supabaseGame';
 
 const GameArea: React.FC = () => {
@@ -11,7 +11,7 @@ const GameArea: React.FC = () => {
     isAcceptingBets,
     currentGameMode,
     gameModesConfig
-  } = useSupabaseGameStore();
+  } = useGameState();
   
   const currentModeConfig = gameModesConfig.find(mode => 
     mode.id === (currentGame?.game_mode || currentGameMode)
