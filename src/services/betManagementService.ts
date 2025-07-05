@@ -11,9 +11,9 @@ export class BetManagementService {
     type: 'color' | 'number',
     value: string
   ): Promise<boolean> {
-    console.log('Attempting to place bet:', {
+    console.log('BetManagementService.placeBet called:', {
       gameId: currentGame?.id,
-      gameNumber: currentGame?.period_number,
+      gameNumber: currentGame?.game_number,
       betAmount,
       type,
       value
@@ -51,6 +51,16 @@ export class BetManagementService {
         return false;
       }
 
+      // Use game_number (period_number) for bet placement
+      const periodNumber = currentGame.game_number || currentGame.period_number;
+      if (!periodNumber) {
+        console.error('Invalid game number/period number');
+        toast.error('Invalid game data');
+        return false;
+      }
+
+      console.log('Placing bet with period number:', periodNumber);
+
       const success = await BetService.placeBet(
         currentGame.id,
         session.user.id,
@@ -58,8 +68,12 @@ export class BetManagementService {
         value,
         betAmount,
         userProfile.balance || 0,
-        currentGame.period_number
+        periodNumber
       );
+
+      if (success) {
+        toast.success(`Bet placed on ${value}!`);
+      }
 
       return success;
     } catch (error) {

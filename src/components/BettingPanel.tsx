@@ -46,8 +46,8 @@ const BettingPanel: React.FC = () => {
     try {
       const success = await placeBet('color', color);
       
-      if (success) {
-        toast.success(`Bet placed on ${color}!`);
+      if (!success) {
+        toast.error('Failed to place bet');
       }
     } catch (error) {
       console.error('Error placing bet:', error);
@@ -79,8 +79,8 @@ const BettingPanel: React.FC = () => {
     try {
       const success = await placeBet('number', number.toString());
       
-      if (success) {
-        toast.success(`Bet placed on ${number}!`);
+      if (!success) {
+        toast.error('Failed to place bet');
       }
     } catch (error) {
       console.error('Error placing bet:', error);

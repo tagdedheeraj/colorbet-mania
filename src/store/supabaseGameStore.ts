@@ -2,9 +2,7 @@
 import { create } from 'zustand';
 import { GameState } from '@/types/supabaseGame';
 import { useGameState } from './gameState';
-import { useGameOperations } from './gameOperations'; 
-import { useBettingOperations } from './bettingOperations';
-import { useGameTimer } from './gameTimer';
+import { BetManagementService } from '@/services/betManagementService';
 
 const useSupabaseGameStore = create<GameState>((set, get) => ({
   // State from gameState
@@ -21,54 +19,61 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
   lastCompletedGame: null,
   userGameResults: [],
 
-  // Operations - these will delegate to the separate hooks
+  // Operations
   initialize: async () => {
-    // Get operations without calling hooks directly in the store
-    let gameOps: any;
-    let timer: any;
-    
-    // This function will be called from components where hooks are valid
-    const initializeGame = async () => {
-      gameOps = useGameOperations();
-      timer = useGameTimer();
-      
-      await gameOps.initialize();
-      
-      // Sync state after initialization
-      const state = useGameState.getState();
-      set({
-        currentGame: state.currentGame,
-        gameHistory: state.gameHistory,
-        isLoading: state.isLoading
-      });
-
-      if (state.currentGame) {
-        console.log('Starting timer for current game:', state.currentGame.game_number);
-        timer.startGameTimer();
-      }
-    };
-
-    // Store the initialization function to be called from components
-    (get() as any).initializeGame = initializeGame;
-    
-    // For now, just update loading state
     set({ isLoading: true });
+    console.log('Store initialize called');
   },
 
   createDemoGameIfNeeded: async () => {
-    // This will be handled through proper component hooks
     console.log('createDemoGameIfNeeded called');
   },
 
   placeBet: async (type: 'color' | 'number', value: string) => {
-    // This will be handled through proper component hooks
-    console.log('placeBet called:', type, value);
-    return false;
+    const state = get();
+    const gameState = useGameState.getState();
+    
+    console.log('Placing bet:', { type, value, betAmount: state.betAmount, currentGame: state.currentGame?.id });
+    
+    if (!state.currentGame) {
+      console.error('No active game found');
+      return false;
+    }
+
+    if (!state.isAcceptingBets) {
+      console.error('Betting is currently closed');
+      return false;
+    }
+
+    try {
+      const success = await BetManagementService.placeBet(
+        state.currentGame,
+        state.betAmount,
+        type,
+        value
+      );
+
+      if (success) {
+        // Reload current bets after successful bet placement
+        await get().loadCurrentBets();
+        
+        // Update game state as well
+        gameState.setCurrentBets(gameState.currentBets);
+        
+        console.log('Bet placed successfully');
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Error placing bet:', error);
+      return false;
+    }
   },
 
   setBetAmount: (amount: number) => {
-    set({ betAmount: Math.max(10, amount) });
-    useGameState.getState().setBetAmount(amount);
+    const validAmount = Math.max(10, amount);
+    set({ betAmount: validAmount });
+    useGameState.getState().setBetAmount(validAmount);
   },
 
   setGameMode: (mode) => {
@@ -85,22 +90,32 @@ const useSupabaseGameStore = create<GameState>((set, get) => ({
   },
 
   loadGameHistory: async () => {
-    // This will be handled through proper component hooks
     console.log('loadGameHistory called');
   },
 
   loadCurrentBets: async () => {
-    // This will be handled through proper component hooks
-    console.log('loadCurrentBets called');
+    const state = get();
+    if (!state.currentGame) return;
+
+    try {
+      const currentBets = await BetManagementService.loadCurrentBets(
+        state.currentGame.id,
+        state.currentGame.id
+      );
+      console.log('Current bets loaded:', currentBets.length);
+      
+      set({ currentBets });
+      useGameState.getState().setCurrentBets(currentBets);
+    } catch (error) {
+      console.error('Error loading current bets:', error);
+    }
   },
 
   loadUserGameResults: async (userId: string) => {
-    // This will be handled through proper component hooks
     console.log('loadUserGameResults called');
   },
 
   loadCurrentData: async () => {
-    // This will be handled through proper component hooks
     console.log('loadCurrentData called');
   },
 
