@@ -3,19 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 
 export class AdminService {
   static async isAdmin(userId: string): Promise<boolean> {
-    // Since there's no role column in profiles, we'll use a hardcoded admin check
-    // In a real app, you'd want to add a role column to users table
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('email')
+        .select('role')
         .eq('id', userId)
         .single();
 
       if (error) return false;
       
-      // Simple admin check - in production you'd want proper role management
-      return data?.email === 'admin@example.com';
+      return data?.role === 'admin';
     } catch (error) {
       return false;
     }
@@ -54,7 +51,7 @@ export class AdminService {
         .from('bets')
         .select(`
           *,
-          users!inner(email)
+          users!inner(email, username)
         `)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -69,7 +66,7 @@ export class AdminService {
     try {
       const { error } = await supabase
         .from('users')
-        .update({ balance: newBalance })
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
         .eq('id', userId);
 
       return { error };
@@ -79,16 +76,21 @@ export class AdminService {
   }
 
   static async logAdminAction(action: string, targetType?: string, targetId?: string, details?: any) {
-    // Since admin_logs table doesn't exist, we'll just log to console
-    // In production, you'd want to create an admin_logs table
-    console.log('Admin Action:', {
-      action,
-      targetType,
-      targetId,
-      details,
-      timestamp: new Date().toISOString()
-    });
-    
-    return { error: null };
+    try {
+      const { error } = await supabase
+        .from('admin_logs')
+        .insert({
+          admin_user_id: (await supabase.auth.getUser()).data.user?.id || 'unknown',
+          action,
+          target_type: targetType,
+          target_id: targetId,
+          details
+        });
+      
+      return { error };
+    } catch (error) {
+      console.error('Error logging admin action:', error);
+      return { error };
+    }
   }
 }

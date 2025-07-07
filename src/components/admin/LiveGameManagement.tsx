@@ -27,7 +27,7 @@ const LiveGameManagement: React.FC = () => {
 
   useEffect(() => {
     loadGameStats();
-    const interval = setInterval(loadGameStats, 2000); // Refresh every 2 seconds
+    const interval = setInterval(loadGameStats, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -51,6 +51,7 @@ const LiveGameManagement: React.FC = () => {
       setGameStats(stats);
     } catch (error) {
       console.error('Error loading game stats:', error);
+      toast.error('Failed to load game statistics');
     } finally {
       setLoading(false);
     }
@@ -67,11 +68,12 @@ const LiveGameManagement: React.FC = () => {
         setIsManualMode(manual);
         await AdminGameService.logAdminAction('change_game_mode', { mode });
         toast.success(`Game mode changed to ${mode}`);
-        loadGameStats();
+        await loadGameStats();
       } else {
         toast.error('Failed to change game mode');
       }
     } catch (error) {
+      console.error('Error changing game mode:', error);
       toast.error('Error changing game mode');
     }
   };
@@ -96,11 +98,12 @@ const LiveGameManagement: React.FC = () => {
           gameId: gameStats.activeGame.id
         });
         toast.success(`Result set to ${selectedColor} ${selectedNumber}`);
-        loadGameStats();
+        await loadGameStats();
       } else {
         toast.error('Failed to set result');
       }
     } catch (error) {
+      console.error('Error setting result:', error);
       toast.error('Error setting result');
     }
   };
@@ -116,11 +119,12 @@ const LiveGameManagement: React.FC = () => {
           gameId: gameStats.activeGame.id
         });
         toast.success('Game completed successfully');
-        loadGameStats();
+        await loadGameStats();
       } else {
         toast.error('Failed to complete game');
       }
     } catch (error) {
+      console.error('Error completing game:', error);
       toast.error('Error completing game');
     }
   };
@@ -174,7 +178,7 @@ const LiveGameManagement: React.FC = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{gameStats.totalBetAmount}</div>
+            <div className="text-2xl font-bold">₹{gameStats.totalBetAmount}</div>
           </CardContent>
         </Card>
 
@@ -192,10 +196,14 @@ const LiveGameManagement: React.FC = () => {
       {/* Game Control */}
       <Card>
         <CardHeader>
-          <CardTitle>Game Control - Period #{gameStats.activeGame.period_number}</CardTitle>
+          <CardTitle>Game Control - Game #{gameStats.activeGame.game_number}</CardTitle>
           <CardDescription>
             Current Status: <Badge variant={gameStats.activeGame.status === 'active' ? 'default' : 'secondary'}>
               {gameStats.activeGame.status}
+            </Badge>
+            {' | Mode: '}
+            <Badge variant={isManualMode ? 'destructive' : 'secondary'}>
+              {isManualMode ? 'Manual' : 'Automatic'}
             </Badge>
           </CardDescription>
         </CardHeader>
@@ -214,7 +222,7 @@ const LiveGameManagement: React.FC = () => {
 
           {/* Manual Controls */}
           {isManualMode && (
-            <div className="space-y-4 p-4 border rounded-lg">
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
               <h3 className="text-lg font-semibold">Set Manual Result</h3>
               
               {/* Color Selection */}
@@ -254,7 +262,10 @@ const LiveGameManagement: React.FC = () => {
 
               {/* Action Buttons */}
               <div className="flex gap-2">
-                <Button onClick={handleSetResult} disabled={!selectedColor || selectedNumber === null}>
+                <Button 
+                  onClick={handleSetResult} 
+                  disabled={!selectedColor || selectedNumber === null}
+                >
                   <Play className="h-4 w-4 mr-2" />
                   Set Result
                 </Button>
@@ -266,7 +277,7 @@ const LiveGameManagement: React.FC = () => {
 
               {/* Current Selection */}
               {selectedColor && selectedNumber !== null && (
-                <div className="p-2 bg-muted rounded">
+                <div className="p-3 bg-primary/10 rounded border">
                   <strong>Selected Result:</strong> {selectedColor} {selectedNumber}
                 </div>
               )}

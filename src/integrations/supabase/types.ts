@@ -179,9 +179,13 @@ export type Database = {
       }
       games: {
         Row: {
+          admin_controlled: boolean | null
+          admin_set_result_color: string | null
+          admin_set_result_number: number | null
           created_at: string | null
           end_time: string
           game_mode: string | null
+          game_mode_type: string | null
           game_number: number
           id: string
           result_color: string | null
@@ -190,9 +194,13 @@ export type Database = {
           status: string | null
         }
         Insert: {
+          admin_controlled?: boolean | null
+          admin_set_result_color?: string | null
+          admin_set_result_number?: number | null
           created_at?: string | null
           end_time: string
           game_mode?: string | null
+          game_mode_type?: string | null
           game_number: number
           id?: string
           result_color?: string | null
@@ -201,9 +209,13 @@ export type Database = {
           status?: string | null
         }
         Update: {
+          admin_controlled?: boolean | null
+          admin_set_result_color?: string | null
+          admin_set_result_number?: number | null
           created_at?: string | null
           end_time?: string
           game_mode?: string | null
+          game_mode_type?: string | null
           game_number?: number
           id?: string
           result_color?: string | null

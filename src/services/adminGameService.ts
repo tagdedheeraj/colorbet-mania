@@ -79,10 +79,20 @@ export class AdminGameService {
 
   static async setGameMode(gameId: string, mode: 'automatic' | 'manual'): Promise<boolean> {
     try {
-      // Note: The games table doesn't have a game_mode_type column
-      // This functionality may need to be added to the database schema
-      console.log('Game mode setting not implemented - missing database column');
-      return false;
+      const { error } = await supabase
+        .from('games')
+        .update({
+          game_mode_type: mode,
+          admin_controlled: mode === 'manual'
+        })
+        .eq('id', gameId);
+
+      if (error) {
+        console.error('Error setting game mode:', error);
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error('Error setting game mode:', error);
       return false;
@@ -91,10 +101,20 @@ export class AdminGameService {
 
   static async setManualResult(gameId: string, color: string, number: number): Promise<boolean> {
     try {
-      // Note: The games table doesn't have admin_set_result_color/number columns
-      // This functionality may need to be added to the database schema
-      console.log('Manual result setting not implemented - missing database columns');
-      return false;
+      const { error } = await supabase
+        .from('games')
+        .update({
+          admin_set_result_color: color,
+          admin_set_result_number: number
+        })
+        .eq('id', gameId);
+
+      if (error) {
+        console.error('Error setting manual result:', error);
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error('Error setting manual result:', error);
       return false;
@@ -103,7 +123,7 @@ export class AdminGameService {
 
   static async completeGameManually(gameId: string): Promise<boolean> {
     try {
-      // Get the game
+      // Get the game with admin-set results
       const { data: game } = await supabase
         .from('games')
         .select('*')
@@ -112,17 +132,23 @@ export class AdminGameService {
 
       if (!game) return false;
 
-      // For now, just set a random result since we don't have admin columns
-      const colors = ['red', 'green', 'purple-red'];
-      const resultColor = colors[Math.floor(Math.random() * colors.length)];
-      const resultNumber = Math.floor(Math.random() * 10);
+      // Use admin-set results if available, otherwise generate random
+      let resultColor = game.admin_set_result_color;
+      let resultNumber = game.admin_set_result_number;
+
+      if (!resultColor || resultNumber === null) {
+        const colors = ['red', 'green', 'purple-red'];
+        resultColor = colors[Math.floor(Math.random() * colors.length)];
+        resultNumber = Math.floor(Math.random() * 10);
+      }
 
       const { error } = await supabase
         .from('games')
         .update({
           status: 'completed',
           result_color: resultColor,
-          result_number: resultNumber
+          result_number: resultNumber,
+          end_time: new Date().toISOString()
         })
         .eq('id', gameId);
 
@@ -136,10 +162,12 @@ export class AdminGameService {
 
   static async logAdminAction(action: string, details: any = {}) {
     try {
+      const { data: user } = await supabase.auth.getUser();
+      
       await supabase
         .from('admin_logs')
         .insert({
-          admin_user_id: 'admin-session', // This should be actual admin user ID
+          admin_user_id: user.user?.id || 'unknown',
           action,
           details
         });

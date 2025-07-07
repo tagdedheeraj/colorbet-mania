@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AdminService } from '@/services/adminService';
 import { toast } from 'sonner';
 
@@ -25,9 +26,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onDataReload }) 
 
     try {
       const balance = parseFloat(newBalance);
+      if (isNaN(balance) || balance < 0) {
+        toast.error('Please enter a valid balance amount');
+        return;
+      }
+
       const { error } = await AdminService.updateUserBalance(selectedUserId, balance);
       
       if (error) {
+        console.error('Balance update error:', error);
         toast.error('Failed to update balance');
         return;
       }
@@ -36,7 +43,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onDataReload }) 
         'update_balance',
         'user',
         selectedUserId,
-        { old_balance: users.find(u => u.id === selectedUserId)?.balance, new_balance: balance }
+        { 
+          old_balance: users.find(u => u.id === selectedUserId)?.balance, 
+          new_balance: balance 
+        }
       );
 
       toast.success('Balance updated successfully');
@@ -53,10 +63,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onDataReload }) 
     <Card>
       <CardHeader>
         <CardTitle>User Management</CardTitle>
-        <CardDescription>Manage user accounts and balances</CardDescription>
+        <CardDescription>Manage user accounts and balances ({users.length} users total)</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-6 p-4 border rounded-lg">
+        <div className="mb-6 p-4 border rounded-lg bg-muted/10">
           <h3 className="text-lg font-semibold mb-4">Update User Balance</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -70,7 +80,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onDataReload }) 
                 <option value="">Select a user...</option>
                 {users.map(user => (
                   <option key={user.id} value={user.id}>
-                    {user.username} ({user.email}) - {user.balance} coins
+                    {user.username} ({user.email}) - ₹{user.balance}
                   </option>
                 ))}
               </select>
@@ -80,6 +90,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onDataReload }) 
               <Input
                 id="new-balance"
                 type="number"
+                min="0"
+                step="0.01"
                 value={newBalance}
                 onChange={(e) => setNewBalance(e.target.value)}
                 placeholder="Enter new balance"
@@ -91,35 +103,43 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onDataReload }) 
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-300">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-300 p-2 text-left">Username</th>
-                <th className="border border-gray-300 p-2 text-left">Email</th>
-                <th className="border border-gray-300 p-2 text-left">Balance</th>
-                <th className="border border-gray-300 p-2 text-left">Role</th>
-                <th className="border border-gray-300 p-2 text-left">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <tr key={user.id}>
-                  <td className="border border-gray-300 p-2">{user.username}</td>
-                  <td className="border border-gray-300 p-2">{user.email}</td>
-                  <td className="border border-gray-300 p-2">{user.balance} coins</td>
-                  <td className="border border-gray-300 p-2">
-                    <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
-                      {user.role}
-                    </Badge>
-                  </td>
-                  <td className="border border-gray-300 p-2">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Username</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Balance</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Created</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.length > 0 ? (
+                users.map(user => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.username}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>₹{user.balance}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
+                        {user.role || 'user'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(user.created_at).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                    No users found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>
