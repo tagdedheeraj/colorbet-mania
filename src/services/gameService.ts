@@ -1,13 +1,13 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseGame, SupabaseBet, ColorType, NumberType, GameMode } from '@/types/supabaseGame';
-import { GAME_MODES } from '@/config/gameModes';
+import { GAME_MODES } from '@/config/gameMoves';
 
 export class GameService {
   static async loadActiveGame(): Promise<SupabaseGame | null> {
     try {
       const { data: activeGame, error } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .in('status', ['active', 'betting_closed'])
         .order('created_at', { ascending: false })
@@ -26,13 +26,13 @@ export class GameService {
 
       return {
         id: activeGame.id,
-        game_number: activeGame.period_number,
+        game_number: activeGame.game_number,
         result_color: activeGame.result_color,
         result_number: activeGame.result_number,
         start_time: activeGame.start_time,
         end_time: activeGame.end_time,
         status: activeGame.status || 'active',
-        game_mode: 'quick', // Default since game_mode doesn't exist in game_periods
+        game_mode: activeGame.game_mode || 'quick',
         created_at: activeGame.created_at || new Date().toISOString()
       };
     } catch (error) {
@@ -44,10 +44,10 @@ export class GameService {
   static async loadGameHistory(): Promise<SupabaseGame[]> {
     try {
       const { data, error } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('status', 'completed')
-        .order('period_number', { ascending: false })
+        .order('game_number', { ascending: false })
         .limit(10);
 
       if (error) {
@@ -57,13 +57,13 @@ export class GameService {
       
       return (data || []).map(game => ({
         id: game.id,
-        game_number: game.period_number,
+        game_number: game.game_number,
         result_color: game.result_color,
         result_number: game.result_number,
         start_time: game.start_time,
         end_time: game.end_time,
         status: game.status || 'completed',
-        game_mode: 'quick', // Default since game_mode doesn't exist
+        game_mode: game.game_mode || 'quick',
         created_at: game.created_at || new Date().toISOString()
       }));
     } catch (error) {
@@ -74,22 +74,10 @@ export class GameService {
 
   static async loadCurrentBets(gameId: string, userId: string): Promise<SupabaseBet[]> {
     try {
-      // Try to get the period_number from the gameId first
-      const { data: gameData } = await supabase
-        .from('game_periods')
-        .select('period_number')
-        .eq('id', gameId)
-        .single();
-
-      if (!gameData) {
-        console.error('Game not found for gameId:', gameId);
-        return [];
-      }
-
       const { data, error } = await supabase
         .from('bets')
         .select('*')
-        .eq('period_number', gameData.period_number)
+        .eq('game_id', gameId)
         .eq('user_id', userId);
 
       if (error) {
@@ -99,14 +87,14 @@ export class GameService {
       
       return (data || []).map(bet => ({
         id: bet.id,
-        game_id: gameId,
+        game_id: bet.game_id || gameId,
         user_id: bet.user_id || '',
         bet_type: bet.bet_type,
         bet_value: bet.bet_value,
         amount: bet.amount,
-        potential_win: bet.amount * 2, // Simple calculation
-        is_winner: bet.profit ? bet.profit > 0 : false,
-        actual_win: bet.profit || 0,
+        potential_win: bet.potential_win,
+        is_winner: bet.is_winner || false,
+        actual_win: bet.actual_win || 0,
         created_at: bet.created_at || new Date().toISOString()
       }));
     } catch (error) {
