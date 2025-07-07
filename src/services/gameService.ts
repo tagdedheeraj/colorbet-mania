@@ -1,7 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseGame, SupabaseBet, ColorType, NumberType, GameMode } from '@/types/supabaseGame';
-import { GAME_MODES } from '@/config/gameMoves';
+import { GAME_MODES } from '@/config/gameModes';
 
 export class GameService {
   static async loadActiveGame(): Promise<SupabaseGame | null> {
