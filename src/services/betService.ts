@@ -10,10 +10,10 @@ export class BetService {
     betValue: string,
     amount: number,
     userBalance: number,
-    periodNumber: number
+    gameNumber: number
   ): Promise<boolean> {
     try {
-      console.log(`Placing bet: ${betType} ${betValue} for ${amount} on period ${periodNumber}`);
+      console.log(`Placing bet: ${betType} ${betValue} for ${amount} on game ${gameNumber}`);
       
       // Validate inputs
       if (amount <= 0 || amount > userBalance) {
@@ -26,16 +26,24 @@ export class BetService {
         return false;
       }
 
+      // Calculate potential win
+      let potentialWin = amount;
+      if (betType === 'color') {
+        potentialWin = betValue === 'purple-red' ? amount * 0.90 : amount * 0.95;
+      } else {
+        potentialWin = amount * 9.0;
+      }
+
       // Place bet
       const { data: bet, error: betError } = await supabase
         .from('bets')
         .insert({
           user_id: userId,
-          period_number: periodNumber,
+          game_id: gameId,
           bet_type: betType,
           bet_value: betValue,
           amount: amount,
-          status: 'pending'
+          potential_win: potentialWin
         })
         .select()
         .single();
@@ -49,7 +57,7 @@ export class BetService {
       // Update user balance
       const newBalance = userBalance - amount;
       const { error: balanceError } = await supabase
-        .from('profiles')
+        .from('users')
         .update({ balance: newBalance })
         .eq('id', userId);
 
@@ -66,9 +74,7 @@ export class BetService {
           user_id: userId,
           type: 'bet',
           amount: -amount,
-          balance_before: userBalance,
-          balance_after: newBalance,
-          description: `Bet on ${betValue} - Game #${periodNumber}`
+          description: `Bet on ${betValue} - Game #${gameNumber}`
         });
 
       toast.success(`Bet placed successfully on ${betValue}!`);

@@ -32,9 +32,9 @@ export class BetManagementService {
         return false;
       }
 
-      // Get user profile with fresh balance
+      // Get user profile with fresh balance from users table
       const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
+        .from('users')
         .select('balance')
         .eq('id', session.user.id)
         .single();
@@ -54,15 +54,15 @@ export class BetManagementService {
         return false;
       }
 
-      // Use game_number (period_number) for bet placement
-      const periodNumber = currentGame.game_number;
-      if (!periodNumber) {
+      // Use game_number for bet placement
+      const gameNumber = currentGame.game_number;
+      if (!gameNumber) {
         console.error('Invalid game number');
         toast.error('Invalid game data');
         return false;
       }
 
-      console.log('Placing bet with period number:', periodNumber);
+      console.log('Placing bet with game number:', gameNumber);
 
       const success = await BetService.placeBet(
         currentGame.id,
@@ -71,7 +71,7 @@ export class BetManagementService {
         value,
         betAmount,
         currentBalance,
-        periodNumber
+        gameNumber
       );
 
       if (success) {
@@ -97,8 +97,8 @@ export class BetManagementService {
 
       // Get current game data
       const { data: currentGame } = await supabase
-        .from('game_periods')
-        .select('period_number')
+        .from('games')
+        .select('game_number')
         .eq('id', gameId)
         .single();
 
@@ -106,14 +106,14 @@ export class BetManagementService {
         return [];
       }
 
-      console.log('Loading bets for period:', currentGame.period_number);
+      console.log('Loading bets for game:', currentGame.game_number);
 
+      // Load bets by game_id directly since we don't have period_number in bets table
       const { data: bets, error } = await supabase
         .from('bets')
         .select('*')
-        .eq('period_number', currentGame.period_number)
+        .eq('game_id', gameId)
         .eq('user_id', session.user.id)
-        .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (error) {

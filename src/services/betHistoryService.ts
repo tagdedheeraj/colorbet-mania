@@ -5,50 +5,64 @@ import { BetWithGame } from '@/types/supabaseGame';
 export class BetHistoryService {
   static async loadAllUserBets(userId: string): Promise<BetWithGame[]> {
     try {
-      const { data, error } = await supabase
+      // First get all user bets
+      const { data: bets, error: betsError } = await supabase
         .from('bets')
-        .select(`
-          *,
-          game_periods!inner(
-            id,
-            period_number,
-            result_color,
-            result_number,
-            status,
-            created_at,
-            start_time,
-            end_time
-          )
-        `)
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error loading all user bets:', error);
+      if (betsError) {
+        console.error('Error loading user bets:', betsError);
         return [];
       }
+
+      if (!bets || bets.length === 0) {
+        return [];
+      }
+
+      // Get unique game IDs from bets
+      const gameIds = [...new Set(bets.map(bet => bet.game_id).filter(Boolean))];
       
-      return (data || []).map(bet => ({
+      // Fetch game data for those game IDs
+      const { data: games, error: gamesError } = await supabase
+        .from('games')
+        .select('*')
+        .in('id', gameIds);
+
+      if (gamesError) {
+        console.error('Error loading games:', gamesError);
+        return [];
+      }
+
+      // Create a map of games for quick lookup
+      const gamesMap = (games || []).reduce((acc, game) => {
+        acc[game.id] = game;
+        return acc;
+      }, {} as any);
+
+      // Combine bets with their corresponding game data
+      return bets.map(bet => ({
         id: bet.id,
-        game_id: bet.period_number?.toString() || '',
+        game_id: bet.game_id || '',
         user_id: bet.user_id || '',
         bet_type: bet.bet_type as 'color' | 'number',
         bet_value: bet.bet_value,
         amount: bet.amount,
-        potential_win: bet.amount * 2, // Simple calculation since potential_win doesn't exist
-        is_winner: bet.profit ? bet.profit > 0 : false,
-        actual_win: bet.profit || 0,
+        potential_win: bet.potential_win,
+        is_winner: bet.is_winner || false,
+        actual_win: bet.actual_win || 0,
         created_at: bet.created_at || new Date().toISOString(),
         game: {
-          id: bet.game_periods?.id || '',
-          game_number: bet.game_periods?.period_number || 0,
-          result_color: bet.game_periods?.result_color || null,
-          result_number: bet.game_periods?.result_number || null,
-          start_time: bet.game_periods?.start_time || '',
-          end_time: bet.game_periods?.end_time || '',
-          status: bet.game_periods?.status || '',
-          game_mode: 'classic', // Default since game_mode doesn't exist
-          created_at: bet.game_periods?.created_at || ''
+          id: bet.game_id || '',
+          game_number: gamesMap[bet.game_id || '']?.game_number || 0,
+          result_color: gamesMap[bet.game_id || '']?.result_color || null,
+          result_number: gamesMap[bet.game_id || '']?.result_number || null,
+          start_time: gamesMap[bet.game_id || '']?.start_time || '',
+          end_time: gamesMap[bet.game_id || '']?.end_time || '',
+          status: gamesMap[bet.game_id || '']?.status || '',
+          game_mode: gamesMap[bet.game_id || '']?.game_mode || 'classic',
+          created_at: gamesMap[bet.game_id || '']?.created_at || ''
         }
       }));
     } catch (error) {
@@ -60,7 +74,7 @@ export class BetHistoryService {
   static async getLatestCompletedGame() {
     try {
       const { data, error } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
