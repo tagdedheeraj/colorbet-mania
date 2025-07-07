@@ -17,29 +17,29 @@ export class GameCreationService {
     try {
       console.log('Creating new game with mode:', gameMode);
 
-      // Get the latest period number to ensure proper sequence
+      // Get the latest game number to ensure proper sequence
       const { data: latestGame } = await supabase
-        .from('game_periods')
-        .select('period_number')
-        .order('period_number', { ascending: false })
+        .from('games')
+        .select('game_number')
+        .order('game_number', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      const nextPeriodNumber = latestGame ? latestGame.period_number + 1 : 10001;
+      const nextGameNumber = latestGame ? latestGame.game_number + 1 : 10001;
       const now = new Date();
       const modeConfig = GAME_MODES[gameMode as keyof typeof GAME_MODES] || GAME_MODES.quick;
       const endTime = new Date(now.getTime() + modeConfig.duration * 1000);
 
-      console.log('Creating game with period number:', nextPeriodNumber);
+      console.log('Creating game with number:', nextGameNumber);
 
       const { data: newGame, error } = await supabase
-        .from('game_periods')
+        .from('games')
         .insert({
-          period_number: nextPeriodNumber,
+          game_number: nextGameNumber,
           start_time: now.toISOString(),
           end_time: endTime.toISOString(),
           status: 'active',
-          game_mode_type: 'automatic'
+          game_mode: gameMode
         })
         .select()
         .single();
@@ -50,8 +50,8 @@ export class GameCreationService {
         return null;
       }
 
-      console.log('New game created successfully:', newGame.period_number);
-      toast.success(`New game #${newGame.period_number} started!`);
+      console.log('New game created successfully:', newGame.game_number);
+      toast.success(`New game #${newGame.game_number} started!`);
       return newGame;
     } catch (error) {
       console.error('Error in createNewGame:', error);
@@ -67,7 +67,7 @@ export class GameCreationService {
 
       // Get game details
       const { data: gameData } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('id', gameId)
         .single();
@@ -87,7 +87,7 @@ export class GameCreationService {
 
       // Complete the game
       const { error: updateError } = await supabase
-        .from('game_periods')
+        .from('games')
         .update({
           status: 'completed',
           result_color: randomColor,
@@ -102,7 +102,7 @@ export class GameCreationService {
       }
 
       // Process bets
-      await this.processBetsForGame(gameData.period_number, randomColor, randomNumber);
+      await this.processBetsForGame(gameData.game_number, randomColor, randomNumber);
 
       console.log('Game completed successfully');
       return true;
@@ -112,15 +112,14 @@ export class GameCreationService {
     }
   }
 
-  private static async processBetsForGame(periodNumber: number, resultColor: string, resultNumber: number) {
+  private static async processBetsForGame(gameNumber: number, resultColor: string, resultNumber: number) {
     try {
-      console.log('Processing bets for period:', periodNumber);
+      console.log('Processing bets for game number:', gameNumber);
 
       const { data: bets, error: betsError } = await supabase
         .from('bets')
         .select('*')
-        .eq('period_number', periodNumber)
-        .eq('status', 'pending');
+        .eq('game_id', (await supabase.from('games').select('id').eq('game_number', gameNumber).single()).data?.id);
 
       if (betsError || !bets || bets.length === 0) {
         console.log('No bets to process');
@@ -145,30 +144,30 @@ export class GameCreationService {
           }
         }
 
-        const profit = isWinner ? bet.amount * multiplier : -bet.amount;
-        const totalPayout = isWinner ? bet.amount + (bet.amount * multiplier) : 0;
+        const actualWin = isWinner ? bet.amount * multiplier : 0;
+        const totalPayout = isWinner ? bet.amount + actualWin : 0;
 
         // Update bet
         await supabase
           .from('bets')
           .update({
-            status: 'completed',
-            profit: profit
+            is_winner: isWinner,
+            actual_win: actualWin
           })
           .eq('id', bet.id);
 
         // Update user balance if winner
         if (isWinner && totalPayout > 0) {
-          const { data: profile } = await supabase
-            .from('profiles')
+          const { data: user } = await supabase
+            .from('users')
             .select('balance')
             .eq('id', bet.user_id)
             .single();
 
-          if (profile) {
-            const newBalance = profile.balance + totalPayout;
+          if (user) {
+            const newBalance = (user.balance || 0) + totalPayout;
             await supabase
-              .from('profiles')
+              .from('users')
               .update({ balance: newBalance })
               .eq('id', bet.user_id);
 
@@ -178,9 +177,7 @@ export class GameCreationService {
                 user_id: bet.user_id,
                 type: 'win',
                 amount: totalPayout,
-                balance_before: profile.balance,
-                balance_after: newBalance,
-                description: `Win from Game #${periodNumber} - ${bet.bet_value}`
+                description: `Win from Game #${gameNumber} - ${bet.bet_value}`
               });
           }
         }

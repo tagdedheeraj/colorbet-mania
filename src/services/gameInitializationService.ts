@@ -10,7 +10,7 @@ export class GameInitializationService {
     try {
       // Load active game
       const { data: activeGame, error: activeError } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
@@ -35,10 +35,10 @@ export class GameInitializationService {
 
       // Load game history
       const { data: gameHistory, error: historyError } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('status', 'completed')
-        .order('period_number', { ascending: false })
+        .order('game_number', { ascending: false })
         .limit(10);
 
       if (historyError) {
@@ -46,7 +46,7 @@ export class GameInitializationService {
       }
 
       console.log('Initial data loaded:', {
-        activeGame: activeGame?.period_number,
+        activeGame: activeGame?.game_number,
         historyCount: gameHistory?.length || 0
       });
 
@@ -67,7 +67,7 @@ export class GameInitializationService {
     try {
       // Check for active game
       const { data: activeGame } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('status', 'active')
         .maybeSingle();
@@ -100,16 +100,16 @@ export class GameInitializationService {
       console.log('Setting up realtime subscriptions...');
       
       const gameChannel = supabase
-        .channel('game_periods_changes')
+        .channel('games_changes')
         .on(
           'postgres_changes',
           {
             event: '*',
             schema: 'public',
-            table: 'game_periods'
+            table: 'games'
           },
           (payload) => {
-            console.log('Game period changed:', payload);
+            console.log('Game changed:', payload);
             onGameUpdate();
           }
         )
@@ -148,7 +148,7 @@ export class GameInitializationService {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       
       const { data: expiredGames } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('status', 'active')
         .lt('end_time', fiveMinutesAgo);
