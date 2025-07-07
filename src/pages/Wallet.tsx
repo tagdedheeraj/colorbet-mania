@@ -32,15 +32,15 @@ const Wallet: React.FC = () => {
     if (!user) return;
 
     try {
-      // Load user balance from profiles table
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+      // Load user balance from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
         .select('balance')
         .eq('id', user.id)
         .single();
 
-      if (profileError) throw profileError;
-      setBalance(profileData?.balance || 0);
+      if (userError) throw userError;
+      setBalance(userData?.balance || 0);
 
       // Load transactions
       const { data: transactionData, error: transactionError } = await supabase
@@ -71,7 +71,7 @@ const Wallet: React.FC = () => {
 
       // Update user balance
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from('users')
         .update({ balance: newBalance })
         .eq('id', user?.id);
 
@@ -84,8 +84,6 @@ const Wallet: React.FC = () => {
           user_id: user?.id,
           type: 'deposit',
           amount: addAmount,
-          balance_before: balance,
-          balance_after: newBalance,
           description: 'Funds added to wallet'
         });
 
@@ -254,7 +252,7 @@ const Wallet: React.FC = () => {
                                 {Math.abs(transaction.amount).toFixed(2)}
                               </p>
                               <Badge variant="outline" className="text-xs">
-                                completed
+                                {transaction.status || 'completed'}
                               </Badge>
                             </div>
                           </div>

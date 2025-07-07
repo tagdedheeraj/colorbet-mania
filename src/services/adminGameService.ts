@@ -13,9 +13,9 @@ export interface LiveGameStats {
 export class AdminGameService {
   static async getCurrentGameStats(): Promise<LiveGameStats> {
     try {
-      // Get active game
+      // Get active game from games table
       const { data: activeGame } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
@@ -37,7 +37,7 @@ export class AdminGameService {
       const { data: bets } = await supabase
         .from('bets')
         .select('*')
-        .eq('period_number', activeGame.period_number);
+        .eq('game_id', activeGame.id);
 
       const colorBets: { [key: string]: { count: number; amount: number } } = {};
       const numberBets: { [key: string]: { count: number; amount: number } } = {};
@@ -79,13 +79,10 @@ export class AdminGameService {
 
   static async setGameMode(gameId: string, mode: 'automatic' | 'manual'): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('game_periods')
-        .update({ game_mode_type: mode })
-        .eq('id', gameId);
-
-      if (error) throw error;
-      return true;
+      // Note: The games table doesn't have a game_mode_type column
+      // This functionality may need to be added to the database schema
+      console.log('Game mode setting not implemented - missing database column');
+      return false;
     } catch (error) {
       console.error('Error setting game mode:', error);
       return false;
@@ -94,17 +91,10 @@ export class AdminGameService {
 
   static async setManualResult(gameId: string, color: string, number: number): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('game_periods')
-        .update({
-          admin_set_result_color: color,
-          admin_set_result_number: number,
-          is_result_locked: true
-        })
-        .eq('id', gameId);
-
-      if (error) throw error;
-      return true;
+      // Note: The games table doesn't have admin_set_result_color/number columns
+      // This functionality may need to be added to the database schema
+      console.log('Manual result setting not implemented - missing database columns');
+      return false;
     } catch (error) {
       console.error('Error setting manual result:', error);
       return false;
@@ -113,20 +103,22 @@ export class AdminGameService {
 
   static async completeGameManually(gameId: string): Promise<boolean> {
     try {
-      // Get the game with admin set results
+      // Get the game
       const { data: game } = await supabase
-        .from('game_periods')
+        .from('games')
         .select('*')
         .eq('id', gameId)
         .single();
 
       if (!game) return false;
 
-      const resultColor = game.admin_set_result_color || 'red';
-      const resultNumber = game.admin_set_result_number || 0;
+      // For now, just set a random result since we don't have admin columns
+      const colors = ['red', 'green', 'purple-red'];
+      const resultColor = colors[Math.floor(Math.random() * colors.length)];
+      const resultNumber = Math.floor(Math.random() * 10);
 
       const { error } = await supabase
-        .from('game_periods')
+        .from('games')
         .update({
           status: 'completed',
           result_color: resultColor,

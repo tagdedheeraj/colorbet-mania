@@ -14,11 +14,13 @@ const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, signOut } = useSupabaseAuthStore();
   const [profile, setProfile] = useState<any>(null);
+  const [userRecord, setUserRecord] = useState<any>(null);
   const [userStats, setUserStats] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [formData, setFormData] = useState({
-    email: ''
+    email: '',
+    username: ''
   });
 
   useEffect(() => {
@@ -34,14 +36,21 @@ const Profile: React.FC = () => {
 
     setLoading(true);
     try {
-      // Load profile data
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+      // Load user data from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
 
-      if (profileError) throw profileError;
+      if (userError) throw userError;
+
+      // Load profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       // Load user stats
       const { data: betsData, error: betsError } = await supabase
@@ -52,9 +61,10 @@ const Profile: React.FC = () => {
       if (betsError) throw betsError;
 
       const totalBets = betsData?.length || 0;
-      const totalWins = betsData?.filter(bet => bet.profit && bet.profit > 0).length || 0;
-      const totalWinnings = betsData?.filter(bet => bet.profit && bet.profit > 0).reduce((sum, bet) => sum + (bet.profit || 0), 0) || 0;
+      const totalWins = betsData?.filter(bet => bet.is_winner && bet.actual_win && bet.actual_win > 0).length || 0;
+      const totalWinnings = betsData?.filter(bet => bet.is_winner && bet.actual_win && bet.actual_win > 0).reduce((sum, bet) => sum + (bet.actual_win || 0), 0) || 0;
 
+      setUserRecord(userData);
       setProfile(profileData);
       setUserStats({
         totalBets,
@@ -64,7 +74,8 @@ const Profile: React.FC = () => {
       });
 
       setFormData({
-        email: profileData?.email || user.email || ''
+        email: userData?.email || '',
+        username: userData?.username || ''
       });
     } catch (error) {
       console.error('Error loading profile data:', error);
@@ -80,15 +91,16 @@ const Profile: React.FC = () => {
 
     setUpdating(true);
     try {
-      // Update profile
-      const { error: profileError } = await supabase
-        .from('profiles')
+      // Update user record
+      const { error: userError } = await supabase
+        .from('users')
         .update({
-          email: formData.email
+          email: formData.email,
+          username: formData.username
         })
         .eq('id', user.id);
 
-      if (profileError) throw profileError;
+      if (userError) throw userError;
 
       toast.success('Profile updated successfully');
       loadProfileData();
@@ -178,11 +190,22 @@ const Profile: React.FC = () => {
                   </div>
 
                   <div>
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      placeholder="Enter username"
+                    />
+                  </div>
+
+                  <div>
                     <Label htmlFor="balance">Current Balance</Label>
                     <Input
                       id="balance"
                       type="text"
-                      value={`${profile?.balance || 0} coins`}
+                      value={`${userRecord?.balance || 0} coins`}
                       disabled
                       className="bg-muted"
                     />
@@ -238,7 +261,7 @@ const Profile: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Member since:</span>
                   <span className="font-semibold">
-                    {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
+                    {userRecord?.created_at ? new Date(userRecord.created_at).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
