@@ -15,7 +15,7 @@ export class GameTimerService {
       return;
     }
 
-    console.log('Starting timer for game:', currentGame.period_number || currentGame.game_number);
+    console.log('Starting timer for game:', currentGame.game_number);
 
     // Clear existing timer
     this.clearTimer(currentGame.id);
@@ -37,7 +37,7 @@ export class GameTimerService {
 
       console.log('Timer update:', {
         gameId: currentGame.id,
-        periodNumber: currentGame.period_number || currentGame.game_number,
+        gameNumber: currentGame.game_number, // Fixed: use game_number consistently
         timeRemaining,
         isAcceptingBets
       });
@@ -74,7 +74,7 @@ export class GameTimerService {
         setTimeout(async () => {
           const newGame = await GameCreationService.createNewGame('quick');
           if (newGame) {
-            console.log('New game created:', newGame.period_number);
+            console.log('New game created:', newGame.game_number);
           }
         }, 2000);
       }

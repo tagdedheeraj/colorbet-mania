@@ -17,7 +17,7 @@ import BottomNav from '@/components/BottomNav';
 const Index = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isInitialized, user } = useSupabaseAuthStore();
-  const { isLoading: gameLoading } = useGameState();
+  const { isLoading: gameLoading, loadUserBalance } = useGameState();
   
   // Get operations hooks
   const gameOps = useGameOperations();
@@ -37,6 +37,9 @@ const Index = () => {
         
         // Initialize game operations
         await gameOps.initialize();
+        
+        // Load user balance
+        await loadUserBalance();
         
         // Load user game results if user exists
         if (user && gameOps.loadUserGameResults) {

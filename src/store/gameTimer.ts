@@ -40,7 +40,7 @@ export const useGameTimer = () => {
           if (completedGame) {
             const formattedCompletedGame = {
               id: completedGame.id,
-              game_number: completedGame.game_number || (completedGame as any).game_number,
+              game_number: completedGame.game_number, // Fixed: use game_number consistently
               result_color: completedGame.result_color,
               result_number: completedGame.result_number,
               start_time: completedGame.start_time,

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { GameMode, SupabaseGame } from '@/types/supabaseGame';
 import { GAME_MODES } from '@/config/gameModes';
 import { BetManagementService } from '@/services/betManagementService';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface GameStateSlice {
   currentGame: SupabaseGame | null;
@@ -17,6 +18,7 @@ export interface GameStateSlice {
   showResultPopup: boolean;
   lastCompletedGame: SupabaseGame | null;
   userGameResults: any[];
+  userBalance: number;
   
   // State setters
   setCurrentGame: (game: SupabaseGame | null) => void;
@@ -30,10 +32,12 @@ export interface GameStateSlice {
   setShowResultPopup: (show: boolean) => void;
   setLastCompletedGame: (game: SupabaseGame | null) => void;
   setUserGameResults: (results: any[]) => void;
+  setUserBalance: (balance: number) => void;
   
   // Game operations
   placeBet: (type: 'color' | 'number', value: string) => Promise<boolean>;
   loadCurrentBets: () => Promise<void>;
+  loadUserBalance: () => Promise<void>;
 }
 
 export const useGameState = create<GameStateSlice>((set, get) => ({
@@ -49,6 +53,7 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
   showResultPopup: false,
   lastCompletedGame: null,
   userGameResults: [],
+  userBalance: 0,
 
   setCurrentGame: (game) => set({ currentGame: game }),
   setTimeRemaining: (time) => set({ timeRemaining: time }),
@@ -61,6 +66,31 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
   setShowResultPopup: (show) => set({ showResultPopup: show }),
   setLastCompletedGame: (game) => set({ lastCompletedGame: game }),
   setUserGameResults: (results) => set({ userGameResults: results }),
+  setUserBalance: (balance) => set({ userBalance: balance }),
+
+  loadUserBalance: async () => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('id', user.user.id)
+        .single();
+
+      if (error) {
+        console.error('Error loading user balance:', error);
+        return;
+      }
+
+      const balance = userData?.balance || 0;
+      set({ userBalance: balance });
+      console.log('User balance loaded:', balance);
+    } catch (error) {
+      console.error('Error loading user balance:', error);
+    }
+  },
 
   placeBet: async (type: 'color' | 'number', value: string) => {
     const state = get();
@@ -77,6 +107,15 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
       return false;
     }
 
+    // Check balance from users table
+    await get().loadUserBalance();
+    const currentBalance = get().userBalance;
+    
+    if (currentBalance < state.betAmount) {
+      console.error('Insufficient balance');
+      return false;
+    }
+
     try {
       const success = await BetManagementService.placeBet(
         state.currentGame,
@@ -86,8 +125,9 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
       );
 
       if (success) {
-        // Reload current bets after successful bet placement
+        // Reload current bets and balance after successful bet placement
         await get().loadCurrentBets();
+        await get().loadUserBalance();
         console.log('Bet placed successfully');
       }
 

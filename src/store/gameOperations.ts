@@ -35,7 +35,7 @@ export const useGameOperations = () => {
       // Format and set data
       const formattedActiveGame = activeGame ? {
         id: activeGame.id,
-        game_number: activeGame.period_number,
+        game_number: activeGame.game_number, // Fixed: use game_number consistently
         result_color: activeGame.result_color,
         result_number: activeGame.result_number,
         start_time: activeGame.start_time,
@@ -47,7 +47,7 @@ export const useGameOperations = () => {
 
       const formattedGameHistory = gameHistory.map((game: any) => ({
         id: game.id,
-        game_number: game.period_number,
+        game_number: game.game_number, // Fixed: use game_number consistently
         result_color: game.result_color,
         result_number: game.result_number,
         start_time: game.start_time,
@@ -104,7 +104,7 @@ export const useGameOperations = () => {
       
       const formattedActiveGame = activeGame ? {
         id: activeGame.id,
-        game_number: activeGame.period_number,
+        game_number: activeGame.game_number, // Fixed: use game_number consistently
         result_color: activeGame.result_color,
         result_number: activeGame.result_number,
         start_time: activeGame.start_time,
@@ -116,7 +116,7 @@ export const useGameOperations = () => {
 
       const formattedGameHistory = gameHistory.map((game: any) => ({
         id: game.id,
-        game_number: game.period_number,
+        game_number: game.game_number, // Fixed: use game_number consistently
         result_color: game.result_color,
         result_number: game.result_number,
         start_time: game.start_time,
