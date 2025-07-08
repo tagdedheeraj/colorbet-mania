@@ -50,6 +50,41 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_auth_sessions: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          last_accessed: string | null
+          session_token: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_accessed?: string | null
+          session_token: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_accessed?: string | null
+          session_token?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_auth_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_logs: {
         Row: {
           action: string
@@ -360,6 +395,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_admin_auth_session: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       create_admin_session: {
         Args: { p_admin_id: string }
         Returns: string
@@ -375,6 +414,24 @@ export type Database = {
       logout_admin_session: {
         Args: { p_session_token: string }
         Returns: boolean
+      }
+      verify_admin_auth_session: {
+        Args: { p_session_token: string }
+        Returns: {
+          user_id: string
+          email: string
+          username: string
+          role: string
+        }[]
+      }
+      verify_admin_credentials: {
+        Args: { p_email: string; p_password: string }
+        Returns: {
+          user_id: string
+          email: string
+          username: string
+          role: string
+        }[]
       }
       verify_admin_login: {
         Args: { p_username: string; p_password: string }

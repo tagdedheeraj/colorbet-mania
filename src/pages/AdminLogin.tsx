@@ -7,8 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Shield, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { AdminService } from '@/services/adminService';
-import AdminDebugInfo from '@/components/AdminDebugInfo';
+import AdminAuthService from '@/services/adminAuthService';
 
 const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -20,7 +19,6 @@ const AdminLogin: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     checkExistingSession();
@@ -29,8 +27,8 @@ const AdminLogin: React.FC = () => {
   const checkExistingSession = async () => {
     try {
       console.log('🔍 Checking existing admin session...');
-      const isAdmin = await AdminService.isAdmin();
-      if (isAdmin) {
+      const { authenticated } = await AdminAuthService.isAuthenticated();
+      if (authenticated) {
         console.log('✅ Already logged in as admin, redirecting...');
         navigate('/admin');
         return;
@@ -45,36 +43,20 @@ const AdminLogin: React.FC = () => {
 
   const handleInputChange = (field: 'email' | 'password', value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    setError(null); // Clear error when user types
+    setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     
-    // Validation
     if (!formData.email.trim()) {
       setError('Email is required');
-      toast.error('Please enter email');
       return;
     }
 
     if (!formData.password.trim()) {
       setError('Password is required');
-      toast.error('Please enter password');
-      return;
-    }
-
-    // Specific validation for admin credentials
-    if (formData.email.trim() !== 'admin@tradeforwin.xyz') {
-      setError('Invalid admin email');
-      toast.error('Please use the correct admin email');
-      return;
-    }
-
-    if (formData.password.trim() !== 'Trade@123') {
-      setError('Invalid admin password');
-      toast.error('Please use the correct admin password');
       return;
     }
 
@@ -82,13 +64,10 @@ const AdminLogin: React.FC = () => {
     
     try {
       console.log('🚀 Submitting login form...');
-      const result = await AdminService.login(formData.email.trim(), formData.password.trim());
+      const result = await AdminAuthService.login(formData.email.trim(), formData.password.trim());
       
       if (result.success) {
         console.log('✅ Login successful, redirecting to admin panel...');
-        toast.success('Welcome to Admin Panel!');
-        
-        // Force navigation after a short delay
         setTimeout(() => {
           navigate('/admin', { replace: true });
         }, 500);
@@ -96,15 +75,12 @@ const AdminLogin: React.FC = () => {
         const errorMessage = result.error?.message || 'Login failed';
         console.error('❌ Login failed:', errorMessage);
         setError(errorMessage);
-        setShowDebug(true); // Show debug info on error
-        toast.error(errorMessage);
       }
       
     } catch (error) {
       console.error('❌ Login exception:', error);
       const errorMessage = 'System error occurred during login';
       setError(errorMessage);
-      setShowDebug(true); // Show debug info on error
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -124,7 +100,7 @@ const AdminLogin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-4">
+      <div className="w-full max-w-md">
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -155,7 +131,6 @@ const AdminLogin: React.FC = () => {
                   placeholder="Enter admin email"
                   required
                   disabled={loading}
-                  className={error?.includes('email') ? 'border-destructive' : ''}
                 />
               </div>
 
@@ -170,7 +145,6 @@ const AdminLogin: React.FC = () => {
                     placeholder="Enter admin password"
                     required
                     disabled={loading}
-                    className={error?.includes('password') ? 'border-destructive' : ''}
                   />
                   <Button
                     type="button"
@@ -221,8 +195,6 @@ const AdminLogin: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        
-        {showDebug && <AdminDebugInfo />}
       </div>
     </div>
   );

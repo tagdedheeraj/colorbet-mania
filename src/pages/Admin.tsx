@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AdminService } from '@/services/adminService';
+import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Users, GamepadIcon, TrendingUp, LogOut, RefreshCw, Edit, ArrowLeft } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ const Admin: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [games, setGames] = useState<any[]>([]);
   const [bets, setBets] = useState<any[]>([]);
-  const [adminInfo, setAdminInfo] = useState<any>(null);
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [editBalance, setEditBalance] = useState<{userId: string, balance: string} | null>(null);
 
   useEffect(() => {
@@ -27,17 +28,15 @@ const Admin: React.FC = () => {
 
   const checkAdminAndLoadData = async () => {
     try {
-      const isAdmin = await AdminService.isAdmin();
+      const { authenticated, user } = await AdminAuthService.isAuthenticated();
       
-      if (!isAdmin) {
+      if (!authenticated || !user) {
         toast.error('Admin access required');
         navigate('/admin-login');
         return;
       }
 
-      const adminData = await AdminService.getAdminInfo();
-      setAdminInfo(adminData);
-      
+      setAdminUser(user);
       await loadData();
     } catch (error) {
       console.error('Error checking admin access:', error);
@@ -51,9 +50,13 @@ const Admin: React.FC = () => {
   const loadData = async () => {
     try {
       const [usersResult, gamesResult, betsResult] = await Promise.all([
-        AdminService.getAllUsers(),
-        AdminService.getAllGames(),
-        AdminService.getAllBets()
+        supabase.from('users').select('*').order('created_at', { ascending: false }),
+        supabase.from('games').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('bets').select(`
+          *,
+          users!inner(username, email),
+          games!inner(game_number, status)
+        `).order('created_at', { ascending: false }).limit(100)
       ]);
 
       setUsers(usersResult.data || []);
@@ -74,16 +77,30 @@ const Admin: React.FC = () => {
       return;
     }
 
-    const result = await AdminService.updateUserBalance(editBalance.userId, newBalance);
-    
-    if (result.success) {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', editBalance.userId);
+
+      if (error) {
+        console.error('❌ Balance update error:', error);
+        toast.error('Failed to update balance');
+        return;
+      }
+
+      toast.success('Balance updated successfully');
       setEditBalance(null);
       loadData();
+    } catch (error) {
+      console.error('❌ Balance update exception:', error);
+      toast.error('Failed to update balance');
     }
   };
 
-  const handleLogout = () => {
-    AdminService.logout();
+  const handleLogout = async () => {
+    await AdminAuthService.logout();
+    navigate('/admin-login');
   };
 
   if (loading) {
@@ -118,7 +135,7 @@ const Admin: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold">Admin Panel</h1>
               <p className="text-muted-foreground">
-                Welcome, {adminInfo?.username} - Manage your gaming platform
+                Welcome, {adminUser?.username} - Manage your gaming platform
               </p>
             </div>
           </div>
@@ -196,7 +213,7 @@ const Admin: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>User Management</CardTitle>
-                <CardDescription>Manage user accounts and balances ({users.length} users total)</CardDescription>
+                <CardDescription>Manage user accounts and balances</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border">
@@ -212,39 +229,31 @@ const Admin: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.length > 0 ? (
-                        users.map(user => (
-                          <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.username}</TableCell>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell>₹{user.balance}</TableCell>
-                            <TableCell>
-                              <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
-                                {user.role || 'user'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {new Date(user.created_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setEditBalance({userId: user.id, balance: user.balance.toString()})}
-                              >
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit Balance
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
-                            No users found
+                      {users.map(user => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.username}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>₹{user.balance}</TableCell>
+                          <TableCell>
+                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
+                              {user.role || 'user'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditBalance({userId: user.id, balance: user.balance.toString()})}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Balance
+                            </Button>
                           </TableCell>
                         </TableRow>
-                      )}
+                      ))}
                     </TableBody>
                   </Table>
                 </div>

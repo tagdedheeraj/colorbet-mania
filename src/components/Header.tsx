@@ -13,7 +13,7 @@ import {
 import { User, Settings, LogOut, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
-import { AdminService } from '@/services/adminService';
+import AdminAuthService from '@/services/adminAuthService';
 
 const Header: React.FC = () => {
   const { user, profile, signOut, isAuthenticated } = useSupabaseAuthStore();
@@ -21,15 +21,16 @@ const Header: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      checkAdminStatus();
-    }
+    checkAdminStatus();
   }, [user]);
 
   const checkAdminStatus = async () => {
-    if (user) {
-      const adminStatus = await AdminService.isAdmin();
-      setIsAdmin(adminStatus);
+    try {
+      const { authenticated, user: adminUser } = await AdminAuthService.isAuthenticated();
+      setIsAdmin(authenticated && adminUser?.role === 'admin');
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      setIsAdmin(false);
     }
   };
 
