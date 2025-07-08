@@ -29,7 +29,7 @@ const Admin: React.FC = () => {
 
   const checkAdminAccess = async () => {
     try {
-      console.log('Checking admin access with Supabase...');
+      console.log('Checking admin access...');
       
       const isValidAdmin = await AdminAuthService.verifyAdminSession();
       

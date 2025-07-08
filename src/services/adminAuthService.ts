@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { AdminService } from './adminService';
+import { AdminUserCreationService } from './adminUserCreationService';
 
 export interface AdminSession {
   isAdmin: boolean;
@@ -77,12 +78,20 @@ export class AdminAuthService {
 
   static async signInWithEmail(email: string, password: string): Promise<{ error?: any }> {
     try {
+      console.log('Attempting admin login with Supabase...');
+      
+      // Ensure admin user exists before attempting login
+      if (email === 'admin@gameapp.com') {
+        await AdminUserCreationService.ensureAdminUserExists();
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('Login error:', error);
         return { error };
       }
 
@@ -95,6 +104,7 @@ export class AdminAuthService {
         }
       }
 
+      console.log('Admin login successful');
       return { error: null };
     } catch (error) {
       console.error('Error signing in:', error);

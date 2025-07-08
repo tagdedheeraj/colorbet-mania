@@ -12,19 +12,20 @@ import { AdminAuthService } from '@/services/adminAuthService';
 const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
-    password: ''
+    email: 'admin@gameapp.com',
+    password: 'admin123456'
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   useEffect(() => {
-    // Check if already logged in as admin
     checkExistingSession();
   }, [navigate]);
 
   const checkExistingSession = async () => {
     try {
+      setIsCheckingSession(true);
       const isAdmin = await AdminAuthService.verifyAdminSession();
       if (isAdmin) {
         console.log('Already logged in as admin, redirecting...');
@@ -32,6 +33,8 @@ const AdminLogin: React.FC = () => {
       }
     } catch (error) {
       console.error('Error checking existing session:', error);
+    } finally {
+      setIsCheckingSession(false);
     }
   };
 
@@ -45,13 +48,19 @@ const AdminLogin: React.FC = () => {
 
     setLoading(true);
     try {
-      console.log('Attempting admin login with Supabase...');
+      console.log('Attempting admin login...');
       
       const { error } = await AdminAuthService.signInWithEmail(formData.email, formData.password);
       
       if (error) {
         console.error('Login error:', error);
-        toast.error(error.message || 'Invalid email or password');
+        if (error.message?.includes('Invalid login credentials')) {
+          toast.error('Invalid email or password');
+        } else if (error.message?.includes('Admin access required')) {
+          toast.error('Admin access required');
+        } else {
+          toast.error(error.message || 'Login failed');
+        }
         return;
       }
 
@@ -65,6 +74,17 @@ const AdminLogin: React.FC = () => {
       setLoading(false);
     }
   };
+
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Checking admin session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-4">
@@ -124,7 +144,6 @@ const AdminLogin: React.FC = () => {
             </Button>
           </form>
 
-          {/* Demo Credentials */}
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <h3 className="text-sm font-semibold mb-2">Demo Credentials:</h3>
             <p className="text-xs text-muted-foreground">
