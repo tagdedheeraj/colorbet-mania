@@ -13,6 +13,7 @@ import { Users, GamepadIcon, TrendingUp, LogOut, RefreshCw, Edit, ArrowLeft, Cre
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
 
 // Type for RPC response
 interface RpcResponse {
@@ -36,6 +37,23 @@ const Admin: React.FC = () => {
 
   useEffect(() => {
     checkAdminAndLoadData();
+    
+    // Set up real-time subscription for deposit requests
+    const channel = supabase
+      .channel('admin-deposit-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'deposit_requests'
+      }, () => {
+        console.log('Deposit request updated, reloading...');
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const checkAdminAndLoadData = async () => {
@@ -61,6 +79,7 @@ const Admin: React.FC = () => {
 
   const loadData = async () => {
     try {
+      console.log('Loading admin data...');
       const [usersResult, gamesResult, betsResult, depositsResult] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('games').select('*').order('created_at', { ascending: false }).limit(100),
@@ -74,6 +93,13 @@ const Admin: React.FC = () => {
           users!inner(username, email)
         `).order('created_at', { ascending: false }).limit(100)
       ]);
+
+      console.log('Admin data loaded:', {
+        users: usersResult.data?.length,
+        games: gamesResult.data?.length,
+        bets: betsResult.data?.length,
+        deposits: depositsResult.data?.length
+      });
 
       setUsers(usersResult.data || []);
       setGames(gamesResult.data || []);
@@ -119,6 +145,7 @@ const Admin: React.FC = () => {
     if (!processDeposit || !adminUser) return;
 
     try {
+      console.log('Processing deposit:', processDeposit);
       const functionName = processDeposit.action === 'approve' ? 'approve_deposit_request' : 'reject_deposit_request';
       
       const { data, error } = await supabase.rpc(functionName, {
@@ -133,7 +160,6 @@ const Admin: React.FC = () => {
         return;
       }
 
-      // Type assertion for the RPC response - convert through unknown for type safety
       const response = data as unknown as RpcResponse;
       
       if (response?.success) {
@@ -324,12 +350,13 @@ const Admin: React.FC = () => {
 
         {/* Main Content */}
         <Tabs defaultValue="deposits" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="deposits">Deposits ({pendingDeposits})</TabsTrigger>
             <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
             <TabsTrigger value="games">Games ({games.length})</TabsTrigger>
             <TabsTrigger value="bets">Bets ({bets.length})</TabsTrigger>
             <TabsTrigger value="live-control">Live Control</TabsTrigger>
+            <TabsTrigger value="payment-config">Payment Config</TabsTrigger>
           </TabsList>
 
           <TabsContent value="deposits" className="space-y-4">
@@ -400,6 +427,10 @@ const Admin: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="payment-config" className="space-y-4">
+            <PaymentGatewayConfig />
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">

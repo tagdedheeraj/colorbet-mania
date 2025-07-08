@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { GameMode, SupabaseGame } from '@/types/supabaseGame';
 import { GAME_MODES } from '@/config/gameModes';
@@ -70,8 +69,12 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
 
   loadUserBalance: async () => {
     try {
+      console.log('Loading user balance...');
       const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
+      if (!user.user) {
+        console.log('No user found for balance loading');
+        return;
+      }
 
       const { data: userData, error } = await supabase
         .from('users')
@@ -81,6 +84,7 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
 
       if (error) {
         console.error('Error loading user balance:', error);
+        // Don't set balance to 0 on error, keep existing value
         return;
       }
 
@@ -107,7 +111,7 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
       return false;
     }
 
-    // Check balance from users table
+    // Check balance
     await get().loadUserBalance();
     const currentBalance = get().userBalance;
     

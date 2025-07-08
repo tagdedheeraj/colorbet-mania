@@ -10,11 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
+import { useGameState } from '@/store/gameState';
 import { supabase } from '@/integrations/supabase/client';
 
 const Wallet: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useSupabaseAuthStore();
+  const { loadUserBalance } = useGameState();
   const [balance, setBalance] = useState<number>(0);
   const [amount, setAmount] = useState<string>('');
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -26,7 +28,28 @@ const Wallet: React.FC = () => {
       return;
     }
     loadWalletData();
-  }, [isAuthenticated, navigate]);
+    
+    // Set up real-time balance updates
+    if (user) {
+      const channel = supabase
+        .channel('wallet-balance-updates')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${user.id}`
+        }, (payload) => {
+          console.log('Wallet balance updated:', payload.new.balance);
+          setBalance(payload.new.balance || 0);
+          loadUserBalance(); // Update game state balance too
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [isAuthenticated, navigate, user, loadUserBalance]);
 
   const loadWalletData = async () => {
     if (!user) return;
@@ -39,8 +62,11 @@ const Wallet: React.FC = () => {
         .eq('id', user.id)
         .single();
 
-      if (userError) throw userError;
-      setBalance(userData?.balance || 0);
+      if (userError) {
+        console.error('Error loading user balance:', userError);
+      } else {
+        setBalance(userData?.balance || 0);
+      }
 
       // Load transactions
       const { data: transactionData, error: transactionError } = await supabase
@@ -50,8 +76,11 @@ const Wallet: React.FC = () => {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (transactionError) throw transactionError;
-      setTransactions(transactionData || []);
+      if (transactionError) {
+        console.error('Error loading transactions:', transactionError);
+      } else {
+        setTransactions(transactionData || []);
+      }
     } catch (error) {
       console.error('Error loading wallet data:', error);
       toast.error('Failed to load wallet data');
@@ -84,15 +113,16 @@ const Wallet: React.FC = () => {
           user_id: user?.id,
           type: 'deposit',
           amount: addAmount,
-          description: 'Funds added to wallet'
+          description: 'Demo funds added to wallet'
         });
 
       if (transactionError) throw transactionError;
 
       setBalance(newBalance);
       setAmount('');
-      toast.success('Funds added successfully');
+      toast.success('Demo funds added successfully');
       loadWalletData();
+      loadUserBalance(); // Update game state balance
     } catch (error) {
       console.error('Error adding funds:', error);
       toast.error('Failed to add funds');
@@ -185,7 +215,7 @@ const Wallet: React.FC = () => {
               <TabsContent value="add-funds" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Quick Add Funds</CardTitle>
+                    <CardTitle>Quick Add Demo Funds</CardTitle>
                     <CardDescription>
                       Add demo coins to your wallet for testing
                     </CardDescription>
@@ -208,7 +238,7 @@ const Wallet: React.FC = () => {
                       disabled={loading}
                       className="w-full"
                     >
-                      {loading ? 'Processing...' : 'Add Funds'}
+                      {loading ? 'Processing...' : 'Add Demo Funds'}
                     </Button>
                     <p className="text-sm text-muted-foreground">
                       * This is demo mode. For real payments, use the "Add Funds via Payment" button above.

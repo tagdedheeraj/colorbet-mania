@@ -28,7 +28,7 @@ interface DepositRequest {
 
 const Deposit: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useSupabaseAuthStore();
+  const { user, isAuthenticated, isInitialized } = useSupabaseAuthStore();
   const [amount, setAmount] = useState<string>('');
   const [transactionId, setTransactionId] = useState<string>('');
   const [selectedMethod, setSelectedMethod] = useState<string>('upi');
@@ -37,32 +37,47 @@ const Deposit: React.FC = () => {
   const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
 
   useEffect(() => {
+    // Wait for auth to be initialized before checking
+    if (!isInitialized) return;
+    
     if (!isAuthenticated) {
       navigate('/auth');
       return;
     }
+    
     loadPaymentConfigs();
     loadDepositRequests();
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isInitialized, navigate]);
 
   const loadPaymentConfigs = async () => {
     try {
+      console.log('Loading payment configs...');
       const { data, error } = await supabase
         .from('payment_gateway_config')
         .select('*')
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading payment configs:', error);
+        throw error;
+      }
+      
+      console.log('Payment configs loaded:', data);
       setPaymentConfigs(data || []);
     } catch (error) {
       console.error('Error loading payment configs:', error);
+      toast.error('Failed to load payment options');
     }
   };
 
   const loadDepositRequests = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, skipping deposit requests load');
+      return;
+    }
 
     try {
+      console.log('Loading deposit requests for user:', user.id);
       const { data, error } = await supabase
         .from('deposit_requests')
         .select('*')
@@ -70,45 +85,88 @@ const Deposit: React.FC = () => {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading deposit requests:', error);
+        throw error;
+      }
+      
+      console.log('Deposit requests loaded:', data);
       setDepositRequests(data || []);
     } catch (error) {
       console.error('Error loading deposit requests:', error);
+      toast.error('Failed to load deposit history');
     }
   };
 
   const handleSubmitDeposit = async () => {
+    console.log('Submitting deposit request...');
+    console.log('User:', user);
+    console.log('Amount:', amount);
+    console.log('Transaction ID:', transactionId);
+    
+    // Validation checks
+    if (!user) {
+      console.error('No user found');
+      toast.error('Please log in to submit deposit request');
+      return;
+    }
+
     if (!amount || parseFloat(amount) <= 0) {
+      console.error('Invalid amount');
       toast.error('Please enter a valid amount');
       return;
     }
 
     if (!transactionId.trim()) {
+      console.error('No transaction ID');
       toast.error('Please enter transaction ID');
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      console.log('Inserting deposit request...');
+      const depositData = {
+        user_id: user.id,
+        amount: parseFloat(amount),
+        payment_method: selectedMethod,
+        transaction_id: transactionId.trim(),
+        status: 'pending'
+      };
+      
+      console.log('Deposit data:', depositData);
+      
+      const { data, error } = await supabase
         .from('deposit_requests')
-        .insert({
-          user_id: user?.id,
-          amount: parseFloat(amount),
-          payment_method: selectedMethod,
-          transaction_id: transactionId.trim(),
-          status: 'pending'
-        });
+        .insert(depositData)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
+      console.log('Deposit request created:', data);
       toast.success('Deposit request submitted successfully! Admin will review it shortly.');
+      
+      // Reset form
       setAmount('');
       setTransactionId('');
-      loadDepositRequests();
+      
+      // Reload deposit requests
+      await loadDepositRequests();
+      
     } catch (error) {
       console.error('Error submitting deposit:', error);
-      toast.error('Failed to submit deposit request');
+      
+      // More specific error messages
+      if (error.message?.includes('foreign key')) {
+        toast.error('Authentication error. Please log out and log in again.');
+      } else if (error.message?.includes('violates row-level security')) {
+        toast.error('Permission denied. Please ensure you are logged in.');
+      } else {
+        toast.error(`Failed to submit deposit request: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -132,6 +190,18 @@ const Deposit: React.FC = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-IN');
   };
+
+  // Don't render until auth is initialized
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return null;
@@ -204,7 +274,7 @@ const Deposit: React.FC = () => {
                     <Card>
                       <CardContent className="p-4">
                         <h3 className="font-semibold mb-2">UPI Payment Details</h3>
-                        {upiConfig && (
+                        {upiConfig ? (
                           <div className="space-y-2">
                             <p><strong>UPI ID:</strong> {upiConfig.upi_id}</p>
                             <p><strong>Merchant:</strong> {upiConfig.merchant_name}</p>
@@ -214,6 +284,8 @@ const Deposit: React.FC = () => {
                               </p>
                             </div>
                           </div>
+                        ) : (
+                          <p className="text-muted-foreground">UPI payment details not configured</p>
                         )}
                       </CardContent>
                     </Card>
@@ -223,7 +295,7 @@ const Deposit: React.FC = () => {
                     <Card>
                       <CardContent className="p-4">
                         <h3 className="font-semibold mb-2">QR Code Payment</h3>
-                        {qrConfig && (
+                        {qrConfig ? (
                           <div className="space-y-2">
                             <div className="flex justify-center">
                               <img 
@@ -239,6 +311,8 @@ const Deposit: React.FC = () => {
                               </p>
                             </div>
                           </div>
+                        ) : (
+                          <p className="text-muted-foreground">QR code payment details not configured</p>
                         )}
                       </CardContent>
                     </Card>
@@ -248,7 +322,7 @@ const Deposit: React.FC = () => {
                     <Card>
                       <CardContent className="p-4">
                         <h3 className="font-semibold mb-2">Bank Transfer Details</h3>
-                        {bankConfig && (
+                        {bankConfig ? (
                           <div className="space-y-2">
                             <p><strong>Bank:</strong> {bankConfig.bank_name}</p>
                             <p><strong>Account Number:</strong> {bankConfig.account_number}</p>
@@ -260,6 +334,8 @@ const Deposit: React.FC = () => {
                               </p>
                             </div>
                           </div>
+                        ) : (
+                          <p className="text-muted-foreground">Net banking details not configured</p>
                         )}
                       </CardContent>
                     </Card>
@@ -278,7 +354,7 @@ const Deposit: React.FC = () => {
 
                 <Button 
                   onClick={handleSubmitDeposit}
-                  disabled={loading}
+                  disabled={loading || !user}
                   className="w-full"
                 >
                   {loading ? 'Submitting...' : 'Submit Deposit Request'}
