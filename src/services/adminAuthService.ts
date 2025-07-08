@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { AdminService } from './adminService';
-import { AdminUserCreationService } from './adminUserCreationService';
 
 export interface AdminSession {
   isAdmin: boolean;
@@ -80,11 +79,6 @@ export class AdminAuthService {
     try {
       console.log('Attempting admin login with Supabase...');
       
-      // Ensure admin user exists before attempting login
-      if (email === 'admin@gameapp.com') {
-        await AdminUserCreationService.ensureAdminUserExists();
-      }
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,

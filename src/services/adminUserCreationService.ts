@@ -47,7 +47,7 @@ export class AdminUserCreationService {
 
   static async ensureAdminUserExists() {
     try {
-      // Check if admin user already exists
+      // Check if admin user already exists in public.users with admin role
       const { data: existingUsers, error } = await supabase
         .from('users')
         .select('*')
@@ -60,21 +60,12 @@ export class AdminUserCreationService {
       }
 
       if (existingUsers && existingUsers.length > 0) {
-        console.log('Admin user already exists');
+        console.log('Admin user already exists in public.users');
         return true;
       }
 
-      // Create admin user if it doesn't exist
-      console.log('Creating admin user...');
-      const result = await this.createAdminUser('admin@gameapp.com', 'admin123456');
-      
-      if (result.success) {
-        console.log('Admin user created successfully');
-        return true;
-      } else {
-        console.error('Failed to create admin user:', result.error);
-        return false;
-      }
+      console.log('Admin user not found in public.users, this should not happen after database migration');
+      return false;
     } catch (error) {
       console.error('Exception ensuring admin user exists:', error);
       return false;

@@ -145,7 +145,7 @@ const AdminLogin: React.FC = () => {
           </form>
 
           <div className="mt-6 p-4 bg-muted rounded-lg">
-            <h3 className="text-sm font-semibold mb-2">Demo Credentials:</h3>
+            <h3 className="text-sm font-semibold mb-2">Admin Credentials:</h3>
             <p className="text-xs text-muted-foreground">
               Email: <span className="font-mono">admin@gameapp.com</span><br />
               Password: <span className="font-mono">admin123456</span>
