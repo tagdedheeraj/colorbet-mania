@@ -77,7 +77,12 @@ export class BetManagementService {
       if (success) {
         console.log('Bet placed successfully');
         const newBalance = currentBalance - betAmount;
-        toast.info(`New balance: ${newBalance} coins`);
+        toast.success(`Bet placed! New balance: ${newBalance} coins`);
+        
+        // Small delay to ensure database consistency before refresh
+        setTimeout(() => {
+          console.log('Triggering bet history refresh after successful bet placement');
+        }, 500);
       }
 
       return success;
@@ -95,20 +100,9 @@ export class BetManagementService {
         return [];
       }
 
-      // Get current game data
-      const { data: currentGame } = await supabase
-        .from('games')
-        .select('game_number')
-        .eq('id', gameId)
-        .single();
+      console.log('Loading current bets for game:', gameId, 'user:', session.user.id);
 
-      if (!currentGame) {
-        return [];
-      }
-
-      console.log('Loading bets for game:', currentGame.game_number);
-
-      // Load bets by game_id directly since we don't have period_number in bets table
+      // Load bets by game_id directly 
       const { data: bets, error } = await supabase
         .from('bets')
         .select('*')
