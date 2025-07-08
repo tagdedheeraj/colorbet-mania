@@ -6,7 +6,7 @@ import { AdminAuthService } from '@/services/adminAuthService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { MonitorSpeaker } from 'lucide-react';
+import { MonitorSpeaker, Database } from 'lucide-react';
 import LiveGameManagement from '@/components/admin/LiveGameManagement';
 import AdminHeader from '@/components/admin/AdminHeader';
 import AdminStats from '@/components/admin/AdminStats';
@@ -14,6 +14,7 @@ import UserManagement from '@/components/admin/UserManagement';
 import GameManagement from '@/components/admin/GameManagement';
 import BettingAnalytics from '@/components/admin/BettingAnalytics';
 import SystemSettings from '@/components/admin/SystemSettings';
+import DatabaseHealthMonitor from '@/components/admin/DatabaseHealthMonitor';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -107,12 +108,13 @@ const Admin: React.FC = () => {
         <AdminStats users={users} games={games} bets={bets} />
 
         <Tabs defaultValue="live" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="live">Live Game</TabsTrigger>
             <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
             <TabsTrigger value="games">Games</TabsTrigger>
             <TabsTrigger value="bets">Bets</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
+            <TabsTrigger value="health">Health</TabsTrigger>
           </TabsList>
 
           <TabsContent value="live" className="space-y-4">
@@ -142,8 +144,12 @@ const Admin: React.FC = () => {
             <BettingAnalytics bets={bets} />
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-4">
+          <TabsContent value="system" className="space-y-4">
             <SystemSettings adminInfo={adminInfo} />
+          </TabsContent>
+
+          <TabsContent value="health" className="space-y-4">
+            <DatabaseHealthMonitor />
           </TabsContent>
         </Tabs>
       </div>
