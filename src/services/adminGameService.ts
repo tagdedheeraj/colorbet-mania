@@ -13,14 +13,18 @@ export interface LiveGameStats {
 export class AdminGameService {
   static async getCurrentGameStats(): Promise<LiveGameStats> {
     try {
-      // Get active game from games table
-      const { data: activeGame } = await supabase
+      // Get active game
+      const { data: activeGame, error: gameError } = await supabase
         .from('games')
         .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (gameError) {
+        console.error('Error fetching active game:', gameError);
+      }
 
       if (!activeGame) {
         return {
@@ -34,10 +38,14 @@ export class AdminGameService {
       }
 
       // Get all bets for current game
-      const { data: bets } = await supabase
+      const { data: bets, error: betsError } = await supabase
         .from('bets')
         .select('*')
         .eq('game_id', activeGame.id);
+
+      if (betsError) {
+        console.error('Error fetching bets:', betsError);
+      }
 
       const colorBets: { [key: string]: { count: number; amount: number } } = {};
       const numberBets: { [key: string]: { count: number; amount: number } } = {};
@@ -45,7 +53,7 @@ export class AdminGameService {
       let totalBetAmount = 0;
 
       bets?.forEach(bet => {
-        totalBetAmount += bet.amount;
+        totalBetAmount += parseFloat(bet.amount.toString());
         uniqueUsers.add(bet.user_id);
 
         if (bet.bet_type === 'color') {
@@ -53,13 +61,13 @@ export class AdminGameService {
             colorBets[bet.bet_value] = { count: 0, amount: 0 };
           }
           colorBets[bet.bet_value].count += 1;
-          colorBets[bet.bet_value].amount += bet.amount;
+          colorBets[bet.bet_value].amount += parseFloat(bet.amount.toString());
         } else if (bet.bet_type === 'number') {
           if (!numberBets[bet.bet_value]) {
             numberBets[bet.bet_value] = { count: 0, amount: 0 };
           }
           numberBets[bet.bet_value].count += 1;
-          numberBets[bet.bet_value].amount += bet.amount;
+          numberBets[bet.bet_value].amount += parseFloat(bet.amount.toString());
         }
       });
 
@@ -73,7 +81,14 @@ export class AdminGameService {
       };
     } catch (error) {
       console.error('Error getting game stats:', error);
-      throw error;
+      return {
+        activeGame: null,
+        totalBets: 0,
+        totalBetAmount: 0,
+        colorBets: {},
+        numberBets: {},
+        activePlayers: 0
+      };
     }
   }
 
@@ -94,7 +109,7 @@ export class AdminGameService {
 
       return true;
     } catch (error) {
-      console.error('Error setting game mode:', error);
+      console.error('Error in setGameMode:', error);
       return false;
     }
   }
@@ -116,7 +131,7 @@ export class AdminGameService {
 
       return true;
     } catch (error) {
-      console.error('Error setting manual result:', error);
+      console.error('Error in setManualResult:', error);
       return false;
     }
   }
@@ -124,13 +139,16 @@ export class AdminGameService {
   static async completeGameManually(gameId: string): Promise<boolean> {
     try {
       // Get the game with admin-set results
-      const { data: game } = await supabase
+      const { data: game, error: fetchError } = await supabase
         .from('games')
         .select('*')
         .eq('id', gameId)
         .single();
 
-      if (!game) return false;
+      if (fetchError || !game) {
+        console.error('Error fetching game:', fetchError);
+        return false;
+      }
 
       // Use admin-set results if available, otherwise generate random
       let resultColor = game.admin_set_result_color;
@@ -152,22 +170,26 @@ export class AdminGameService {
         })
         .eq('id', gameId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error completing game:', error);
+        return false;
+      }
+
       return true;
     } catch (error) {
-      console.error('Error completing game manually:', error);
+      console.error('Error in completeGameManually:', error);
       return false;
     }
   }
 
   static async logAdminAction(action: string, details: any = {}) {
     try {
-      const { data: user } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       
       await supabase
         .from('admin_logs')
         .insert({
-          admin_user_id: user.user?.id || 'unknown',
+          admin_user_id: user?.id || 'unknown',
           action,
           details
         });

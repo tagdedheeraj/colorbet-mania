@@ -29,21 +29,25 @@ const Admin: React.FC = () => {
 
   const checkAdminAccess = async () => {
     try {
-      const isValidSession = await AdminAuthService.verifySession();
+      console.log('Checking admin access...');
+      const isValidAdmin = await AdminAuthService.verifyAdminSession();
       
-      if (!isValidSession) {
-        toast.error('Access denied. Please login as admin.');
-        navigate('/admin-login');
+      if (!isValidAdmin) {
+        console.log('Access denied - not an admin');
+        toast.error('Access denied. Admin login required.');
+        navigate('/auth');
         return;
       }
 
-      const adminData = AdminAuthService.getAdminInfo();
+      console.log('Admin access verified');
+      const adminData = await AdminAuthService.getAdminInfo();
       setAdminInfo(adminData);
       
       await loadAdminData();
     } catch (error) {
       console.error('Error checking admin access:', error);
-      navigate('/admin-login');
+      toast.error('Error checking admin access');
+      navigate('/auth');
     } finally {
       setLoading(false);
     }
@@ -51,15 +55,30 @@ const Admin: React.FC = () => {
 
   const loadAdminData = async () => {
     try {
+      console.log('Loading admin data...');
       const [usersResult, gamesResult, betsResult] = await Promise.all([
         AdminService.getAllUsers(),
         AdminService.getAllGames(),
         AdminService.getAllBets()
       ]);
 
+      console.log('Users loaded:', usersResult.data.length);
+      console.log('Games loaded:', gamesResult.data.length);
+      console.log('Bets loaded:', betsResult.data.length);
+
       setUsers(usersResult.data);
       setGames(gamesResult.data);
       setBets(betsResult.data);
+
+      if (usersResult.error) {
+        console.error('Users loading error:', usersResult.error);
+      }
+      if (gamesResult.error) {
+        console.error('Games loading error:', gamesResult.error);
+      }
+      if (betsResult.error) {
+        console.error('Bets loading error:', betsResult.error);
+      }
     } catch (error) {
       console.error('Error loading admin data:', error);
       toast.error('Failed to load admin data');
@@ -86,7 +105,7 @@ const Admin: React.FC = () => {
         <Tabs defaultValue="live" className="space-y-4">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="live">Live Game</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
             <TabsTrigger value="games">Games</TabsTrigger>
             <TabsTrigger value="bets">Bets</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>

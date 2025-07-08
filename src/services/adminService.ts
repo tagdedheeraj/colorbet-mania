@@ -10,10 +10,14 @@ export class AdminService {
         .eq('id', userId)
         .single();
 
-      if (error) return false;
+      if (error) {
+        console.error('Error checking admin status:', error);
+        return false;
+      }
       
       return data?.role === 'admin';
     } catch (error) {
+      console.error('Error in isAdmin:', error);
       return false;
     }
   }
@@ -25,8 +29,14 @@ export class AdminService {
         .select('*')
         .order('created_at', { ascending: false });
 
-      return { data: data || [], error };
+      if (error) {
+        console.error('Error fetching users:', error);
+        return { data: [], error };
+      }
+
+      return { data: data || [], error: null };
     } catch (error) {
+      console.error('Error in getAllUsers:', error);
       return { data: [], error };
     }
   }
@@ -39,8 +49,14 @@ export class AdminService {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      return { data: data || [], error };
+      if (error) {
+        console.error('Error fetching games:', error);
+        return { data: [], error };
+      }
+
+      return { data: data || [], error: null };
     } catch (error) {
+      console.error('Error in getAllGames:', error);
       return { data: [], error };
     }
   }
@@ -56,8 +72,14 @@ export class AdminService {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      return { data: data || [], error };
+      if (error) {
+        console.error('Error fetching bets:', error);
+        return { data: [], error };
+      }
+
+      return { data: data || [], error: null };
     } catch (error) {
+      console.error('Error in getAllBets:', error);
       return { data: [], error };
     }
   }
@@ -69,27 +91,38 @@ export class AdminService {
         .update({ balance: newBalance, updated_at: new Date().toISOString() })
         .eq('id', userId);
 
+      if (error) {
+        console.error('Error updating balance:', error);
+      }
+
       return { error };
     } catch (error) {
+      console.error('Error in updateUserBalance:', error);
       return { error };
     }
   }
 
   static async logAdminAction(action: string, targetType?: string, targetId?: string, details?: any) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
         .from('admin_logs')
         .insert({
-          admin_user_id: (await supabase.auth.getUser()).data.user?.id || 'unknown',
+          admin_user_id: user?.id || 'unknown',
           action,
           target_type: targetType,
           target_id: targetId,
           details
         });
       
+      if (error) {
+        console.error('Error logging admin action:', error);
+      }
+
       return { error };
     } catch (error) {
-      console.error('Error logging admin action:', error);
+      console.error('Error in logAdminAction:', error);
       return { error };
     }
   }
