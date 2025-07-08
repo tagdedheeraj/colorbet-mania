@@ -4,12 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { RefreshCw, CheckCircle, AlertTriangle, Database } from 'lucide-react';
 import { AdminAuthService, AuthHealthCheck } from '@/services/adminAuthService';
+import { EmergencyAdminService } from '@/services/emergencyAdminService';
 import { toast } from 'sonner';
 
 const DatabaseHealthMonitor: React.FC = () => {
   const [healthData, setHealthData] = useState<AuthHealthCheck[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [emergencyStatus, setEmergencyStatus] = useState<boolean | null>(null);
 
   const checkHealth = async () => {
     setLoading(true);
@@ -18,14 +20,16 @@ const DatabaseHealthMonitor: React.FC = () => {
       setHealthData(health);
       setLastChecked(new Date());
       
-      const issues = health.filter(check => 
-        check.issue_type.includes('null_') && check.issue_count > 0
-      );
+      // Check emergency admin status
+      const hasEmergencyAdmin = await EmergencyAdminService.checkEmergencyAdmin();
+      setEmergencyStatus(hasEmergencyAdmin);
+      
+      const issues = health.filter(check => check.issue_count > 0);
       
       if (issues.length > 0) {
-        toast.warning(`Found ${issues.length} database health issues`);
+        toast.warning(`Found ${issues.length} system issues`);
       } else {
-        toast.success('Database health check passed');
+        toast.success('System health check passed');
       }
     } catch (error) {
       console.error('Health check failed:', error);
@@ -39,18 +43,12 @@ const DatabaseHealthMonitor: React.FC = () => {
     checkHealth();
   }, []);
 
-  const getStatusColor = (issueType: string, count: number) => {
-    if (issueType === 'admin_user_exists') {
-      return count > 0 ? 'text-green-600' : 'text-red-600';
-    }
-    return count > 0 ? 'text-yellow-600' : 'text-green-600';
+  const getStatusColor = (issueCount: number) => {
+    return issueCount > 0 ? 'text-red-600' : 'text-green-600';
   };
 
-  const getStatusIcon = (issueType: string, count: number) => {
-    if (issueType === 'admin_user_exists') {
-      return count > 0 ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />;
-    }
-    return count > 0 ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />;
+  const getStatusIcon = (issueCount: number) => {
+    return issueCount > 0 ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />;
   };
 
   return (
@@ -58,10 +56,10 @@ const DatabaseHealthMonitor: React.FC = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Database className="h-5 w-5" />
-          Database Health Monitor
+          System Health Monitor
         </CardTitle>
         <CardDescription>
-          Monitor authentication system health and detect issues
+          Monitor system health and authentication status
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -86,16 +84,28 @@ const DatabaseHealthMonitor: React.FC = () => {
               {healthData.map((check, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div className="flex items-center gap-2">
-                    <span className={getStatusColor(check.issue_type, check.issue_count)}>
-                      {getStatusIcon(check.issue_type, check.issue_count)}
+                    <span className={getStatusColor(check.issue_count)}>
+                      {getStatusIcon(check.issue_count)}
                     </span>
                     <span className="text-sm font-medium">{check.details}</span>
                   </div>
-                  <span className={`text-sm font-mono ${getStatusColor(check.issue_type, check.issue_count)}`}>
-                    {check.issue_count}
+                  <span className={`text-sm font-mono ${getStatusColor(check.issue_count)}`}>
+                    {check.issue_count === 0 ? 'OK' : 'ISSUE'}
                   </span>
                 </div>
               ))}
+              
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className={emergencyStatus ? 'text-green-600' : 'text-yellow-600'}>
+                    {emergencyStatus ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                  </span>
+                  <span className="text-sm font-medium">Emergency Admin Status</span>
+                </div>
+                <span className={`text-sm font-mono ${emergencyStatus ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {emergencyStatus ? 'READY' : 'NOT READY'}
+                </span>
+              </div>
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
@@ -107,9 +117,9 @@ const DatabaseHealthMonitor: React.FC = () => {
           <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
             <strong>Health Check Items:</strong>
             <ul className="mt-1 space-y-1">
-              <li>• Admin user existence</li>
-              <li>• Authentication system integrity</li>
               <li>• Database connection status</li>
+              <li>• Emergency admin availability</li>
+              <li>• Authentication system integrity</li>
             </ul>
           </div>
         </div>

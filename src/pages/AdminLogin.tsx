@@ -5,9 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Shield, Eye, EyeOff, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Shield, Eye, EyeOff, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { AdminAuthService } from '@/services/adminAuthService';
+import { EmergencyAdminService } from '@/services/emergencyAdminService';
 
 const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -18,54 +19,53 @@ const AdminLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [dbHealthStatus, setDbHealthStatus] = useState<'checking' | 'healthy' | 'issues' | 'error'>('checking');
+  const [systemStatus, setSystemStatus] = useState<'checking' | 'healthy' | 'issues' | 'error'>('checking');
+  const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
-    checkSystemHealth();
-    checkExistingSession();
-  }, [navigate]);
+    checkSystemAndSession();
+  }, []);
 
-  const checkSystemHealth = async () => {
-    try {
-      const healthCheck = await AdminAuthService.checkAuthHealth();
-      
-      if (healthCheck.length === 0) {
-        setDbHealthStatus('healthy');
-        return;
-      }
-      
-      const hasIssues = healthCheck.some(check => 
-        check.issue_type.includes('null_') && check.issue_count > 0
-      );
-      
-      const hasAdmin = healthCheck.find(check => 
-        check.issue_type === 'admin_user_exists'
-      )?.issue_count > 0;
-      
-      if (hasIssues || !hasAdmin) {
-        setDbHealthStatus('issues');
-        console.warn('Database health issues detected:', healthCheck);
-      } else {
-        setDbHealthStatus('healthy');
-      }
-    } catch (error) {
-      console.error('Health check failed:', error);
-      setDbHealthStatus('error');
-    }
-  };
-
-  const checkExistingSession = async () => {
+  const checkSystemAndSession = async () => {
     try {
       setIsCheckingSession(true);
+      
+      // Check if user is already logged in
       const isAdmin = await AdminAuthService.verifyAdminSession();
       if (isAdmin) {
         console.log('Already logged in as admin, redirecting...');
         navigate('/admin');
+        return;
       }
+
+      // Check system health
+      const healthCheck = await AdminAuthService.checkAuthHealth();
+      const hasIssues = healthCheck.some(check => check.issue_count > 0);
+      setSystemStatus(hasIssues ? 'issues' : 'healthy');
+      
     } catch (error) {
-      console.error('Error checking existing session:', error);
+      console.error('System check failed:', error);
+      setSystemStatus('error');
     } finally {
       setIsCheckingSession(false);
+    }
+  };
+
+  const initializeEmergencyAdmin = async () => {
+    setIsInitializing(true);
+    try {
+      const result = await EmergencyAdminService.createEmergencyAdminUser();
+      if (result.success) {
+        toast.success('Emergency admin initialized successfully');
+        setSystemStatus('healthy');
+      } else {
+        toast.error('Failed to initialize emergency admin');
+      }
+    } catch (error) {
+      console.error('Emergency admin initialization failed:', error);
+      toast.error('Emergency admin initialization failed');
+    } finally {
+      setIsInitializing(false);
     }
   };
 
@@ -80,30 +80,37 @@ const AdminLogin: React.FC = () => {
     setLoading(true);
     try {
       console.log('=== ADMIN LOGIN ATTEMPT ===');
-      console.log('Email:', formData.email);
-      console.log('DB Health Status:', dbHealthStatus);
       
+      // Try primary authentication
       const { error } = await AdminAuthService.signInWithEmail(formData.email, formData.password);
       
       if (error) {
-        console.error('Login error:', error);
+        console.error('Primary login failed:', error);
         
-        // Enhanced error handling
+        // Try emergency authentication
+        const emergencyResult = await EmergencyAdminService.verifyEmergencyLogin(
+          formData.email, 
+          formData.password
+        );
+        
+        if (emergencyResult.success) {
+          toast.success('Emergency admin login successful!');
+          // Create a mock session for emergency admin
+          localStorage.setItem('emergency_admin_session', JSON.stringify({
+            user: emergencyResult.user,
+            timestamp: Date.now()
+          }));
+          navigate('/admin');
+          return;
+        }
+        
+        // Show appropriate error message
         if (error.message?.includes('Invalid login credentials')) {
           toast.error('Invalid email or password');
         } else if (error.message?.includes('Admin access required')) {
           toast.error('Admin access required');
-        } else if (error.message?.includes('Database error') || 
-                   error.message?.includes('email_change_token')) {
-          toast.error('Database authentication error. Trying fallback method...');
-          
-          // Show that we're trying fallback
-          setTimeout(() => {
-            toast.info('Attempting emergency authentication...');
-          }, 1000);
-          
         } else {
-          toast.error(error.message || 'Login failed. Please try again.');
+          toast.error('Login failed. Please try again.');
         }
         return;
       }
@@ -111,7 +118,6 @@ const AdminLogin: React.FC = () => {
       console.log('=== LOGIN SUCCESSFUL ===');
       toast.success('Admin login successful!');
       
-      // Force a small delay to ensure everything is set up
       setTimeout(() => {
         navigate('/admin');
       }, 500);
@@ -124,20 +130,20 @@ const AdminLogin: React.FC = () => {
     }
   };
 
-  const getHealthStatusIcon = () => {
-    switch (dbHealthStatus) {
+  const getStatusIcon = () => {
+    switch (systemStatus) {
       case 'healthy':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'issues':
       case 'error':
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
       default:
-        return <div className="h-4 w-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />;
+        return <RefreshCw className="h-4 w-4 animate-spin text-gray-500" />;
     }
   };
 
-  const getHealthStatusText = () => {
-    switch (dbHealthStatus) {
+  const getStatusText = () => {
+    switch (systemStatus) {
       case 'healthy':
         return 'System Ready';
       case 'issues':
@@ -153,7 +159,7 @@ const AdminLogin: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <RefreshCw className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
           <p>Checking admin session...</p>
         </div>
       </div>
@@ -172,15 +178,14 @@ const AdminLogin: React.FC = () => {
             Enter your admin credentials to access the admin panel
           </CardDescription>
           
-          {/* System Health Status */}
           <div className="mt-4 flex items-center gap-2 text-sm">
-            {getHealthStatusIcon()}
+            {getStatusIcon()}
             <span className={`
-              ${dbHealthStatus === 'healthy' ? 'text-green-600' : 
-                dbHealthStatus === 'issues' ? 'text-yellow-600' : 
-                dbHealthStatus === 'error' ? 'text-red-600' : 'text-gray-600'}
+              ${systemStatus === 'healthy' ? 'text-green-600' : 
+                systemStatus === 'issues' ? 'text-yellow-600' : 
+                systemStatus === 'error' ? 'text-red-600' : 'text-gray-600'}
             `}>
-              {getHealthStatusText()}
+              {getStatusText()}
             </span>
           </div>
         </CardHeader>
@@ -230,6 +235,26 @@ const AdminLogin: React.FC = () => {
             </Button>
           </form>
 
+          {systemStatus === 'error' && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                onClick={initializeEmergencyAdmin}
+                disabled={isInitializing}
+                className="w-full"
+              >
+                {isInitializing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Initializing...
+                  </>
+                ) : (
+                  'Initialize Emergency Admin'
+                )}
+              </Button>
+            </div>
+          )}
+
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <h3 className="text-sm font-semibold mb-2">Admin Credentials:</h3>
             <p className="text-xs text-muted-foreground">
@@ -237,14 +262,6 @@ const AdminLogin: React.FC = () => {
               Password: <span className="font-mono">admin123456</span>
             </p>
           </div>
-
-          {dbHealthStatus === 'issues' && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-xs text-yellow-800">
-                System health check detected minor issues. Authentication may use fallback methods.
-              </p>
-            </div>
-          )}
 
           <div className="mt-4 text-center">
             <Button

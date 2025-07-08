@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminService } from '@/services/adminService';
 import { AdminAuthService } from '@/services/adminAuthService';
+import { EmergencyAdminService } from '@/services/emergencyAdminService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ const Admin: React.FC = () => {
   const [games, setGames] = useState<any[]>([]);
   const [bets, setBets] = useState<any[]>([]);
   const [adminInfo, setAdminInfo] = useState<any>(null);
+  const [isEmergencyMode, setIsEmergencyMode] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
@@ -32,6 +34,28 @@ const Admin: React.FC = () => {
     try {
       console.log('Checking admin access...');
       
+      // Check for emergency session first
+      const emergencySession = localStorage.getItem('emergency_admin_session');
+      if (emergencySession) {
+        const session = JSON.parse(emergencySession);
+        // Check if session is still valid (24 hours)
+        if (Date.now() - session.timestamp < 24 * 60 * 60 * 1000) {
+          console.log('Using emergency admin session');
+          setIsEmergencyMode(true);
+          setAdminInfo({
+            username: 'admin',
+            email: 'admin@gameapp.com',
+            id: session.user?.id || 'emergency-admin'
+          });
+          await loadAdminData();
+          setLoading(false);
+          return;
+        } else {
+          localStorage.removeItem('emergency_admin_session');
+        }
+      }
+
+      // Check normal admin session
       const isValidAdmin = await AdminAuthService.verifyAdminSession();
       
       if (!isValidAdmin) {
@@ -104,6 +128,14 @@ const Admin: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
       <div className="container mx-auto max-w-7xl">
+        {isEmergencyMode && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <strong>Emergency Mode:</strong> You are logged in using emergency admin access.
+            </p>
+          </div>
+        )}
+        
         <AdminHeader adminInfo={adminInfo} />
         <AdminStats users={users} games={games} bets={bets} />
 
