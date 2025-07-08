@@ -23,6 +23,13 @@ export const useGameOperations = () => {
     setIsLoading(true);
     
     try {
+      // Add timeout to prevent infinite loading
+      const initTimeout = setTimeout(() => {
+        console.log('Game initialization timeout - completing with defaults');
+        setIsLoading(false);
+        isInitializing = false;
+      }, 10000); // 10 second timeout
+
       // Cleanup expired games first
       await GameInitializationService.cleanupExpiredGames();
 
@@ -32,10 +39,13 @@ export const useGameOperations = () => {
       // Load game history
       const { gameHistory } = await GameInitializationService.loadInitialData();
       
+      // Clear timeout since we completed successfully
+      clearTimeout(initTimeout);
+      
       // Format and set data
       const formattedActiveGame = activeGame ? {
         id: activeGame.id,
-        game_number: activeGame.game_number, // Fixed: use game_number consistently
+        game_number: activeGame.game_number,
         result_color: activeGame.result_color,
         result_number: activeGame.result_number,
         start_time: activeGame.start_time,
@@ -47,7 +57,7 @@ export const useGameOperations = () => {
 
       const formattedGameHistory = gameHistory.map((game: any) => ({
         id: game.id,
-        game_number: game.game_number, // Fixed: use game_number consistently
+        game_number: game.game_number,
         result_color: game.result_color,
         result_number: game.result_number,
         start_time: game.start_time,
@@ -64,13 +74,17 @@ export const useGameOperations = () => {
         await loadCurrentBets();
       }
 
-      // Setup realtime subscriptions
+      // Setup realtime subscriptions with delay
       setTimeout(() => {
-        GameInitializationService.setupRealtimeSubscriptions(
-          () => loadCurrentData(),
-          () => loadCurrentBets()
-        );
-      }, 1000);
+        try {
+          GameInitializationService.setupRealtimeSubscriptions(
+            () => loadCurrentData(),
+            () => loadCurrentBets()
+          );
+        } catch (error) {
+          console.error('Error setting up realtime subscriptions:', error);
+        }
+      }, 2000);
 
       console.log('Game operations initialized successfully');
     } catch (error) {
@@ -82,10 +96,10 @@ export const useGameOperations = () => {
   };
 
   const loadCurrentBets = async () => {
-    const gameState = useGameState.getState();
-    if (!gameState.currentGame) return;
-
     try {
+      const gameState = useGameState.getState();
+      if (!gameState.currentGame) return;
+
       const currentBets = await BetManagementService.loadCurrentBets(
         gameState.currentGame.id,
         gameState.currentGame.id
@@ -104,7 +118,7 @@ export const useGameOperations = () => {
       
       const formattedActiveGame = activeGame ? {
         id: activeGame.id,
-        game_number: activeGame.game_number, // Fixed: use game_number consistently
+        game_number: activeGame.game_number,
         result_color: activeGame.result_color,
         result_number: activeGame.result_number,
         start_time: activeGame.start_time,
@@ -116,7 +130,7 @@ export const useGameOperations = () => {
 
       const formattedGameHistory = gameHistory.map((game: any) => ({
         id: game.id,
-        game_number: game.game_number, // Fixed: use game_number consistently
+        game_number: game.game_number,
         result_color: game.result_color,
         result_number: game.result_number,
         start_time: game.start_time,

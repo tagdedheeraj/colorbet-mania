@@ -42,88 +42,60 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       
-      // Set initialization timeout - force complete after 5 seconds
-      const initTimeout = setTimeout(() => {
-        console.log('Auth initialization timeout - forcing completion');
-        set({ 
-          isLoading: false, 
-          isInitialized: true,
-          error: null
-        });
-        isInitializing = false;
-      }, 5000);
-      
       // Clean up existing subscription
       if (authSubscription) {
         authSubscription();
         authSubscription = null;
       }
       
-      // Set up auth state listener
+      // Get initial session first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        // Don't block initialization on session errors
+      }
+      
+      // Set initial state
+      set({ 
+        user: session?.user || null, 
+        session,
+        isAuthenticated: !!session,
+        isLoading: false,
+        isInitialized: true,
+        error: null
+      });
+
+      // Handle user session data loading
+      if (session?.user) {
+        setTimeout(() => handleUserSession(session.user), 100);
+      }
+      
+      // Set up auth state listener after initial state
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         console.log('Auth state changed:', event, session?.user?.email || 'no user');
-        
-        // Clear timeout since we got response
-        clearTimeout(initTimeout);
         
         // Update state synchronously
         set({ 
           user: session?.user || null, 
           session,
           isAuthenticated: !!session,
-          error: null,
-          isLoading: false,
-          isInitialized: true
+          error: null
         });
 
         // Handle user session in background
         if (session?.user && event === 'SIGNED_IN') {
           setTimeout(() => handleUserSession(session.user), 100);
         }
-        
-        isInitializing = false;
       });
 
       authSubscription = () => subscription.unsubscribe();
-
-      // Get initial session with timeout
-      try {
-        const { data: { session }, error: sessionError } = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
-        ]) as any;
-        
-        clearTimeout(initTimeout);
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-        }
-        
-        set({ 
-          user: session?.user || null, 
-          session,
-          isAuthenticated: !!session,
-          isLoading: false,
-          isInitialized: true,
-          error: null
-        });
-
-        if (session?.user) {
-          setTimeout(() => handleUserSession(session.user), 100);
-        }
-      } catch (error) {
-        console.error('Session fetch failed:', error);
-        clearTimeout(initTimeout);
-        set({ 
-          isLoading: false, 
-          isInitialized: true, 
-          error: null 
-        });
-      }
-
+      
+      console.log('Auth initialization completed successfully');
       isInitializing = false;
     } catch (error) {
       console.error('Auth initialization error:', error);
+      // Always mark as initialized even on error to prevent infinite loading
       set({ 
         isLoading: false, 
         error: null, 
