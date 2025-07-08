@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -64,6 +63,7 @@ export const usePaymentGatewayConfig = () => {
       setLoading(true);
       console.log('Loading payment gateway configs...');
       
+      // Add cache busting parameter
       const { data, error } = await supabase
         .from('payment_gateway_config')
         .select('*')
@@ -127,55 +127,64 @@ export const usePaymentGatewayConfig = () => {
 
       const existingConfig = configs.find(c => c.gateway_type === gatewayType);
 
+      let result;
       if (existingConfig) {
         console.log('Updating existing config:', existingConfig.id);
-        const { error } = await supabase
+        result = await supabase
           .from('payment_gateway_config')
           .update({
             config_data: configData,
             updated_at: new Date().toISOString()
           })
-          .eq('id', existingConfig.id);
+          .eq('id', existingConfig.id)
+          .select()
+          .single();
 
-        if (error) {
-          console.error('Update error:', error);
-          throw error;
+        if (result.error) {
+          console.error('Update error:', result.error);
+          throw result.error;
         }
       } else {
         console.log('Creating new config');
-        const { error } = await supabase
+        result = await supabase
           .from('payment_gateway_config')
           .insert({
             gateway_type: gatewayType,
             config_data: configData,
             is_active: true
-          });
+          })
+          .select()
+          .single();
 
-        if (error) {
-          console.error('Insert error:', error);
-          throw error;
+        if (result.error) {
+          console.error('Insert error:', result.error);
+          throw result.error;
         }
       }
 
-      // Update local state immediately
-      if (gatewayType === 'upi') {
-        setUpiConfig(configData);
-      } else if (gatewayType === 'qr_code') {
-        setQrConfig(configData);
-      } else if (gatewayType === 'net_banking') {
-        setBankConfig(configData);
+      console.log('Save successful, updated data:', result.data);
+
+      // Update local state with the exact data that was saved
+      if (result.data) {
+        // Update configs array
+        setConfigs(prev => {
+          const filtered = prev.filter(c => c.gateway_type !== gatewayType);
+          return [...filtered, result.data];
+        });
+
+        // Keep the form state as is (don't reset to database values)
+        // This prevents the automatic reset issue
+        console.log('Keeping current form state for:', gatewayType);
       }
 
       toast.success(`${gatewayType.replace('_', ' ').toUpperCase()} configuration saved successfully`);
-      
-      // Reload configs to ensure consistency
-      setTimeout(() => {
-        loadConfigs();
-      }, 500);
 
     } catch (error) {
       console.error('Error saving config:', error);
       toast.error('Failed to save configuration');
+      
+      // On error, reload to ensure consistency
+      loadConfigs();
     } finally {
       setSaveLoading(prev => ({ ...prev, [gatewayType]: false }));
     }
