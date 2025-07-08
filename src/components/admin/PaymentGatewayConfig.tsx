@@ -16,18 +16,35 @@ interface PaymentConfig {
   is_active: boolean;
 }
 
+interface UpiConfig {
+  upi_id: string;
+  merchant_name: string;
+}
+
+interface QrConfig {
+  qr_image_url: string;
+  merchant_name: string;
+}
+
+interface BankConfig {
+  bank_name: string;
+  account_number: string;
+  ifsc: string;
+  account_holder: string;
+}
+
 const PaymentGatewayConfig: React.FC = () => {
   const [configs, setConfigs] = useState<PaymentConfig[]>([]);
   const [loading, setLoading] = useState(false);
-  const [upiConfig, setUpiConfig] = useState({
+  const [upiConfig, setUpiConfig] = useState<UpiConfig>({
     upi_id: '',
     merchant_name: ''
   });
-  const [qrConfig, setQrConfig] = useState({
+  const [qrConfig, setQrConfig] = useState<QrConfig>({
     qr_image_url: '',
     merchant_name: ''
   });
-  const [bankConfig, setBankConfig] = useState({
+  const [bankConfig, setBankConfig] = useState<BankConfig>({
     bank_name: '',
     account_number: '',
     ifsc: '',
@@ -37,6 +54,18 @@ const PaymentGatewayConfig: React.FC = () => {
   useEffect(() => {
     loadConfigs();
   }, []);
+
+  const isUpiConfig = (data: any): data is UpiConfig => {
+    return data && typeof data === 'object' && 'upi_id' in data && 'merchant_name' in data;
+  };
+
+  const isQrConfig = (data: any): data is QrConfig => {
+    return data && typeof data === 'object' && 'qr_image_url' in data && 'merchant_name' in data;
+  };
+
+  const isBankConfig = (data: any): data is BankConfig => {
+    return data && typeof data === 'object' && 'bank_name' in data && 'account_number' in data && 'ifsc' in data && 'account_holder' in data;
+  };
 
   const loadConfigs = async () => {
     try {
@@ -48,13 +77,13 @@ const PaymentGatewayConfig: React.FC = () => {
 
       setConfigs(data || []);
 
-      // Populate form fields with existing config
+      // Populate form fields with existing config using type guards
       data?.forEach(config => {
-        if (config.gateway_type === 'upi') {
+        if (config.gateway_type === 'upi' && isUpiConfig(config.config_data)) {
           setUpiConfig(config.config_data);
-        } else if (config.gateway_type === 'qr_code') {
+        } else if (config.gateway_type === 'qr_code' && isQrConfig(config.config_data)) {
           setQrConfig(config.config_data);
-        } else if (config.gateway_type === 'net_banking') {
+        } else if (config.gateway_type === 'net_banking' && isBankConfig(config.config_data)) {
           setBankConfig(config.config_data);
         }
       });
