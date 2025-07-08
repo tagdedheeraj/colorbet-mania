@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Users, GamepadIcon, TrendingUp, LogOut, RefreshCw, Edit } from 'lucide-react';
+import { Users, GamepadIcon, TrendingUp, LogOut, RefreshCw, Edit, ArrowLeft } from 'lucide-react';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -76,7 +78,7 @@ const Admin: React.FC = () => {
     
     if (result.success) {
       setEditBalance(null);
-      loadData(); // Reload data to show updated balance
+      loadData();
     }
   };
 
@@ -102,15 +104,31 @@ const Admin: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">TradeForWin Admin</h1>
-            <p className="text-muted-foreground">
-              Welcome back, {adminInfo?.username || 'Admin'}
-            </p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Home
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Admin Panel</h1>
+              <p className="text-muted-foreground">
+                Welcome, {adminInfo?.username} - Manage your gaming platform
+              </p>
+            </div>
           </div>
-          <Button onClick={handleLogout} variant="outline">
-            <LogOut className="h-4 w-4 mr-2" />
+          
+          <Button
+            variant="destructive"
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
             Logout
           </Button>
         </div>
@@ -178,27 +196,57 @@ const Admin: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>User Management</CardTitle>
-                <CardDescription>Manage user accounts and balances</CardDescription>
+                <CardDescription>Manage user accounts and balances ({users.length} users total)</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {users.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{user.username}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                        <p className="text-sm">Balance: ₹{user.balance}</p>
-                        <p className="text-sm text-muted-foreground">Role: {user.role}</p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => setEditBalance({userId: user.id, balance: user.balance.toString()})}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Balance
-                      </Button>
-                    </div>
-                  ))}
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Username</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Balance</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.length > 0 ? (
+                        users.map(user => (
+                          <TableRow key={user.id}>
+                            <TableCell className="font-medium">{user.username}</TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>₹{user.balance}</TableCell>
+                            <TableCell>
+                              <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
+                                {user.role || 'user'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {new Date(user.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditBalance({userId: user.id, balance: user.balance.toString()})}
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Balance
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                            No users found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>
