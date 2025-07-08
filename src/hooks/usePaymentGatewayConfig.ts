@@ -1,89 +1,36 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-interface PaymentConfig {
-  id: string;
-  gateway_type: string;
-  config_data: any;
-  is_active: boolean;
-}
-
-interface UpiConfig {
-  upi_id: string;
-  merchant_name: string;
-}
-
-interface QrConfig {
-  qr_image_url: string;
-  merchant_name: string;
-}
-
-interface BankConfig {
-  bank_name: string;
-  account_number: string;
-  ifsc: string;
-  account_holder: string;
-}
+import { PaymentConfig, ConfigType } from '@/types/paymentConfig';
+import { PaymentConfigService } from '@/services/paymentConfigService';
+import { usePaymentConfigState } from '@/hooks/usePaymentConfigState';
+import { isUpiConfig, isQrConfig, isBankConfig, validateConfigData } from '@/utils/paymentConfigValidators';
 
 export const usePaymentGatewayConfig = () => {
   const [configs, setConfigs] = useState<PaymentConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState<{[key: string]: boolean}>({});
   
-  const [upiConfig, setUpiConfig] = useState<UpiConfig>({
-    upi_id: '',
-    merchant_name: ''
-  });
-  const [qrConfig, setQrConfig] = useState<QrConfig>({
-    qr_image_url: '',
-    merchant_name: ''
-  });
-  const [bankConfig, setBankConfig] = useState<BankConfig>({
-    bank_name: '',
-    account_number: '',
-    ifsc: '',
-    account_holder: ''
-  });
-
-  const isUpiConfig = (data: any): data is UpiConfig => {
-    return data && typeof data === 'object' && 'upi_id' in data && 'merchant_name' in data;
-  };
-
-  const isQrConfig = (data: any): data is QrConfig => {
-    return data && typeof data === 'object' && 'qr_image_url' in data && 'merchant_name' in data;
-  };
-
-  const isBankConfig = (data: any): data is BankConfig => {
-    return data && typeof data === 'object' && 'bank_name' in data && 'account_number' in data && 'ifsc' in data && 'account_holder' in data;
-  };
+  const {
+    upiConfig,
+    setUpiConfig,
+    qrConfig,
+    setQrConfig,
+    bankConfig,
+    setBankConfig,
+    resetConfigs
+  } = usePaymentConfigState();
 
   const loadConfigs = async () => {
     try {
       setLoading(true);
-      console.log('Loading payment gateway configs...');
-      
-      // Add cache busting parameter
-      const { data, error } = await supabase
-        .from('payment_gateway_config')
-        .select('*')
-        .order('updated_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading configs:', error);
-        throw error;
-      }
-
-      console.log('Loaded configs:', data);
-      setConfigs(data || []);
+      const data = await PaymentConfigService.loadConfigs();
+      setConfigs(data);
 
       // Reset form states first
-      setUpiConfig({ upi_id: '', merchant_name: '' });
-      setQrConfig({ qr_image_url: '', merchant_name: '' });
-      setBankConfig({ bank_name: '', account_number: '', ifsc: '', account_holder: '' });
+      resetConfigs();
 
       // Populate form fields with existing config using type guards
-      data?.forEach(config => {
+      data.forEach(config => {
         console.log('Processing config:', config.gateway_type, config.config_data);
         
         if (config.gateway_type === 'upi' && isUpiConfig(config.config_data)) {
@@ -105,71 +52,23 @@ export const usePaymentGatewayConfig = () => {
     }
   };
 
-  const saveConfig = async (gatewayType: string, configData: any) => {
+  const saveConfig = async (gatewayType: ConfigType, configData: any) => {
     setSaveLoading(prev => ({ ...prev, [gatewayType]: true }));
     
     try {
-      console.log('Saving config:', gatewayType, configData);
-      
-      if (!configData || Object.keys(configData).length === 0) {
+      if (!validateConfigData(configData)) {
         toast.error('Please fill in all required fields');
         return;
       }
 
-      const hasEmptyFields = Object.values(configData).some(value => 
-        !value || (typeof value === 'string' && value.trim() === '')
-      );
-      
-      if (hasEmptyFields) {
-        toast.error('Please fill in all required fields');
-        return;
-      }
-
-      const existingConfig = configs.find(c => c.gateway_type === gatewayType);
-
-      let result;
-      if (existingConfig) {
-        console.log('Updating existing config:', existingConfig.id);
-        result = await supabase
-          .from('payment_gateway_config')
-          .update({
-            config_data: configData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingConfig.id)
-          .select()
-          .single();
-
-        if (result.error) {
-          console.error('Update error:', result.error);
-          throw result.error;
-        }
-      } else {
-        console.log('Creating new config');
-        result = await supabase
-          .from('payment_gateway_config')
-          .insert({
-            gateway_type: gatewayType,
-            config_data: configData,
-            is_active: true
-          })
-          .select()
-          .single();
-
-        if (result.error) {
-          console.error('Insert error:', result.error);
-          throw result.error;
-        }
-      }
-
-      console.log('Save successful, updated data:', result.data);
+      const savedConfig = await PaymentConfigService.saveConfig(gatewayType, configData, configs);
 
       // Update local state with the exact data that was saved
-      if (result.data) {
+      if (savedConfig) {
         // Update configs array
         setConfigs(prev => {
           const filtered = prev.filter(c => c.gateway_type !== gatewayType);
-          return [...filtered, result.data];
+          return [...filtered, savedConfig];
         });
 
         // Keep the form state as is (don't reset to database values)
