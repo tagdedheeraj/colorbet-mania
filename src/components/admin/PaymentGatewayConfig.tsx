@@ -36,6 +36,8 @@ interface BankConfig {
 const PaymentGatewayConfig: React.FC = () => {
   const [configs, setConfigs] = useState<PaymentConfig[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState<{[key: string]: boolean}>({});
+  
   const [upiConfig, setUpiConfig] = useState<UpiConfig>({
     upi_id: '',
     merchant_name: ''
@@ -69,68 +71,159 @@ const PaymentGatewayConfig: React.FC = () => {
 
   const loadConfigs = async () => {
     try {
+      setLoading(true);
+      console.log('Loading payment gateway configs...');
+      
+      // Add timestamp to prevent caching
       const { data, error } = await supabase
         .from('payment_gateway_config')
-        .select('*');
+        .select('*')
+        .order('updated_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading configs:', error);
+        throw error;
+      }
 
+      console.log('Loaded configs:', data);
       setConfigs(data || []);
+
+      // Reset form states first
+      setUpiConfig({ upi_id: '', merchant_name: '' });
+      setQrConfig({ qr_image_url: '', merchant_name: '' });
+      setBankConfig({ bank_name: '', account_number: '', ifsc: '', account_holder: '' });
 
       // Populate form fields with existing config using type guards
       data?.forEach(config => {
+        console.log('Processing config:', config.gateway_type, config.config_data);
+        
         if (config.gateway_type === 'upi' && isUpiConfig(config.config_data)) {
+          console.log('Setting UPI config:', config.config_data);
           setUpiConfig(config.config_data);
         } else if (config.gateway_type === 'qr_code' && isQrConfig(config.config_data)) {
+          console.log('Setting QR config:', config.config_data);
           setQrConfig(config.config_data);
         } else if (config.gateway_type === 'net_banking' && isBankConfig(config.config_data)) {
+          console.log('Setting Bank config:', config.config_data);
           setBankConfig(config.config_data);
         }
       });
     } catch (error) {
       console.error('Error loading configs:', error);
       toast.error('Failed to load payment configurations');
+    } finally {
+      setLoading(false);
     }
   };
 
   const saveConfig = async (gatewayType: string, configData: any) => {
-    setLoading(true);
+    setSaveLoading(prev => ({ ...prev, [gatewayType]: true }));
+    
     try {
+      console.log('Saving config:', gatewayType, configData);
+      
+      // Validate config data
+      if (!configData || Object.keys(configData).length === 0) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      // Check for empty required fields
+      const hasEmptyFields = Object.values(configData).some(value => 
+        !value || (typeof value === 'string' && value.trim() === '')
+      );
+      
+      if (hasEmptyFields) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
       const existingConfig = configs.find(c => c.gateway_type === gatewayType);
 
       if (existingConfig) {
         // Update existing config
-        const { error } = await supabase
+        console.log('Updating existing config:', existingConfig.id);
+        const { data, error } = await supabase
           .from('payment_gateway_config')
           .update({
             config_data: configData,
             updated_at: new Date().toISOString()
           })
-          .eq('id', existingConfig.id);
+          .eq('id', existingConfig.id)
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
+        
+        console.log('Updated config:', data);
       } else {
         // Create new config
-        const { error } = await supabase
+        console.log('Creating new config');
+        const { data, error } = await supabase
           .from('payment_gateway_config')
           .insert({
             gateway_type: gatewayType,
             config_data: configData,
             is_active: true
-          });
+          })
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          throw error;
+        }
+        
+        console.log('Created config:', data);
+      }
+
+      // Update local state immediately with the saved data
+      if (gatewayType === 'upi') {
+        setUpiConfig(configData);
+      } else if (gatewayType === 'qr_code') {
+        setQrConfig(configData);
+      } else if (gatewayType === 'net_banking') {
+        setBankConfig(configData);
       }
 
       toast.success(`${gatewayType.replace('_', ' ').toUpperCase()} configuration saved successfully`);
-      loadConfigs();
+      
+      // Reload configs after a short delay to ensure database consistency
+      setTimeout(() => {
+        loadConfigs();
+      }, 500);
+
     } catch (error) {
       console.error('Error saving config:', error);
       toast.error('Failed to save configuration');
     } finally {
-      setLoading(false);
+      setSaveLoading(prev => ({ ...prev, [gatewayType]: false }));
     }
   };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Payment Gateway Configuration
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p>Loading payment configurations...</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -173,11 +266,20 @@ const PaymentGatewayConfig: React.FC = () => {
               </div>
               <Button 
                 onClick={() => saveConfig('upi', upiConfig)}
-                disabled={loading}
+                disabled={saveLoading.upi}
                 className="w-full"
               >
-                <Save className="h-4 w-4 mr-2" />
-                Save UPI Configuration
+                {saveLoading.upi ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save UPI Configuration
+                  </>
+                )}
               </Button>
             </div>
           </TabsContent>
@@ -214,11 +316,20 @@ const PaymentGatewayConfig: React.FC = () => {
               )}
               <Button 
                 onClick={() => saveConfig('qr_code', qrConfig)}
-                disabled={loading}
+                disabled={saveLoading.qr_code}
                 className="w-full"
               >
-                <Save className="h-4 w-4 mr-2" />
-                Save QR Code Configuration
+                {saveLoading.qr_code ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save QR Code Configuration
+                  </>
+                )}
               </Button>
             </div>
           </TabsContent>
@@ -263,11 +374,20 @@ const PaymentGatewayConfig: React.FC = () => {
               </div>
               <Button 
                 onClick={() => saveConfig('net_banking', bankConfig)}
-                disabled={loading}
+                disabled={saveLoading.net_banking}
                 className="w-full"
               >
-                <Save className="h-4 w-4 mr-2" />
-                Save Net Banking Configuration
+                {saveLoading.net_banking ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Net Banking Configuration
+                  </>
+                )}
               </Button>
             </div>
           </TabsContent>
