@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
@@ -10,8 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Users, GamepadIcon, TrendingUp, LogOut, RefreshCw, Edit, ArrowLeft } from 'lucide-react';
+import { Users, GamepadIcon, TrendingUp, LogOut, RefreshCw, Edit, ArrowLeft, CreditCard, CheckCircle, XCircle, Clock, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -19,8 +20,12 @@ const Admin: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [games, setGames] = useState<any[]>([]);
   const [bets, setBets] = useState<any[]>([]);
+  const [depositRequests, setDepositRequests] = useState<any[]>([]);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [editBalance, setEditBalance] = useState<{userId: string, balance: string} | null>(null);
+  const [processDeposit, setProcessDeposit] = useState<{id: string, action: 'approve' | 'reject', notes: string} | null>(null);
+  const [manualGameMode, setManualGameMode] = useState(false);
+  const [manualResult, setManualResult] = useState<{number: number | '', color: string}>({ number: '', color: '' });
 
   useEffect(() => {
     checkAdminAndLoadData();
@@ -49,19 +54,24 @@ const Admin: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [usersResult, gamesResult, betsResult] = await Promise.all([
+      const [usersResult, gamesResult, betsResult, depositsResult] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('games').select('*').order('created_at', { ascending: false }).limit(100),
         supabase.from('bets').select(`
           *,
           users!inner(username, email),
           games!inner(game_number, status)
+        `).order('created_at', { ascending: false }).limit(100),
+        supabase.from('deposit_requests').select(`
+          *,
+          users!inner(username, email)
         `).order('created_at', { ascending: false }).limit(100)
       ]);
 
       setUsers(usersResult.data || []);
       setGames(gamesResult.data || []);
       setBets(betsResult.data || []);
+      setDepositRequests(depositsResult.data || []);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load admin data');
@@ -98,9 +108,97 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleProcessDeposit = async () => {
+    if (!processDeposit || !adminUser) return;
+
+    try {
+      const functionName = processDeposit.action === 'approve' ? 'approve_deposit_request' : 'reject_deposit_request';
+      
+      const { data, error } = await supabase.rpc(functionName, {
+        p_request_id: processDeposit.id,
+        p_admin_id: adminUser.id,
+        p_admin_notes: processDeposit.notes || null
+      });
+
+      if (error) {
+        console.error('❌ Deposit processing error:', error);
+        toast.error('Failed to process deposit request');
+        return;
+      }
+
+      if (data?.success) {
+        toast.success(data.message);
+        setProcessDeposit(null);
+        loadData();
+      } else {
+        toast.error(data?.message || 'Failed to process deposit');
+      }
+    } catch (error) {
+      console.error('❌ Deposit processing exception:', error);
+      toast.error('Failed to process deposit request');
+    }
+  };
+
+  const handleSetManualResult = async () => {
+    if (!manualResult.number || !manualResult.color) {
+      toast.error('Please set both number and color');
+      return;
+    }
+
+    try {
+      // Find the latest active game
+      const { data: activeGame, error } = await supabase
+        .from('games')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !activeGame) {
+        toast.error('No active game found');
+        return;
+      }
+
+      // Update the game with manual result
+      const { error: updateError } = await supabase
+        .from('games')
+        .update({
+          admin_controlled: true,
+          admin_set_result_number: parseInt(manualResult.number.toString()),
+          admin_set_result_color: manualResult.color
+        })
+        .eq('id', activeGame.id);
+
+      if (updateError) {
+        console.error('❌ Manual result error:', updateError);
+        toast.error('Failed to set manual result');
+        return;
+      }
+
+      toast.success('Manual result set successfully!');
+      setManualResult({ number: '', color: '' });
+      loadData();
+    } catch (error) {
+      console.error('❌ Manual result exception:', error);
+      toast.error('Failed to set manual result');
+    }
+  };
+
   const handleLogout = async () => {
     await AdminAuthService.logout();
     navigate('/admin-login');
+  };
+
+  const getDepositStatusIcon = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'rejected':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+    }
   };
 
   if (loading) {
@@ -116,6 +214,7 @@ const Admin: React.FC = () => {
 
   const totalBalance = users.reduce((sum, user) => sum + (user.balance || 0), 0);
   const totalBetsAmount = bets.reduce((sum, bet) => sum + (bet.amount || 0), 0);
+  const pendingDeposits = depositRequests.filter(req => req.status === 'pending').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
@@ -151,7 +250,7 @@ const Admin: React.FC = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
@@ -191,6 +290,18 @@ const Admin: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
+                <CreditCard className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{pendingDeposits}</p>
+                  <p className="text-sm text-muted-foreground">Pending Deposits</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
                 <TrendingUp className="h-8 w-8 text-primary" />
                 <div>
                   <p className="text-2xl font-bold">₹{totalBalance.toFixed(2)}</p>
@@ -202,12 +313,84 @@ const Admin: React.FC = () => {
         </div>
 
         {/* Main Content */}
-        <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="deposits" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="deposits">Deposits ({pendingDeposits})</TabsTrigger>
             <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
             <TabsTrigger value="games">Games ({games.length})</TabsTrigger>
             <TabsTrigger value="bets">Bets ({bets.length})</TabsTrigger>
+            <TabsTrigger value="live-control">Live Control</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="deposits" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Deposit Requests Management</CardTitle>
+                <CardDescription>Review and approve user deposit requests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {depositRequests.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No deposit requests yet
+                    </p>
+                  ) : (
+                    depositRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-4">
+                          {getDepositStatusIcon(request.status)}
+                          <div>
+                            <p className="font-medium">₹{request.amount}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {request.users?.username} ({request.users?.email})
+                            </p>
+                            <p className="text-sm">
+                              {request.payment_method.replace('_', ' ').toUpperCase()} • TXN: {request.transaction_id}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(request.created_at).toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={
+                              request.status === 'approved' ? 'default' : 
+                              request.status === 'rejected' ? 'destructive' : 
+                              'secondary'
+                            }
+                          >
+                            {request.status}
+                          </Badge>
+                          {request.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => setProcessDeposit({id: request.id, action: 'approve', notes: ''})}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setProcessDeposit({id: request.id, action: 'reject', notes: ''})}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="users" className="space-y-4">
             <Card>
@@ -324,7 +507,122 @@ const Admin: React.FC = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="live-control" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Live Game Control
+                </CardTitle>
+                <CardDescription>
+                  Control live games and set manual results
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <h3 className="font-semibold">Manual Game Mode</h3>
+                    <p className="text-sm text-muted-foreground">
+                      When enabled, you can set custom results for games
+                    </p>
+                  </div>
+                  <Switch
+                    checked={manualGameMode}
+                    onCheckedChange={setManualGameMode}
+                  />
+                </div>
+
+                {manualGameMode && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Set Manual Result</CardTitle>
+                      <CardDescription>
+                        Set the result for the current active game
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="manualNumber">Number (0-9)</Label>
+                          <Input
+                            id="manualNumber"
+                            type="number"
+                            min="0"
+                            max="9"
+                            value={manualResult.number}
+                            onChange={(e) => setManualResult({...manualResult, number: parseInt(e.target.value) || ''})}
+                            placeholder="Enter number 0-9"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="manualColor">Color</Label>
+                          <select
+                            id="manualColor"
+                            value={manualResult.color}
+                            onChange={(e) => setManualResult({...manualResult, color: e.target.value})}
+                            className="w-full p-2 border rounded-md"
+                          >
+                            <option value="">Select color</option>
+                            <option value="red">Red</option>
+                            <option value="green">Green</option>
+                            <option value="violet">Violet</option>
+                          </select>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={handleSetManualResult}
+                        className="w-full"
+                        disabled={!manualResult.number || !manualResult.color}
+                      >
+                        Set Manual Result
+                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        ⚠️ This will override the automatic result for the current game
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
+
+        {/* Process Deposit Modal */}
+        {processDeposit && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-md">
+              <CardHeader>
+                <CardTitle>
+                  {processDeposit.action === 'approve' ? 'Approve' : 'Reject'} Deposit
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="adminNotes">Admin Notes (Optional)</Label>
+                  <Textarea
+                    id="adminNotes"
+                    value={processDeposit.notes}
+                    onChange={(e) => setProcessDeposit({...processDeposit, notes: e.target.value})}
+                    placeholder="Add notes about this decision..."
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleProcessDeposit} 
+                    className="flex-1"
+                    variant={processDeposit.action === 'approve' ? 'default' : 'destructive'}
+                  >
+                    {processDeposit.action === 'approve' ? 'Approve' : 'Reject'} Deposit
+                  </Button>
+                  <Button variant="outline" onClick={() => setProcessDeposit(null)} className="flex-1">
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Edit Balance Modal */}
         {editBalance && (

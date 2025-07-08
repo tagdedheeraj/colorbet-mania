@@ -212,6 +212,63 @@ export type Database = {
           },
         ]
       }
+      deposit_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          created_at: string | null
+          id: string
+          payment_method: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          transaction_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          created_at?: string | null
+          id?: string
+          payment_method: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          transaction_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          created_at?: string | null
+          id?: string
+          payment_method?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          transaction_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposit_requests_processed_by_fkey"
+            columns: ["processed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           admin_controlled: boolean | null
@@ -257,6 +314,33 @@ export type Database = {
           result_number?: number | null
           start_time?: string
           status?: string | null
+        }
+        Relationships: []
+      }
+      payment_gateway_config: {
+        Row: {
+          config_data: Json
+          created_at: string | null
+          gateway_type: string
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          config_data: Json
+          created_at?: string | null
+          gateway_type: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          config_data?: Json
+          created_at?: string | null
+          gateway_type?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -386,6 +470,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_deposit_request: {
+        Args: {
+          p_request_id: string
+          p_admin_id: string
+          p_admin_notes?: string
+        }
+        Returns: Json
+      }
       create_admin_account: {
         Args: {
           p_username: string
@@ -414,6 +506,14 @@ export type Database = {
       logout_admin_session: {
         Args: { p_session_token: string }
         Returns: boolean
+      }
+      reject_deposit_request: {
+        Args: {
+          p_request_id: string
+          p_admin_id: string
+          p_admin_notes: string
+        }
+        Returns: Json
       }
       verify_admin_auth_session: {
         Args: { p_session_token: string }

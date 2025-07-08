@@ -159,11 +159,17 @@ const Wallet: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">
-                  {balance.toFixed(2)} coins
+                  ₹{balance.toFixed(2)}
                 </div>
                 <p className="text-muted-foreground mt-2">
                   Available for betting
                 </p>
+                <Button 
+                  onClick={() => navigate('/deposit')}
+                  className="w-full mt-4"
+                >
+                  Add Funds via Payment
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -172,21 +178,21 @@ const Wallet: React.FC = () => {
           <div className="lg:col-span-2">
             <Tabs defaultValue="add-funds" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="add-funds">Add Funds</TabsTrigger>
+                <TabsTrigger value="add-funds">Quick Add Funds</TabsTrigger>
                 <TabsTrigger value="transactions">Transaction History</TabsTrigger>
               </TabsList>
 
               <TabsContent value="add-funds" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Add Funds</CardTitle>
+                    <CardTitle>Quick Add Funds</CardTitle>
                     <CardDescription>
-                      Add coins to your wallet for betting
+                      Add demo coins to your wallet for testing
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <Label htmlFor="amount">Amount (Coins)</Label>
+                      <Label htmlFor="amount">Amount (₹)</Label>
                       <Input
                         id="amount"
                         type="number"
@@ -205,7 +211,7 @@ const Wallet: React.FC = () => {
                       {loading ? 'Processing...' : 'Add Funds'}
                     </Button>
                     <p className="text-sm text-muted-foreground">
-                      * This is a demo environment. In production, this would integrate with payment processors.
+                      * This is demo mode. For real payments, use the "Add Funds via Payment" button above.
                     </p>
                   </CardContent>
                 </Card>
@@ -249,7 +255,7 @@ const Wallet: React.FC = () => {
                                   : 'text-red-600'
                               }`}>
                                 {transaction.type === 'deposit' || transaction.type === 'win' ? '+' : '-'}
-                                {Math.abs(transaction.amount).toFixed(2)}
+                                ₹{Math.abs(transaction.amount).toFixed(2)}
                               </p>
                               <Badge variant="outline" className="text-xs">
                                 {transaction.status || 'completed'}
