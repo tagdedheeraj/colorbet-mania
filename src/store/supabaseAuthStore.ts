@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
@@ -28,6 +27,19 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
     try {
       console.log('Starting auth initialization...');
       set({ isLoading: true, error: null });
+      
+      // Check if we're on admin routes and skip user auth initialization
+      const currentPath = window.location.pathname;
+      if (currentPath.startsWith('/admin')) {
+        console.log('On admin route, skipping user auth initialization');
+        set({ 
+          isLoading: false, 
+          isInitialized: true,
+          error: null
+        });
+        isInitializing = false;
+        return;
+      }
       
       // Set initialization timeout - force complete after 5 seconds
       const initTimeout = setTimeout(() => {

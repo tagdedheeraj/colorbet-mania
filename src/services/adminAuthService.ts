@@ -11,6 +11,18 @@ export interface AdminSession {
 export class AdminAuthService {
   static async verifyAdminSession(): Promise<boolean> {
     try {
+      // First check localStorage for demo admin session
+      const localAdminSession = localStorage.getItem('admin_session');
+      if (localAdminSession) {
+        const sessionData = JSON.parse(localAdminSession);
+        const expiresAt = new Date(sessionData.expiresAt);
+        
+        if (expiresAt > new Date() && sessionData.isAdmin) {
+          return true;
+        }
+      }
+
+      // Then check Supabase authentication
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
@@ -28,6 +40,22 @@ export class AdminAuthService {
 
   static async getCurrentAdminSession(): Promise<AdminSession | null> {
     try {
+      // First check localStorage for demo admin session
+      const localAdminSession = localStorage.getItem('admin_session');
+      if (localAdminSession) {
+        const sessionData = JSON.parse(localAdminSession);
+        const expiresAt = new Date(sessionData.expiresAt);
+        
+        if (expiresAt > new Date() && sessionData.isAdmin) {
+          return {
+            isAdmin: true,
+            user: { email: 'admin@demo.com', id: 'demo-admin' },
+            session: sessionData
+          };
+        }
+      }
+
+      // Then check Supabase authentication
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
@@ -53,6 +81,10 @@ export class AdminAuthService {
 
   static async logout(): Promise<void> {
     try {
+      // Clear localStorage admin session
+      localStorage.removeItem('admin_session');
+      
+      // Also try to sign out from Supabase
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Error during logout:', error);
@@ -61,6 +93,22 @@ export class AdminAuthService {
 
   static async getAdminInfo() {
     try {
+      // Check localStorage first
+      const localAdminSession = localStorage.getItem('admin_session');
+      if (localAdminSession) {
+        const sessionData = JSON.parse(localAdminSession);
+        const expiresAt = new Date(sessionData.expiresAt);
+        
+        if (expiresAt > new Date() && sessionData.isAdmin) {
+          return {
+            username: sessionData.username,
+            email: 'admin@demo.com',
+            id: 'demo-admin'
+          };
+        }
+      }
+
+      // Then check Supabase session
       const session = await this.getCurrentAdminSession();
       if (!session) return null;
 

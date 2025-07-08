@@ -30,16 +30,39 @@ const Admin: React.FC = () => {
   const checkAdminAccess = async () => {
     try {
       console.log('Checking admin access...');
+      
+      // First check localStorage for admin session (fallback for demo)
+      const localAdminSession = localStorage.getItem('admin_session');
+      if (localAdminSession) {
+        const sessionData = JSON.parse(localAdminSession);
+        const expiresAt = new Date(sessionData.expiresAt);
+        
+        if (expiresAt > new Date() && sessionData.isAdmin) {
+          console.log('Valid localStorage admin session found');
+          setAdminInfo({
+            username: sessionData.username,
+            email: 'admin@example.com',
+            id: 'admin-demo'
+          });
+          await loadAdminData();
+          setLoading(false);
+          return;
+        } else {
+          localStorage.removeItem('admin_session');
+        }
+      }
+
+      // Then check Supabase authentication
       const isValidAdmin = await AdminAuthService.verifyAdminSession();
       
       if (!isValidAdmin) {
-        console.log('Access denied - not an admin');
-        toast.error('Access denied. Admin login required.');
-        navigate('/auth');
+        console.log('Access denied - redirecting to admin login');
+        toast.error('Admin access required. Please login as administrator.');
+        navigate('/admin-login');
         return;
       }
 
-      console.log('Admin access verified');
+      console.log('Supabase admin access verified');
       const adminData = await AdminAuthService.getAdminInfo();
       setAdminInfo(adminData);
       
@@ -47,7 +70,7 @@ const Admin: React.FC = () => {
     } catch (error) {
       console.error('Error checking admin access:', error);
       toast.error('Error checking admin access');
-      navigate('/auth');
+      navigate('/admin-login');
     } finally {
       setLoading(false);
     }

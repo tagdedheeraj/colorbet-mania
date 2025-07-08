@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,23 @@ const AdminLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  useEffect(() => {
+    // Check if already logged in as admin
+    const localAdminSession = localStorage.getItem('admin_session');
+    if (localAdminSession) {
+      const sessionData = JSON.parse(localAdminSession);
+      const expiresAt = new Date(sessionData.expiresAt);
+      
+      if (expiresAt > new Date() && sessionData.isAdmin) {
+        console.log('Already logged in as admin, redirecting...');
+        navigate('/admin');
+        return;
+      } else {
+        localStorage.removeItem('admin_session');
+      }
+    }
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -27,17 +44,26 @@ const AdminLogin: React.FC = () => {
 
     setLoading(true);
     try {
+      console.log('Attempting admin login...');
+      
       // Simple demo admin check
       if (formData.username === 'admin' && formData.password === 'admin123') {
         // Store admin session in localStorage
-        localStorage.setItem('admin_session', JSON.stringify({
+        const adminSessionData = {
           isAdmin: true,
           username: formData.username,
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        }));
+        };
+        
+        localStorage.setItem('admin_session', JSON.stringify(adminSessionData));
 
+        console.log('Admin login successful, navigating to admin panel...');
         toast.success('Admin login successful');
-        navigate('/admin');
+        
+        // Use setTimeout to ensure state is set before navigation
+        setTimeout(() => {
+          navigate('/admin');
+        }, 100);
       } else {
         toast.error('Invalid username or password');
       }
