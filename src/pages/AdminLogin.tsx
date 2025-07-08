@@ -7,11 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Shield, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { AdminAuthService } from '@/services/adminAuthService';
 
 const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
@@ -19,54 +20,44 @@ const AdminLogin: React.FC = () => {
 
   useEffect(() => {
     // Check if already logged in as admin
-    const localAdminSession = localStorage.getItem('admin_session');
-    if (localAdminSession) {
-      const sessionData = JSON.parse(localAdminSession);
-      const expiresAt = new Date(sessionData.expiresAt);
-      
-      if (expiresAt > new Date() && sessionData.isAdmin) {
+    checkExistingSession();
+  }, [navigate]);
+
+  const checkExistingSession = async () => {
+    try {
+      const isAdmin = await AdminAuthService.verifyAdminSession();
+      if (isAdmin) {
         console.log('Already logged in as admin, redirecting...');
         navigate('/admin');
-        return;
-      } else {
-        localStorage.removeItem('admin_session');
       }
+    } catch (error) {
+      console.error('Error checking existing session:', error);
     }
-  }, [navigate]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.username || !formData.password) {
+    if (!formData.email || !formData.password) {
       toast.error('Please fill in all fields');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('Attempting admin login...');
+      console.log('Attempting admin login with Supabase...');
       
-      // Simple demo admin check
-      if (formData.username === 'admin' && formData.password === 'admin123') {
-        // Store admin session in localStorage
-        const adminSessionData = {
-          isAdmin: true,
-          username: formData.username,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        };
-        
-        localStorage.setItem('admin_session', JSON.stringify(adminSessionData));
-
-        console.log('Admin login successful, navigating to admin panel...');
-        toast.success('Admin login successful');
-        
-        // Use setTimeout to ensure state is set before navigation
-        setTimeout(() => {
-          navigate('/admin');
-        }, 100);
-      } else {
-        toast.error('Invalid username or password');
+      const { error } = await AdminAuthService.signInWithEmail(formData.email, formData.password);
+      
+      if (error) {
+        console.error('Login error:', error);
+        toast.error(error.message || 'Invalid email or password');
+        return;
       }
+
+      console.log('Admin login successful, navigating to admin panel...');
+      toast.success('Admin login successful');
+      navigate('/admin');
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An error occurred during login');
@@ -90,13 +81,13 @@ const AdminLogin: React.FC = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                placeholder="Enter admin username"
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Enter admin email"
                 required
               />
             </div>
@@ -137,8 +128,8 @@ const AdminLogin: React.FC = () => {
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <h3 className="text-sm font-semibold mb-2">Demo Credentials:</h3>
             <p className="text-xs text-muted-foreground">
-              Username: <span className="font-mono">admin</span><br />
-              Password: <span className="font-mono">admin123</span>
+              Email: <span className="font-mono">admin@gameapp.com</span><br />
+              Password: <span className="font-mono">admin123456</span>
             </p>
           </div>
 

@@ -29,30 +29,8 @@ const Admin: React.FC = () => {
 
   const checkAdminAccess = async () => {
     try {
-      console.log('Checking admin access...');
+      console.log('Checking admin access with Supabase...');
       
-      // First check localStorage for admin session (fallback for demo)
-      const localAdminSession = localStorage.getItem('admin_session');
-      if (localAdminSession) {
-        const sessionData = JSON.parse(localAdminSession);
-        const expiresAt = new Date(sessionData.expiresAt);
-        
-        if (expiresAt > new Date() && sessionData.isAdmin) {
-          console.log('Valid localStorage admin session found');
-          setAdminInfo({
-            username: sessionData.username,
-            email: 'admin@example.com',
-            id: 'admin-demo'
-          });
-          await loadAdminData();
-          setLoading(false);
-          return;
-        } else {
-          localStorage.removeItem('admin_session');
-        }
-      }
-
-      // Then check Supabase authentication
       const isValidAdmin = await AdminAuthService.verifyAdminSession();
       
       if (!isValidAdmin) {
@@ -62,7 +40,7 @@ const Admin: React.FC = () => {
         return;
       }
 
-      console.log('Supabase admin access verified');
+      console.log('Admin access verified, loading data...');
       const adminData = await AdminAuthService.getAdminInfo();
       setAdminInfo(adminData);
       
@@ -85,22 +63,25 @@ const Admin: React.FC = () => {
         AdminService.getAllBets()
       ]);
 
-      console.log('Users loaded:', usersResult.data.length);
-      console.log('Games loaded:', gamesResult.data.length);
-      console.log('Bets loaded:', betsResult.data.length);
+      console.log('Users loaded:', usersResult.data?.length || 0);
+      console.log('Games loaded:', gamesResult.data?.length || 0);
+      console.log('Bets loaded:', betsResult.data?.length || 0);
 
-      setUsers(usersResult.data);
-      setGames(gamesResult.data);
-      setBets(betsResult.data);
+      setUsers(usersResult.data || []);
+      setGames(gamesResult.data || []);
+      setBets(betsResult.data || []);
 
       if (usersResult.error) {
         console.error('Users loading error:', usersResult.error);
+        toast.error('Failed to load users data');
       }
       if (gamesResult.error) {
         console.error('Games loading error:', gamesResult.error);
+        toast.error('Failed to load games data');
       }
       if (betsResult.error) {
         console.error('Bets loading error:', betsResult.error);
+        toast.error('Failed to load bets data');
       }
     } catch (error) {
       console.error('Error loading admin data:', error);
@@ -113,7 +94,7 @@ const Admin: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Checking admin access...</p>
+          <p>Verifying admin access...</p>
         </div>
       </div>
     );

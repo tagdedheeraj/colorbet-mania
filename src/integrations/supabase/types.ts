@@ -368,6 +368,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: string
+      }
       logout_admin_session: {
         Args: { p_session_token: string }
         Returns: boolean
