@@ -31,15 +31,20 @@ const Index = () => {
   }, [isInitialized, isAuthenticated, navigate]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated) {
       const initializeGame = async () => {
-        console.log('Starting game initialization for user:', user.id);
+        console.log('Starting game initialization...');
         
         // Initialize game operations
         await gameOps.initialize();
         
         // Load user balance
         await loadUserBalance();
+        
+        // Load user game results if user exists
+        if (user && gameOps.loadUserGameResults) {
+          await gameOps.loadUserGameResults(user.id);
+        }
         
         // Start the timer for the current game
         timer.startGameTimer();
