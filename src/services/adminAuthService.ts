@@ -90,6 +90,9 @@ export class AdminAuthService {
       }
 
       if (data.user) {
+        // Wait a moment for the session to be properly established
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Check if user is admin
         const isAdmin = await AdminService.isAdmin(data.user.id);
         if (!isAdmin) {

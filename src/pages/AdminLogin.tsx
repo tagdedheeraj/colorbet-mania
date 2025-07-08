@@ -58,6 +58,8 @@ const AdminLogin: React.FC = () => {
           toast.error('Invalid email or password');
         } else if (error.message?.includes('Admin access required')) {
           toast.error('Admin access required');
+        } else if (error.message?.includes('Database error')) {
+          toast.error('Database connection error. Please try again.');
         } else {
           toast.error(error.message || 'Login failed');
         }
