@@ -14,6 +14,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 
+// Type for RPC response
+interface RpcResponse {
+  success: boolean;
+  message: string;
+  new_balance?: number;
+}
+
 const Admin: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -126,12 +133,15 @@ const Admin: React.FC = () => {
         return;
       }
 
-      if (data?.success) {
-        toast.success(data.message);
+      // Type assertion for the RPC response
+      const response = data as RpcResponse;
+      
+      if (response?.success) {
+        toast.success(response.message);
         setProcessDeposit(null);
         loadData();
       } else {
-        toast.error(data?.message || 'Failed to process deposit');
+        toast.error(response?.message || 'Failed to process deposit');
       }
     } catch (error) {
       console.error('❌ Deposit processing exception:', error);
