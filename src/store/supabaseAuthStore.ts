@@ -5,7 +5,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { AuthState, UserProfile } from '@/types/auth';
 import { UserProfileService } from '@/services/userProfileService';
-import { UserCreationService } from '@/services/userCreationService';
+import { UserSyncService } from '@/services/userSyncService';
 
 let authSubscription: (() => void) | null = null;
 let isInitializing = false;
@@ -107,7 +107,7 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 
   createMissingUserData: async (user: User) => {
     try {
-      await UserCreationService.createMissingUserData(user);
+      await UserSyncService.ensureUserExists(user);
     } catch (error) {
       console.error('Error creating user data:', error);
     }
@@ -190,10 +190,21 @@ const useSupabaseAuthStore = create<AuthState>((set, get) => ({
 const handleUserSession = async (user: User) => {
   try {
     console.log('Loading profile for user:', user.id);
+    
+    // Ensure user exists in public.users table
+    const userExists = await UserSyncService.ensureUserExists(user);
+    if (!userExists) {
+      console.error('Failed to ensure user exists in database');
+      useSupabaseAuthStore.setState({ 
+        error: 'Failed to sync user data. Please try logging in again.' 
+      });
+      return;
+    }
+    
     let profile = await UserProfileService.fetchUserProfile(user.id);
     
     if (!profile) {
-      console.log('No profile found, creating user data...');
+      console.log('No profile found, attempting to create user data...');
       try {
         await useSupabaseAuthStore.getState().createMissingUserData(user);
         profile = await UserProfileService.fetchUserProfile(user.id);
