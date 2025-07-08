@@ -28,7 +28,7 @@ const Header: React.FC = () => {
 
   const checkAdminStatus = async () => {
     if (user) {
-      const adminStatus = await AdminService.isAdmin(user.id);
+      const adminStatus = await AdminService.isAdmin();
       setIsAdmin(adminStatus);
     }
   };

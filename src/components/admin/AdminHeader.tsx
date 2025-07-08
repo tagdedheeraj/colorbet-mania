@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut } from 'lucide-react';
-import { AdminAuthService } from '@/services/adminAuthService';
+import { AdminService } from '@/services/adminService';
 import { toast } from 'sonner';
 
 interface AdminHeaderProps {
@@ -15,7 +15,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ adminInfo }) => {
 
   const handleLogout = async () => {
     try {
-      await AdminAuthService.logout();
+      await AdminService.logout();
       toast.success('Admin logged out successfully');
       navigate('/admin-login');
     } catch (error) {

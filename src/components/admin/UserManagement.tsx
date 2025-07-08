@@ -31,28 +31,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onDataReload }) 
         return;
       }
 
-      const { error } = await AdminService.updateUserBalance(selectedUserId, balance);
+      const result = await AdminService.updateUserBalance(selectedUserId, balance);
       
-      if (error) {
-        console.error('Balance update error:', error);
-        toast.error('Failed to update balance');
-        return;
+      if (result.success) {
+        toast.success('Balance updated successfully');
+        setSelectedUserId('');
+        setNewBalance('');
+        await onDataReload();
       }
-
-      await AdminService.logAdminAction(
-        'update_balance',
-        'user',
-        selectedUserId,
-        { 
-          old_balance: users.find(u => u.id === selectedUserId)?.balance, 
-          new_balance: balance 
-        }
-      );
-
-      toast.success('Balance updated successfully');
-      setSelectedUserId('');
-      setNewBalance('');
-      await onDataReload();
     } catch (error) {
       console.error('Error updating balance:', error);
       toast.error('Failed to update balance');
