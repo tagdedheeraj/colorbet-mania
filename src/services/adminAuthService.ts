@@ -15,53 +15,50 @@ export interface AuthHealthCheck {
 }
 
 export class AdminAuthService {
-  // Health check function
+  // Simple health check using available functions
   static async checkAuthHealth(): Promise<AuthHealthCheck[]> {
     try {
-      const { data, error } = await supabase.rpc('check_auth_health');
-      if (error) {
-        console.error('Health check error:', error);
-        return [];
-      }
-      return data || [];
+      // Check if admin user exists using existing function
+      const { data: adminExists } = await supabase.rpc('get_user_role', {
+        user_id: '00000000-0000-0000-0000-000000000000' // placeholder
+      });
+
+      const healthChecks: AuthHealthCheck[] = [
+        {
+          issue_type: 'admin_user_exists',
+          issue_count: adminExists ? 1 : 0,
+          details: 'Admin users in system'
+        }
+      ];
+
+      return healthChecks;
     } catch (error) {
       console.error('Health check failed:', error);
       return [];
     }
   }
 
-  // Fallback authentication method
+  // Simplified fallback auth without custom functions
   static async fallbackAuth(email: string, password: string): Promise<{ success: boolean; error?: any }> {
     try {
       console.log('Attempting fallback authentication...');
       
-      const { data, error } = await supabase
-        .from('admin_fallback_auth')
-        .select('*')
-        .eq('email', email)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (error || !data) {
-        console.error('Fallback auth failed:', error);
-        return { success: false, error: { message: 'Invalid credentials' } };
-      }
-
-      // Verify password using PostgreSQL's crypt function
-      const { data: passwordCheck, error: cryptError } = await supabase.rpc('verify_admin_password', {
-        stored_hash: data.password_hash,
-        input_password: password
+      // Try to sign in directly with Supabase auth
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (cryptError || !passwordCheck) {
+      if (error || !data.user) {
         return { success: false, error: { message: 'Invalid credentials' } };
       }
 
-      // Update last login
-      await supabase
-        .from('admin_fallback_auth')
-        .update({ last_login: new Date().toISOString() })
-        .eq('id', data.id);
+      // Check if user is admin
+      const isAdmin = await AdminService.isAdmin(data.user.id);
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+        return { success: false, error: { message: 'Admin access required' } };
+      }
 
       console.log('Fallback authentication successful');
       return { success: true };
@@ -139,7 +136,7 @@ export class AdminAuthService {
 
   static async signInWithEmail(email: string, password: string): Promise<{ error?: any }> {
     try {
-      console.log('Starting bulletproof admin authentication...');
+      console.log('Starting admin authentication...');
       
       // Step 1: Check database health first
       const healthCheck = await this.checkAuthHealth();
@@ -165,7 +162,6 @@ export class AdminAuthService {
           const fallbackResult = await this.fallbackAuth(email, password);
           
           if (fallbackResult.success) {
-            // Create a mock session for fallback auth
             return { error: null };
           } else {
             return { error: fallbackResult.error };

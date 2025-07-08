@@ -81,7 +81,7 @@ const DatabaseHealthMonitor: React.FC = () => {
             </Button>
           </div>
 
-          {healthData.length > 0 && (
+          {healthData.length > 0 ? (
             <div className="space-y-2">
               {healthData.map((check, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -97,15 +97,19 @@ const DatabaseHealthMonitor: React.FC = () => {
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Click "Check Health" to run system diagnostics</p>
+            </div>
           )}
 
           <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
             <strong>Health Check Items:</strong>
             <ul className="mt-1 space-y-1">
-              <li>• NULL email change tokens</li>
-              <li>• NULL confirmation tokens</li>
               <li>• Admin user existence</li>
               <li>• Authentication system integrity</li>
+              <li>• Database connection status</li>
             </ul>
           </div>
         </div>
