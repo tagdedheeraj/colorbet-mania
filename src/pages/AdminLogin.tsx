@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Shield, Eye, EyeOff, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Shield, Eye, EyeOff, AlertTriangle, CheckCircle, RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { AdminAuthService } from '@/services/adminAuthService';
 import { EmergencyAdminService } from '@/services/emergencyAdminService';
@@ -21,6 +21,7 @@ const AdminLogin: React.FC = () => {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [systemStatus, setSystemStatus] = useState<'checking' | 'healthy' | 'issues' | 'error'>('checking');
   const [isInitializing, setIsInitializing] = useState(false);
+  const [authMethod, setAuthMethod] = useState<string | null>(null);
 
   useEffect(() => {
     checkSystemAndSession();
@@ -29,11 +30,13 @@ const AdminLogin: React.FC = () => {
   const checkSystemAndSession = async () => {
     try {
       setIsCheckingSession(true);
+      console.log('🔍 Checking admin session and system health...');
       
       // Check if user is already logged in
       const isAdmin = await AdminAuthService.verifyAdminSession();
       if (isAdmin) {
-        console.log('Already logged in as admin, redirecting...');
+        console.log('✅ Already logged in as admin, redirecting...');
+        toast.success('Already logged in, redirecting...');
         navigate('/admin');
         return;
       }
@@ -41,11 +44,27 @@ const AdminLogin: React.FC = () => {
       // Check system health
       const healthCheck = await AdminAuthService.checkAuthHealth();
       const hasIssues = healthCheck.some(check => check.issue_count > 0);
-      setSystemStatus(hasIssues ? 'issues' : 'healthy');
+      
+      if (hasIssues) {
+        console.log('⚠️ System health issues detected:', healthCheck);
+        setSystemStatus('issues');
+        
+        const criticalIssues = healthCheck.filter(check => 
+          check.issue_type === 'database_connection' && check.issue_count > 0
+        );
+        
+        if (criticalIssues.length > 0) {
+          setSystemStatus('error');
+        }
+      } else {
+        console.log('✅ System health check passed');
+        setSystemStatus('healthy');
+      }
       
     } catch (error) {
-      console.error('System check failed:', error);
+      console.error('❌ System check failed:', error);
       setSystemStatus('error');
+      toast.error('System check failed');
     } finally {
       setIsCheckingSession(false);
     }
@@ -54,15 +73,19 @@ const AdminLogin: React.FC = () => {
   const initializeEmergencyAdmin = async () => {
     setIsInitializing(true);
     try {
-      const result = await EmergencyAdminService.createEmergencyAdminUser();
+      console.log('🚨 Initializing emergency admin...');
+      const result = await AdminAuthService.initializeEmergencyAdmin();
+      
       if (result.success) {
         toast.success('Emergency admin initialized successfully');
         setSystemStatus('healthy');
+        console.log('✅ Emergency admin ready');
       } else {
         toast.error('Failed to initialize emergency admin');
+        console.error('❌ Emergency admin initialization failed:', result.error);
       }
     } catch (error) {
-      console.error('Emergency admin initialization failed:', error);
+      console.error('❌ Emergency admin initialization exception:', error);
       toast.error('Emergency admin initialization failed');
     } finally {
       setIsInitializing(false);
@@ -78,53 +101,54 @@ const AdminLogin: React.FC = () => {
     }
 
     setLoading(true);
+    setAuthMethod(null);
+    
     try {
-      console.log('=== ADMIN LOGIN ATTEMPT ===');
+      console.log('🔐 Starting admin login process...');
       
-      // Try primary authentication
-      const { error } = await AdminAuthService.signInWithEmail(formData.email, formData.password);
+      const result = await AdminAuthService.signInWithEmail(formData.email, formData.password);
       
-      if (error) {
-        console.error('Primary login failed:', error);
+      if (result.success) {
+        setAuthMethod(result.method || 'unknown');
         
-        // Try emergency authentication
-        const emergencyResult = await EmergencyAdminService.verifyEmergencyLogin(
-          formData.email, 
-          formData.password
-        );
-        
-        if (emergencyResult.success) {
-          toast.success('Emergency admin login successful!');
-          // Create a mock session for emergency admin
-          localStorage.setItem('emergency_admin_session', JSON.stringify({
-            user: emergencyResult.user,
-            timestamp: Date.now()
-          }));
-          navigate('/admin');
-          return;
-        }
-        
-        // Show appropriate error message
-        if (error.message?.includes('Invalid login credentials')) {
-          toast.error('Invalid email or password');
-        } else if (error.message?.includes('Admin access required')) {
-          toast.error('Admin access required');
+        // Handle different authentication methods
+        if (result.method === 'emergency') {
+          toast.success('🚨 Emergency admin access granted!');
+          EmergencyAdminService.createEmergencySession(result.user);
+        } else if (result.method === 'database_fallback') {
+          toast.success('🔄 Database fallback login successful!');
+          EmergencyAdminService.createEmergencySession(result.user);
         } else {
-          toast.error('Login failed. Please try again.');
+          toast.success('✅ Admin login successful!');
         }
-        return;
+        
+        console.log(`✅ Login successful via ${result.method}`);
+        
+        // Small delay for user feedback, then redirect
+        setTimeout(() => {
+          navigate('/admin');
+        }, 1000);
+        
+      } else {
+        console.error('❌ All authentication methods failed:', result.error);
+        
+        // Provide specific error messages
+        const errorMessage = result.error?.message || 'Authentication failed';
+        
+        if (errorMessage.includes('Admin access required')) {
+          toast.error('Admin access required - insufficient permissions');
+        } else if (errorMessage.includes('Invalid login credentials')) {
+          toast.error('Invalid email or password');
+        } else if (errorMessage.includes('All authentication methods failed')) {
+          toast.error('System authentication failure - please try emergency initialization');
+        } else {
+          toast.error(`Login failed: ${errorMessage}`);
+        }
       }
-
-      console.log('=== LOGIN SUCCESSFUL ===');
-      toast.success('Admin login successful!');
-      
-      setTimeout(() => {
-        navigate('/admin');
-      }, 500);
       
     } catch (error) {
-      console.error('Login exception:', error);
-      toast.error('System error occurred. Please try again.');
+      console.error('❌ Login exception:', error);
+      toast.error('System error occurred during login');
     } finally {
       setLoading(false);
     }
@@ -135,8 +159,9 @@ const AdminLogin: React.FC = () => {
       case 'healthy':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'issues':
-      case 'error':
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      case 'error':
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
       default:
         return <RefreshCw className="h-4 w-4 animate-spin text-gray-500" />;
     }
@@ -149,10 +174,32 @@ const AdminLogin: React.FC = () => {
       case 'issues':
         return 'Minor Issues Detected';
       case 'error':
-        return 'System Check Failed';
+        return 'System Needs Repair';
       default:
         return 'Checking System...';
     }
+  };
+
+  const getAuthMethodBadge = () => {
+    if (!authMethod) return null;
+    
+    const methodConfig = {
+      primary: { icon: CheckCircle, text: 'Primary Auth', color: 'text-green-600' },
+      emergency: { icon: Zap, text: 'Emergency Mode', color: 'text-yellow-600' },
+      database_fallback: { icon: RefreshCw, text: 'Fallback Mode', color: 'text-blue-600' }
+    };
+    
+    const config = methodConfig[authMethod as keyof typeof methodConfig];
+    if (!config) return null;
+    
+    const IconComponent = config.icon;
+    
+    return (
+      <div className={`flex items-center gap-2 text-sm ${config.color} mt-2`}>
+        <IconComponent className="h-4 w-4" />
+        <span>{config.text}</span>
+      </div>
+    );
   };
 
   if (isCheckingSession) {
@@ -160,7 +207,8 @@ const AdminLogin: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-4">
         <div className="text-center">
           <RefreshCw className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p>Checking admin session...</p>
+          <p className="text-lg font-medium">Checking admin session...</p>
+          <p className="text-sm text-muted-foreground">Verifying authentication status</p>
         </div>
       </div>
     );
@@ -175,7 +223,7 @@ const AdminLogin: React.FC = () => {
           </div>
           <CardTitle className="text-2xl">Admin Login</CardTitle>
           <CardDescription>
-            Enter your admin credentials to access the admin panel
+            Multi-path authentication system with emergency fallback
           </CardDescription>
           
           <div className="mt-4 flex items-center gap-2 text-sm">
@@ -188,7 +236,10 @@ const AdminLogin: React.FC = () => {
               {getStatusText()}
             </span>
           </div>
+          
+          {getAuthMethodBadge()}
         </CardHeader>
+        
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -200,6 +251,7 @@ const AdminLogin: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="Enter admin email"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -213,6 +265,7 @@ const AdminLogin: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="Enter admin password"
                   required
+                  disabled={loading}
                 />
                 <Button
                   type="button"
@@ -220,6 +273,7 @@ const AdminLogin: React.FC = () => {
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -231,7 +285,14 @@ const AdminLogin: React.FC = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Authenticating...' : 'Sign In'}
+              {loading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Authenticating...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </Button>
           </form>
 
@@ -249,18 +310,30 @@ const AdminLogin: React.FC = () => {
                     Initializing...
                   </>
                 ) : (
-                  'Initialize Emergency Admin'
+                  <>
+                    <Zap className="h-4 w-4 mr-2" />
+                    Initialize Emergency Admin
+                  </>
                 )}
               </Button>
             </div>
           )}
 
           <div className="mt-6 p-4 bg-muted rounded-lg">
-            <h3 className="text-sm font-semibold mb-2">Admin Credentials:</h3>
-            <p className="text-xs text-muted-foreground">
-              Email: <span className="font-mono">admin@gameapp.com</span><br />
-              Password: <span className="font-mono">admin123456</span>
-            </p>
+            <h3 className="text-sm font-semibold mb-2">System Features:</h3>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              <li>✅ Primary Supabase Authentication</li>
+              <li>🚨 Emergency Backup System</li>
+              <li>🔄 Database Fallback Mode</li>
+              <li>🛡️ Multi-layer Security</li>
+            </ul>
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs text-muted-foreground">
+                <strong>Credentials:</strong><br/>
+                Email: <span className="font-mono">admin@gameapp.com</span><br/>
+                Password: <span className="font-mono">admin123456</span>
+              </p>
+            </div>
           </div>
 
           <div className="mt-4 text-center">
@@ -268,6 +341,7 @@ const AdminLogin: React.FC = () => {
               variant="outline"
               onClick={() => navigate('/')}
               className="text-sm"
+              disabled={loading}
             >
               Back to Home
             </Button>
