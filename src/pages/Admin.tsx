@@ -133,8 +133,8 @@ const Admin: React.FC = () => {
         return;
       }
 
-      // Type assertion for the RPC response
-      const response = data as RpcResponse;
+      // Type assertion for the RPC response - convert through unknown for type safety
+      const response = data as unknown as RpcResponse;
       
       if (response?.success) {
         toast.success(response.message);
