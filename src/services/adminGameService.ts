@@ -142,7 +142,7 @@ export class AdminGameService {
         return false;
       }
 
-      const response = data as DatabaseResponse;
+      const response = data as unknown as DatabaseResponse;
       if (response && !response.success) {
         console.error('Manual result setting failed:', response.message);
         return false;
@@ -174,7 +174,7 @@ export class AdminGameService {
         return false;
       }
 
-      const response = data as DatabaseResponse;
+      const response = data as unknown as DatabaseResponse;
       if (response && !response.success) {
         console.error('Manual game completion failed:', response.message);
         return false;
