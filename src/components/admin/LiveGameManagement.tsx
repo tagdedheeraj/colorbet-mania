@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { AdminGameService, LiveGameStats } from '@/services/adminGameService';
 import { toast } from 'sonner';
-import { Users, Target, DollarSign, Clock, Play, Square, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Users, Target, DollarSign, Clock, Play, Square, RefreshCw, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
 
 const LiveGameManagement: React.FC = () => {
   const [gameStats, setGameStats] = useState<LiveGameStats | null>(null);
@@ -18,6 +18,7 @@ const LiveGameManagement: React.FC = () => {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -50,6 +51,7 @@ const LiveGameManagement: React.FC = () => {
       console.log('✅ Game stats loaded:', stats);
       setGameStats(stats);
       setLastError(null);
+      setDebugInfo(null);
     } catch (error) {
       console.error('❌ Error loading game stats:', error);
       setLastError('Failed to load game statistics');
@@ -71,6 +73,7 @@ const LiveGameManagement: React.FC = () => {
 
     setActionLoading(true);
     setLastError(null);
+    setDebugInfo(null);
     
     try {
       const mode = manual ? 'manual' : 'automatic';
@@ -117,9 +120,16 @@ const LiveGameManagement: React.FC = () => {
 
     setActionLoading(true);
     setLastError(null);
+    setDebugInfo(null);
     
     try {
       console.log(`🎯 Setting manual result: ${selectedNumber} for game ${gameStats.activeGame.id}`);
+      console.log('🔍 Game details:', {
+        gameId: gameStats.activeGame.id,
+        gameNumber: gameStats.activeGame.game_number,
+        status: gameStats.activeGame.status,
+        currentMode: gameStats.activeGame.game_mode_type
+      });
       
       const success = await AdminGameService.setManualResult(
         gameStats.activeGame.id,
@@ -141,8 +151,14 @@ const LiveGameManagement: React.FC = () => {
       } else {
         const error = 'Failed to set result';
         setLastError(error);
+        setDebugInfo({
+          gameId: gameStats.activeGame.id,
+          selectedNumber,
+          gameStatus: gameStats.activeGame.status,
+          gameMode: gameStats.activeGame.game_mode_type
+        });
         toast.error(error, {
-          description: 'Please check admin permissions and game status',
+          description: 'Check console logs for detailed information',
           icon: <AlertTriangle className="h-4 w-4" />
         });
       }
@@ -168,6 +184,7 @@ const LiveGameManagement: React.FC = () => {
 
     setActionLoading(true);
     setLastError(null);
+    setDebugInfo(null);
     
     try {
       console.log(`🏁 Completing game manually: ${gameStats.activeGame.id}`);
@@ -244,14 +261,20 @@ const LiveGameManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Error Display */}
+      {/* Error Display with Debug Info */}
       {lastError && (
         <Card className="border-destructive">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-destructive">
+            <div className="flex items-center gap-2 text-destructive mb-3">
               <AlertTriangle className="h-4 w-4" />
               <span className="font-medium">Error: {lastError}</span>
             </div>
+            {debugInfo && (
+              <div className="mt-2 p-3 bg-muted rounded text-sm">
+                <strong>Debug Information:</strong>
+                <pre className="mt-1 text-xs">{JSON.stringify(debugInfo, null, 2)}</pre>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -303,28 +326,34 @@ const LiveGameManagement: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            Game Control - Game #{gameStats.activeGame.game_number}
+            <div className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Game Control - Game #{gameStats.activeGame.game_number}
+            </div>
             <Button onClick={loadGameStats} variant="outline" size="sm" disabled={actionLoading}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
           </CardTitle>
           <CardDescription>
-            Current Status: <Badge variant={gameStats.activeGame.status === 'active' ? 'default' : 'secondary'}>
-              {gameStats.activeGame.status}
-            </Badge>
-            {' | Mode: '}
-            <Badge variant={isManualMode ? 'destructive' : 'secondary'}>
-              {isManualMode ? 'Manual' : 'Automatic'}
-            </Badge>
-            {gameStats.activeGame.admin_set_result_number !== null && (
-              <>
-                {' | Set Result: '}
-                <Badge variant="outline">
-                  {gameStats.activeGame.admin_set_result_number}
-                </Badge>
-              </>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Status:</span>
+              <Badge variant={gameStats.activeGame.status === 'active' ? 'default' : 'secondary'}>
+                {gameStats.activeGame.status}
+              </Badge>
+              <span>| Mode:</span>
+              <Badge variant={isManualMode ? 'destructive' : 'secondary'}>
+                {isManualMode ? 'Manual' : 'Automatic'}
+              </Badge>
+              {gameStats.activeGame.admin_set_result_number !== null && (
+                <>
+                  <span>| Set Result:</span>
+                  <Badge variant="outline">
+                    {gameStats.activeGame.admin_set_result_number}
+                  </Badge>
+                </>
+              )}
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -392,8 +421,9 @@ const LiveGameManagement: React.FC = () => {
                 <Button 
                   onClick={handleSetResult} 
                   disabled={selectedNumber === null || actionLoading}
+                  className="flex items-center gap-2"
                 >
-                  <Play className="h-4 w-4 mr-2" />
+                  <Play className="h-4 w-4" />
                   {actionLoading ? 'Setting...' : 'Set Result'}
                 </Button>
                 <Button onClick={handleCompleteGame} variant="destructive" disabled={actionLoading}>

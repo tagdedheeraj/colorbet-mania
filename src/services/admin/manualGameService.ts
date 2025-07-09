@@ -19,12 +19,12 @@ export class ManualGameService {
         return false;
       }
 
-      console.log('👤 Authenticated user:', user.id);
+      console.log('👤 Authenticated user:', user.id, user.email);
 
       // Verify admin user exists in users table with admin role
       const { data: adminUser, error: adminError } = await supabase
         .from('users')
-        .select('id, role, email')
+        .select('id, role, email, username')
         .eq('id', user.id)
         .eq('role', 'admin')
         .single();
@@ -68,17 +68,17 @@ export class ManualGameService {
 
       console.log('✅ Game set to manual mode');
 
-      // Use the database function to set manual result
-      const { data, error } = await supabase.rpc('set_manual_game_result', {
+      // Use the enhanced database function to set manual result
+      const { data, error } = await supabase.rpc('set_manual_game_result_enhanced', {
         p_game_id: gameId,
         p_admin_user_id: user.id,
         p_result_number: number
       });
 
-      console.log('📡 Database function response:', { data, error });
+      console.log('📡 Enhanced database function response:', { data, error });
 
       if (error) {
-        console.error('❌ Database function error:', error);
+        console.error('❌ Enhanced database function error:', error);
         return false;
       }
 
@@ -99,6 +99,9 @@ export class ManualGameService {
 
       if (response && !response.success) {
         console.error('❌ Manual result setting failed:', response.message);
+        if (response.debug_info) {
+          console.error('🔍 Debug info:', response.debug_info);
+        }
         return false;
       }
 
