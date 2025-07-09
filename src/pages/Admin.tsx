@@ -17,6 +17,7 @@ import GameManagement from '@/components/admin/GameManagement';
 import BettingAnalytics from '@/components/admin/BettingAnalytics';
 import LiveGameControl from '@/components/admin/LiveGameControl';
 import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
+import AdminSettings from '@/components/admin/AdminSettings';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -256,7 +257,7 @@ const Admin: React.FC = () => {
         />
 
         <Tabs defaultValue="deposits" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="deposits">
               Deposits ({pendingDeposits})
             </TabsTrigger>
@@ -265,6 +266,7 @@ const Admin: React.FC = () => {
             <TabsTrigger value="bets">Bets ({bets.length})</TabsTrigger>
             <TabsTrigger value="live-control">Live Control</TabsTrigger>
             <TabsTrigger value="payment-config">Payment Config</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="deposits" className="space-y-4">
@@ -299,6 +301,10 @@ const Admin: React.FC = () => {
 
           <TabsContent value="payment-config" className="space-y-4">
             <PaymentGatewayConfig />
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <AdminSettings adminUser={adminUser} />
           </TabsContent>
         </Tabs>
       </div>

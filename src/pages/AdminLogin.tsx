@@ -12,8 +12,8 @@ import AdminAuthService from '@/services/adminAuthService';
 const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: 'admin@tradeforwin.xyz',
-    password: 'Trade@123'
+    email: '',
+    password: ''
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -69,6 +69,10 @@ const AdminLogin: React.FC = () => {
       if (result.success) {
         console.log('✅ Enhanced login successful, redirecting to admin panel...');
         toast.success('Login successful! Redirecting to admin panel...');
+        
+        // Clear form data for security
+        setFormData({ email: '', password: '' });
+        
         setTimeout(() => {
           navigate('/admin', { replace: true });
         }, 1000);
@@ -93,7 +97,7 @@ const AdminLogin: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-4">
         <div className="text-center">
           <RefreshCw className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-lg font-medium">Checking enhanced admin session...</p>
+          <p className="text-lg font-medium">Checking admin session...</p>
         </div>
       </div>
     );
@@ -109,7 +113,7 @@ const AdminLogin: React.FC = () => {
             </div>
             <CardTitle className="text-2xl">TradeForWin Admin</CardTitle>
             <CardDescription>
-              Enhanced admin login with improved security
+              Secure admin access to the management panel
             </CardDescription>
           </CardHeader>
           
@@ -173,22 +177,18 @@ const AdminLogin: React.FC = () => {
                 ) : (
                   <>
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Sign In to Enhanced Admin Panel
+                    Sign In to Admin Panel
                   </>
                 )}
               </Button>
             </form>
 
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg border">
-              <p className="text-sm text-muted-foreground">
-                <strong>Enhanced Admin Credentials:</strong><br/>
-                Email: <span className="font-mono text-primary">admin@tradeforwin.xyz</span><br/>
-                Password: <span className="font-mono text-primary">Trade@123</span>
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Security Notice:</strong><br/>
+                Please enter your admin credentials to access the management panel.
+                All login attempts are logged for security purposes.
               </p>
-              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
-                <CheckCircle className="h-3 w-3 inline mr-1" />
-                Enhanced authentication with session management
-              </div>
             </div>
 
             <div className="mt-4 text-center">

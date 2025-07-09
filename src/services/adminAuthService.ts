@@ -140,6 +140,46 @@ class AdminAuthService {
     }
   }
 
+  // Change admin password
+  static async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const user = await this.getCurrentAdminUser();
+      if (!user) {
+        return { success: false, message: 'Not authenticated' };
+      }
+
+      const { data, error } = await supabase.rpc('change_admin_password', {
+        p_email: user.email,
+        p_current_password: currentPassword,
+        p_new_password: newPassword
+      });
+
+      if (error) {
+        console.error('❌ Password change error:', error);
+        return { success: false, message: 'Failed to change password' };
+      }
+
+      const result = data as { success: boolean; message: string };
+      
+      if (result.success) {
+        toast.success(result.message);
+        // Logout after successful password change for security
+        setTimeout(() => {
+          this.logout();
+        }, 2000);
+      } else {
+        toast.error(result.message);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('❌ Password change exception:', error);
+      const message = 'Failed to change password';
+      toast.error(message);
+      return { success: false, message };
+    }
+  }
+
   // Clear local session data
   private static clearLocalSession(): void {
     localStorage.removeItem(this.SESSION_KEY);

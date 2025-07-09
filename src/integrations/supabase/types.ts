@@ -478,6 +478,14 @@ export type Database = {
         }
         Returns: Json
       }
+      change_admin_password: {
+        Args: {
+          p_email: string
+          p_current_password: string
+          p_new_password: string
+        }
+        Returns: Json
+      }
       create_admin_account: {
         Args: {
           p_username: string

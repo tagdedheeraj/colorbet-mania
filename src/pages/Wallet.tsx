@@ -1,306 +1,197 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, History, CreditCard } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import useSupabaseAuthStore from '@/store/supabaseAuthStore';
-import { useGameState } from '@/store/gameState';
+import { Button } from '@/components/ui/button';
+import { ArrowUpRight, ArrowDownLeft, RefreshCw, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  description: string;
+  status: string;
+  created_at: string;
+}
 
 const Wallet: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useSupabaseAuthStore();
-  const { loadUserBalance } = useGameState();
-  const [balance, setBalance] = useState<number>(0);
-  const [amount, setAmount] = useState<string>('');
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { user, profile, isAuthenticated, refreshProfile } = useSupabaseAuthStore();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/auth');
       return;
     }
-    loadWalletData();
     
-    // Set up real-time balance updates
-    if (user) {
-      const channel = supabase
-        .channel('wallet-balance-updates')
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'users',
-          filter: `id=eq.${user.id}`
-        }, (payload) => {
-          console.log('Wallet balance updated:', payload.new.balance);
-          setBalance(payload.new.balance || 0);
-          loadUserBalance(); // Update game state balance too
-        })
-        .subscribe();
+    loadTransactions();
+  }, [isAuthenticated, navigate]);
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [isAuthenticated, navigate, user, loadUserBalance]);
-
-  const loadWalletData = async () => {
+  const loadTransactions = async () => {
     if (!user) return;
-
+    
     try {
-      // Load user balance from users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('balance')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('Error loading user balance:', userError);
-      } else {
-        setBalance(userData?.balance || 0);
-      }
-
-      // Load transactions
-      const { data: transactionData, error: transactionError } = await supabase
+      const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(50);
 
-      if (transactionError) {
-        console.error('Error loading transactions:', transactionError);
-      } else {
-        setTransactions(transactionData || []);
+      if (error) {
+        console.error('Error loading transactions:', error);
+        toast.error('Failed to load transactions');
+        return;
       }
+
+      setTransactions(data || []);
     } catch (error) {
-      console.error('Error loading wallet data:', error);
-      toast.error('Failed to load wallet data');
-    }
-  };
-
-  const handleAddFunds = async () => {
-    if (!amount || parseFloat(amount) <= 0) {
-      toast.error('Please enter a valid amount');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const addAmount = parseFloat(amount);
-      const newBalance = balance + addAmount;
-
-      // Update user balance
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ balance: newBalance })
-        .eq('id', user?.id);
-
-      if (updateError) throw updateError;
-
-      // Add transaction record
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user?.id,
-          type: 'deposit',
-          amount: addAmount,
-          description: 'Demo funds added to wallet'
-        });
-
-      if (transactionError) throw transactionError;
-
-      setBalance(newBalance);
-      setAmount('');
-      toast.success('Demo funds added successfully');
-      loadWalletData();
-      loadUserBalance(); // Update game state balance
-    } catch (error) {
-      console.error('Error adding funds:', error);
-      toast.error('Failed to add funds');
+      console.error('Error loading transactions:', error);
+      toast.error('Failed to load transactions');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'deposit':
-        return <Plus className="h-4 w-4 text-green-500" />;
-      case 'withdrawal':
-        return <Minus className="h-4 w-4 text-red-500" />;
+      case 'signup_bonus':
+        return <ArrowDownLeft className="h-4 w-4 text-green-500" />;
       case 'bet':
-        return <CreditCard className="h-4 w-4 text-blue-500" />;
-      case 'win':
-        return <Plus className="h-4 w-4 text-green-500" />;
+      case 'withdrawal':
+        return <ArrowUpRight className="h-4 w-4 text-red-500" />;
       default:
         return <History className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  if (!isAuthenticated) {
-    return null;
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>;
+      case 'pending':
+        return <Badge variant="secondary">Pending</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">Failed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const formatAmount = (amount: number, type: string) => {
+    const sign = ['deposit', 'signup_bonus'].includes(type) ? '+' : '-';
+    return `${sign}₹${Math.abs(amount).toFixed(2)}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
+        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20">
-      <div className="container mx-auto px-4 py-6">
-        {/* Header with Back Button */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <h1 className="text-3xl font-bold">Wallet</h1>
+    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
+      <div className="container mx-auto max-w-4xl">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-center mb-2">My Wallet</h1>
+          <p className="text-center text-muted-foreground">Manage your funds and view transaction history</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Balance Card */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Current Balance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-primary">
-                  ₹{balance.toFixed(2)}
-                </div>
-                <p className="text-muted-foreground mt-2">
-                  Available for betting
-                </p>
-                <Button 
-                  onClick={() => navigate('/deposit')}
-                  className="w-full mt-4"
-                >
-                  Add Funds via Payment
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Balance Card */}
+        <Card className="mb-6">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Current Balance</CardTitle>
+            <div className="text-4xl font-bold text-primary">
+              ₹{profile?.balance?.toFixed(2) || '0.00'}
+            </div>
+          </CardHeader>
+          <CardContent className="flex justify-center gap-4">
+            <Button 
+              onClick={() => navigate('/deposit')}
+              className="flex items-center gap-2"
+            >
+              <ArrowDownLeft className="h-4 w-4" />
+              Add Funds
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={refreshProfile}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </CardContent>
+        </Card>
 
-          {/* Wallet Actions */}
-          <div className="lg:col-span-2">
-            <Tabs defaultValue="add-funds" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="add-funds">Quick Add Funds</TabsTrigger>
-                <TabsTrigger value="transactions">Transaction History</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="add-funds" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Quick Add Demo Funds</CardTitle>
-                    <CardDescription>
-                      Add demo coins to your wallet for testing
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label htmlFor="amount">Amount (₹)</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="Enter amount"
-                        min="1"
-                        step="0.01"
-                      />
-                    </div>
-                    <Button 
-                      onClick={handleAddFunds}
-                      disabled={loading}
-                      className="w-full"
-                    >
-                      {loading ? 'Processing...' : 'Add Demo Funds'}
-                    </Button>
-                    <p className="text-sm text-muted-foreground">
-                      * This is demo mode. For real payments, use the "Add Funds via Payment" button above.
-                    </p>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="transactions" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Transactions</CardTitle>
-                    <CardDescription>
-                      Your recent wallet activity
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {transactions.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">
-                          No transactions yet
+        {/* Transaction History */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Transaction History
+            </CardTitle>
+            <CardDescription>
+              View all your recent transactions and account activity
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {transactions.length === 0 ? (
+              <div className="text-center py-8">
+                <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No transactions yet</p>
+                <p className="text-sm text-muted-foreground">Your transaction history will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {transactions.map((transaction) => (
+                  <div
+                    key={transaction.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      {getTransactionIcon(transaction.type)}
+                      <div>
+                        <p className="font-medium">{transaction.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(transaction.created_at).toLocaleDateString('en-IN', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </p>
-                      ) : (
-                        transactions.map((transaction) => (
-                          <div
-                            key={transaction.id}
-                            className="flex items-center justify-between p-4 border rounded-lg"
-                          >
-                            <div className="flex items-center gap-3">
-                              {getTransactionIcon(transaction.type)}
-                              <div>
-                                <p className="font-medium">
-                                  {transaction.description || transaction.type}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {formatDate(transaction.created_at)}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className={`font-medium ${
-                                transaction.type === 'deposit' || transaction.type === 'win'
-                                  ? 'text-green-600'
-                                  : 'text-red-600'
-                              }`}>
-                                {transaction.type === 'deposit' || transaction.type === 'win' ? '+' : '-'}
-                                ₹{Math.abs(transaction.amount).toFixed(2)}
-                              </p>
-                              <Badge variant="outline" className="text-xs">
-                                {transaction.status || 'completed'}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))
-                      )}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className={`font-semibold ${
+                          ['deposit', 'signup_bonus'].includes(transaction.type) 
+                            ? 'text-green-600' 
+                            : 'text-red-600'
+                        }`}>
+                          {formatAmount(transaction.amount, transaction.type)}
+                        </p>
+                      </div>
+                      {getStatusBadge(transaction.status)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
