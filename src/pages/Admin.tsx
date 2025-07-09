@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
+import DepositRequestService, { DepositRequest, DepositStats } from '@/services/depositRequestService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,11 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Users, GamepadIcon, TrendingUp, LogOut, RefreshCw, Edit, ArrowLeft, CreditCard, CheckCircle, XCircle, Clock, Settings } from 'lucide-react';
+import { Users, GamepadIcon, TrendingUp, LogOut, RefreshCw, Edit, ArrowLeft, CreditCard, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
+import DepositRequestCard from '@/components/admin/DepositRequestCard';
+import DepositRequestStats from '@/components/admin/DepositRequestStats';
 
 // Type for RPC response
 interface RpcResponse {
@@ -28,28 +31,23 @@ const Admin: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [games, setGames] = useState<any[]>([]);
   const [bets, setBets] = useState<any[]>([]);
-  const [depositRequests, setDepositRequests] = useState<any[]>([]);
+  const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
+  const [depositStats, setDepositStats] = useState<DepositStats | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [editBalance, setEditBalance] = useState<{userId: string, balance: string} | null>(null);
-  const [processDeposit, setProcessDeposit] = useState<{id: string, action: 'approve' | 'reject', notes: string} | null>(null);
   const [manualGameMode, setManualGameMode] = useState(false);
   const [manualResult, setManualResult] = useState<{number: number | '', color: string}>({ number: '', color: '' });
+  const [depositRequestsLoading, setDepositRequestsLoading] = useState(false);
 
   useEffect(() => {
     checkAdminAndLoadData();
     
     // Set up real-time subscription for deposit requests
-    const channel = supabase
-      .channel('admin-deposit-updates')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'deposit_requests'
-      }, () => {
-        console.log('Deposit request updated, reloading...');
-        loadData();
-      })
-      .subscribe();
+    const channel = DepositRequestService.subscribeToDepositUpdates(() => {
+      console.log('📱 Real-time deposit update received, reloading...');
+      loadDepositRequests();
+      loadDepositStats();
+    });
 
     return () => {
       supabase.removeChannel(channel);
@@ -80,34 +78,83 @@ const Admin: React.FC = () => {
   const loadData = async () => {
     try {
       console.log('Loading admin data...');
-      const [usersResult, gamesResult, betsResult, depositsResult] = await Promise.all([
+      const [usersResult, gamesResult, betsResult] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('games').select('*').order('created_at', { ascending: false }).limit(100),
         supabase.from('bets').select(`
           *,
           users!inner(username, email),
           games!inner(game_number, status)
-        `).order('created_at', { ascending: false }).limit(100),
-        supabase.from('deposit_requests').select(`
-          *,
-          users!inner(username, email)
         `).order('created_at', { ascending: false }).limit(100)
       ]);
 
       console.log('Admin data loaded:', {
         users: usersResult.data?.length,
         games: gamesResult.data?.length,
-        bets: betsResult.data?.length,
-        deposits: depositsResult.data?.length
+        bets: betsResult.data?.length
       });
 
       setUsers(usersResult.data || []);
       setGames(gamesResult.data || []);
       setBets(betsResult.data || []);
-      setDepositRequests(depositsResult.data || []);
+      
+      // Load deposit requests and stats
+      await loadDepositRequests();
+      await loadDepositStats();
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load admin data');
+    }
+  };
+
+  const loadDepositRequests = async () => {
+    try {
+      setDepositRequestsLoading(true);
+      const requests = await DepositRequestService.loadDepositRequests();
+      setDepositRequests(requests);
+      console.log('✅ Loaded deposit requests:', requests.length);
+    } catch (error) {
+      console.error('❌ Error loading deposit requests:', error);
+      toast.error('Failed to load deposit requests');
+    } finally {
+      setDepositRequestsLoading(false);
+    }
+  };
+
+  const loadDepositStats = async () => {
+    try {
+      const stats = await DepositRequestService.getDepositStats();
+      setDepositStats(stats);
+      console.log('✅ Loaded deposit stats:', stats);
+    } catch (error) {
+      console.error('❌ Error loading deposit stats:', error);
+    }
+  };
+
+  const handleApproveDeposit = async (requestId: string, notes?: string) => {
+    try {
+      const result = await DepositRequestService.approveDepositRequest(requestId, notes);
+      if (result.success) {
+        await loadDepositRequests();
+        await loadDepositStats();
+        // Reload users to get updated balances
+        const usersResult = await supabase.from('users').select('*').order('created_at', { ascending: false });
+        setUsers(usersResult.data || []);
+      }
+    } catch (error) {
+      console.error('Error approving deposit:', error);
+    }
+  };
+
+  const handleRejectDeposit = async (requestId: string, notes: string) => {
+    try {
+      const result = await DepositRequestService.rejectDepositRequest(requestId, notes);
+      if (result.success) {
+        await loadDepositRequests();
+        await loadDepositStats();
+      }
+    } catch (error) {
+      console.error('Error rejecting deposit:', error);
     }
   };
 
@@ -138,40 +185,6 @@ const Admin: React.FC = () => {
     } catch (error) {
       console.error('❌ Balance update exception:', error);
       toast.error('Failed to update balance');
-    }
-  };
-
-  const handleProcessDeposit = async () => {
-    if (!processDeposit || !adminUser) return;
-
-    try {
-      console.log('Processing deposit:', processDeposit);
-      const functionName = processDeposit.action === 'approve' ? 'approve_deposit_request' : 'reject_deposit_request';
-      
-      const { data, error } = await supabase.rpc(functionName, {
-        p_request_id: processDeposit.id,
-        p_admin_id: adminUser.id,
-        p_admin_notes: processDeposit.notes || null
-      });
-
-      if (error) {
-        console.error('❌ Deposit processing error:', error);
-        toast.error('Failed to process deposit request');
-        return;
-      }
-
-      const response = data as unknown as RpcResponse;
-      
-      if (response?.success) {
-        toast.success(response.message);
-        setProcessDeposit(null);
-        loadData();
-      } else {
-        toast.error(response?.message || 'Failed to process deposit');
-      }
-    } catch (error) {
-      console.error('❌ Deposit processing exception:', error);
-      toast.error('Failed to process deposit request');
     }
   };
 
@@ -226,17 +239,6 @@ const Admin: React.FC = () => {
     navigate('/admin-login');
   };
 
-  const getDepositStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'rejected':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
@@ -250,7 +252,7 @@ const Admin: React.FC = () => {
 
   const totalBalance = users.reduce((sum, user) => sum + (user.balance || 0), 0);
   const totalBetsAmount = bets.reduce((sum, bet) => sum + (bet.amount || 0), 0);
-  const pendingDeposits = depositRequests.filter(req => req.status === 'pending').length;
+  const pendingDeposits = depositStats?.pending_count || 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
@@ -362,67 +364,54 @@ const Admin: React.FC = () => {
           <TabsContent value="deposits" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Deposit Requests Management</CardTitle>
-                <CardDescription>Review and approve user deposit requests</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Deposit Requests Management</CardTitle>
+                    <CardDescription>Review and approve user deposit requests</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      loadDepositRequests();
+                      loadDepositStats();
+                    }}
+                    disabled={depositRequestsLoading}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${depositRequestsLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
+                {/* Deposit Stats */}
+                <DepositRequestStats stats={depositStats} loading={depositRequestsLoading} />
+                
+                {/* Deposit Requests */}
                 <div className="space-y-4">
-                  {depositRequests.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      No deposit requests yet
-                    </p>
+                  {depositRequestsLoading ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                      <p>Loading deposit requests...</p>
+                    </div>
+                  ) : depositRequests.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-lg font-medium">No deposit requests found</p>
+                      <p className="text-muted-foreground">New deposit requests will appear here automatically</p>
+                    </div>
                   ) : (
-                    depositRequests.map((request) => (
-                      <div
-                        key={request.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
-                        <div className="flex items-center gap-4">
-                          {getDepositStatusIcon(request.status)}
-                          <div>
-                            <p className="font-medium">₹{request.amount}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {request.users?.username} ({request.users?.email})
-                            </p>
-                            <p className="text-sm">
-                              {request.payment_method.replace('_', ' ').toUpperCase()} • TXN: {request.transaction_id}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(request.created_at).toLocaleString('en-IN')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant={
-                              request.status === 'approved' ? 'default' : 
-                              request.status === 'rejected' ? 'destructive' : 
-                              'secondary'
-                            }
-                          >
-                            {request.status}
-                          </Badge>
-                          {request.status === 'pending' && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => setProcessDeposit({id: request.id, action: 'approve', notes: ''})}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => setProcessDeposit({id: request.id, action: 'reject', notes: ''})}
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
+                    <div className="grid gap-4">
+                      {depositRequests.map((request) => (
+                        <DepositRequestCard
+                          key={request.id}
+                          request={request}
+                          onApprove={handleApproveDeposit}
+                          onReject={handleRejectDeposit}
+                          loading={depositRequestsLoading}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -628,42 +617,6 @@ const Admin: React.FC = () => {
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Process Deposit Modal */}
-        {processDeposit && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle>
-                  {processDeposit.action === 'approve' ? 'Approve' : 'Reject'} Deposit
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="adminNotes">Admin Notes (Optional)</Label>
-                  <Textarea
-                    id="adminNotes"
-                    value={processDeposit.notes}
-                    onChange={(e) => setProcessDeposit({...processDeposit, notes: e.target.value})}
-                    placeholder="Add notes about this decision..."
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={handleProcessDeposit} 
-                    className="flex-1"
-                    variant={processDeposit.action === 'approve' ? 'default' : 'destructive'}
-                  >
-                    {processDeposit.action === 'approve' ? 'Approve' : 'Reject'} Deposit
-                  </Button>
-                  <Button variant="outline" onClick={() => setProcessDeposit(null)} className="flex-1">
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         {/* Edit Balance Modal */}
         {editBalance && (
