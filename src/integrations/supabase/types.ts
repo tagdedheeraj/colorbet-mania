@@ -85,6 +85,33 @@ export type Database = {
           },
         ]
       }
+      admin_credentials: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          password_hash: string
+          salt: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          password_hash: string
+          salt: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          password_hash?: string
+          salt?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       admin_logs: {
         Row: {
           action: string
@@ -122,6 +149,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      admin_password_logs: {
+        Row: {
+          action: string
+          admin_email: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action?: string
+          admin_email: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          admin_email?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
       }
       admin_sessions: {
         Row: {
@@ -514,6 +568,21 @@ export type Database = {
       get_user_role: {
         Args: { user_id: string }
         Returns: string
+      }
+      hash_password: {
+        Args: { password: string }
+        Returns: {
+          hash: string
+          salt: string
+        }[]
+      }
+      log_password_change: {
+        Args: {
+          p_admin_email: string
+          p_ip_address?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
       }
       logout_admin_session: {
         Args: { p_session_token: string }
