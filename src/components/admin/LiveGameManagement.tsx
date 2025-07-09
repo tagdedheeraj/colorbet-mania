@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { AdminGameService, LiveGameStats } from '@/services/adminGameService';
 import { toast } from 'sonner';
-import { Users, Target, DollarSign, Clock, Play, Square, RefreshCw } from 'lucide-react';
+import { Users, Target, DollarSign, Clock, Play, Square, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 
 const LiveGameManagement: React.FC = () => {
   const [gameStats, setGameStats] = useState<LiveGameStats | null>(null);
@@ -16,6 +17,7 @@ const LiveGameManagement: React.FC = () => {
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -43,12 +45,14 @@ const LiveGameManagement: React.FC = () => {
 
   const loadGameStats = async () => {
     try {
-      console.log('Loading game stats...');
+      console.log('📊 Loading game stats...');
       const stats = await AdminGameService.getCurrentGameStats();
-      console.log('Game stats loaded:', stats);
+      console.log('✅ Game stats loaded:', stats);
       setGameStats(stats);
+      setLastError(null);
     } catch (error) {
-      console.error('Error loading game stats:', error);
+      console.error('❌ Error loading game stats:', error);
+      setLastError('Failed to load game statistics');
       if (loading) {
         toast.error('Failed to load game statistics');
       }
@@ -59,14 +63,18 @@ const LiveGameManagement: React.FC = () => {
 
   const handleModeChange = async (manual: boolean) => {
     if (!gameStats?.activeGame) {
-      toast.error('No active game found');
+      const error = 'No active game found';
+      setLastError(error);
+      toast.error(error);
       return;
     }
 
     setActionLoading(true);
+    setLastError(null);
+    
     try {
       const mode = manual ? 'manual' : 'automatic';
-      console.log(`Changing game mode to: ${mode}`);
+      console.log(`🔄 Changing game mode to: ${mode} for game ${gameStats.activeGame.id}`);
       
       const success = await AdminGameService.setGameMode(gameStats.activeGame.id, mode);
       
@@ -76,14 +84,24 @@ const LiveGameManagement: React.FC = () => {
           gameId: gameStats.activeGame.id,
           mode 
         });
-        toast.success(`Game mode changed to ${mode}`);
+        toast.success(`Game mode changed to ${mode}`, {
+          description: `Game #${gameStats.activeGame.game_number} is now in ${mode} mode`
+        });
         setTimeout(loadGameStats, 1000);
       } else {
-        toast.error('Failed to change game mode');
+        const error = `Failed to change game mode to ${mode}`;
+        setLastError(error);
+        toast.error(error, {
+          description: 'Please check the console for detailed error information'
+        });
       }
     } catch (error) {
-      console.error('Error changing game mode:', error);
-      toast.error('Error changing game mode');
+      console.error('❌ Exception changing game mode:', error);
+      const errorMsg = 'Error changing game mode';
+      setLastError(errorMsg);
+      toast.error(errorMsg, {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
     } finally {
       setActionLoading(false);
     }
@@ -91,13 +109,17 @@ const LiveGameManagement: React.FC = () => {
 
   const handleSetResult = async () => {
     if (!gameStats?.activeGame || selectedNumber === null) {
-      toast.error('Please select a number (0-9)');
+      const error = 'Please select a number (0-9)';
+      setLastError(error);
+      toast.error(error);
       return;
     }
 
     setActionLoading(true);
+    setLastError(null);
+    
     try {
-      console.log(`Setting manual result: ${selectedNumber}`);
+      console.log(`🎯 Setting manual result: ${selectedNumber} for game ${gameStats.activeGame.id}`);
       
       const success = await AdminGameService.setManualResult(
         gameStats.activeGame.id,
@@ -109,14 +131,28 @@ const LiveGameManagement: React.FC = () => {
           number: selectedNumber,
           gameId: gameStats.activeGame.id
         });
-        toast.success(`Result set to ${selectedNumber}`);
+        
+        toast.success(`Result set to ${selectedNumber}`, {
+          description: `Manual result has been set for Game #${gameStats.activeGame.game_number}`,
+          icon: <CheckCircle className="h-4 w-4" />
+        });
+        
         setTimeout(loadGameStats, 1000);
       } else {
-        toast.error('Failed to set result');
+        const error = 'Failed to set result';
+        setLastError(error);
+        toast.error(error, {
+          description: 'Please check admin permissions and game status',
+          icon: <AlertTriangle className="h-4 w-4" />
+        });
       }
     } catch (error) {
-      console.error('Error setting result:', error);
-      toast.error('Error setting result');
+      console.error('❌ Exception setting result:', error);
+      const errorMsg = 'Error setting result';
+      setLastError(errorMsg);
+      toast.error(errorMsg, {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
     } finally {
       setActionLoading(false);
     }
@@ -124,13 +160,17 @@ const LiveGameManagement: React.FC = () => {
 
   const handleCompleteGame = async () => {
     if (!gameStats?.activeGame) {
-      toast.error('No active game found');
+      const error = 'No active game found';
+      setLastError(error);
+      toast.error(error);
       return;
     }
 
     setActionLoading(true);
+    setLastError(null);
+    
     try {
-      console.log('Completing game manually...');
+      console.log(`🏁 Completing game manually: ${gameStats.activeGame.id}`);
       
       const success = await AdminGameService.completeGameManually(gameStats.activeGame.id);
       
@@ -138,14 +178,27 @@ const LiveGameManagement: React.FC = () => {
         await AdminGameService.logAdminAction('complete_game_manually', {
           gameId: gameStats.activeGame.id
         });
-        toast.success('Game completed successfully');
+        
+        toast.success('Game completed successfully', {
+          description: `Game #${gameStats.activeGame.game_number} has been completed manually`,
+          icon: <CheckCircle className="h-4 w-4" />
+        });
+        
         setTimeout(loadGameStats, 1000);
       } else {
-        toast.error('Failed to complete game');
+        const error = 'Failed to complete game';
+        setLastError(error);
+        toast.error(error, {
+          description: 'Please check admin permissions and try again'
+        });
       }
     } catch (error) {
-      console.error('Error completing game:', error);
-      toast.error('Error completing game');
+      console.error('❌ Exception completing game:', error);
+      const errorMsg = 'Error completing game';
+      setLastError(errorMsg);
+      toast.error(errorMsg, {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
     } finally {
       setActionLoading(false);
     }
@@ -191,6 +244,18 @@ const LiveGameManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Error Display */}
+      {lastError && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="font-medium">Error: {lastError}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Game Status */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -252,6 +317,14 @@ const LiveGameManagement: React.FC = () => {
             <Badge variant={isManualMode ? 'destructive' : 'secondary'}>
               {isManualMode ? 'Manual' : 'Automatic'}
             </Badge>
+            {gameStats.activeGame.admin_set_result_number !== null && (
+              <>
+                {' | Set Result: '}
+                <Badge variant="outline">
+                  {gameStats.activeGame.admin_set_result_number}
+                </Badge>
+              </>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -309,6 +382,7 @@ const LiveGameManagement: React.FC = () => {
                     }}
                     className="w-24"
                     placeholder="0-9"
+                    disabled={actionLoading}
                   />
                 </div>
               </div>
