@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { AdminGameService, LiveGameStats } from '@/services/adminGameService';
 import { toast } from 'sonner';
 import { Users, Target, DollarSign, Clock, Play, Square, RefreshCw, AlertTriangle, CheckCircle, Settings, Info } from 'lucide-react';
+import DetailedBettingAnalytics from './DetailedBettingAnalytics';
 
 const LiveGameManagement: React.FC = () => {
   const [gameStats, setGameStats] = useState<LiveGameStats | null>(null);
@@ -79,7 +79,6 @@ const LiveGameManagement: React.FC = () => {
       const mode = manual ? 'manual' : 'automatic';
       console.log(`🔄 Changing game mode to: ${mode} for game ${gameStats.activeGame.id}`);
       
-      // Use the enhanced AdminGameService method
       const success = await AdminGameService.setGameMode(gameStats.activeGame.id, mode);
       
       if (success) {
@@ -246,17 +245,6 @@ const LiveGameManagement: React.FC = () => {
     );
   }
 
-  // Enhanced empty state messages
-  const EmptyStateCard = ({ title, description, icon: Icon }: { title: string; description: string; icon: any }) => (
-    <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground/70">{description}</p>
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-6">
       {/* Error Display with Debug Info */}
@@ -277,82 +265,12 @@ const LiveGameManagement: React.FC = () => {
         </Card>
       )}
 
-      {/* Game Status with Enhanced Empty States */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Players</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{gameStats.activePlayers}</div>
-            {gameStats.activePlayers === 0 && (
-              <p className="text-xs text-muted-foreground mt-1">Waiting for players to join</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bets</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{gameStats.totalBets}</div>
-            {gameStats.totalBets === 0 && (
-              <p className="text-xs text-muted-foreground mt-1">No bets placed yet</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{gameStats.totalBetAmount.toFixed(2)}</div>
-            {gameStats.totalBetAmount === 0 && (
-              <p className="text-xs text-muted-foreground mt-1">No betting amount yet</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Time Left</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{timeRemaining}s</div>
-            {timeRemaining > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">Game in progress</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Empty State Alert for No Activity */}
-      {gameStats.activePlayers === 0 && gameStats.totalBets === 0 && (
-        <Card className="border-blue-200 bg-blue-50/30">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div>
-                <h3 className="font-medium text-blue-900 mb-1">No Active Betting</h3>
-                <p className="text-sm text-blue-700 mb-2">
-                  The game is active but no players have placed bets yet. This is normal behavior.
-                </p>
-                <div className="text-xs text-blue-600">
-                  <p>• Players can join and place bets during the active game period</p>
-                  <p>• Statistics will update in real-time as bets are placed</p>
-                  <p>• Game #{gameStats.activeGame.game_number} is running normally</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Enhanced Detailed Betting Analytics */}
+      <DetailedBettingAnalytics 
+        gameId={gameStats.activeGame.id}
+        autoRefresh={true}
+        refreshInterval={5000}
+      />
 
       {/* Game Control */}
       <Card>
@@ -478,49 +396,6 @@ const LiveGameManagement: React.FC = () => {
                   </span>
                 </div>
               )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Number Bets Distribution */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Number Bets Distribution</CardTitle>
-          <CardDescription>
-            {gameStats.totalBets === 0 ? 'No bets placed yet - distribution will appear when players start betting' : 'Live betting distribution across numbers'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {gameStats.totalBets === 0 ? (
-            <EmptyStateCard 
-              title="No Betting Activity"
-              description="Number distribution will show when players place bets"
-              icon={Target}
-            />
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-              {numbers.map(num => {
-                const bet = gameStats.numberBets[num.toString()];
-                const color = getColorForNumber(num);
-                return (
-                  <div key={num} className={`flex flex-col items-center justify-center p-3 border-2 rounded-lg ${
-                    color === 'red' ? 'border-red-200 bg-red-50' :
-                    color === 'green' ? 'border-green-200 bg-green-50' :
-                    'border-purple-200 bg-purple-50'
-                  }`}>
-                    <span className={`text-2xl font-bold ${
-                      color === 'red' ? 'text-red-600' :
-                      color === 'green' ? 'text-green-600' :
-                      'text-purple-600'
-                    }`}>{num}</span>
-                    <div className="text-sm text-center">
-                      <div className="font-semibold">{bet?.count || 0} bets</div>
-                      <div className="text-xs text-muted-foreground">₹{bet?.amount?.toFixed(2) || '0.00'}</div>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           )}
         </CardContent>
