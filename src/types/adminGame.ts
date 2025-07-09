@@ -14,4 +14,6 @@ export interface DatabaseResponse {
   result_number?: number;
   result_color?: string;
   was_manual?: boolean;
+  debug_info?: any;
+  game_number?: number;
 }
