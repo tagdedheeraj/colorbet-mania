@@ -49,33 +49,66 @@ class DepositRequestService {
       }
 
       console.log('✅ Loaded deposit requests:', data?.length || 0);
-      return (data || []).map(item => ({
-        ...item,
-        status: item.status as 'pending' | 'approved' | 'rejected'
+      
+      // Transform the data to match our interface
+      const transformedData: DepositRequest[] = (data || []).map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        amount: item.amount,
+        payment_method: item.payment_method,
+        transaction_id: item.transaction_id,
+        status: item.status as 'pending' | 'approved' | 'rejected',
+        admin_notes: item.admin_notes || undefined,
+        processed_by: item.processed_by || undefined,
+        processed_at: item.processed_at || undefined,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        users: Array.isArray(item.users) ? item.users[0] : item.users
       }));
+
+      return transformedData;
     } catch (error) {
       console.error('❌ Exception loading deposit requests:', error);
       throw error;
     }
   }
 
-  // Get deposit statistics
+  // Get deposit statistics using a direct query instead of RPC
   static async getDepositStats(): Promise<DepositStats> {
     try {
-      const { data, error } = await supabase.rpc('get_deposit_stats');
-      
-      if (error) {
-        console.error('❌ Error getting deposit stats:', error);
-        throw error;
+      // Get pending requests
+      const { data: pendingData, error: pendingError } = await supabase
+        .from('deposit_requests')
+        .select('amount')
+        .eq('status', 'pending');
+
+      if (pendingError) {
+        console.error('❌ Error getting pending deposits:', pendingError);
+        throw pendingError;
       }
 
-      // Parse the JSON response from the function
-      const stats = typeof data === 'string' ? JSON.parse(data) : data;
+      // Get today's approved requests
+      const today = new Date().toISOString().split('T')[0];
+      const { data: approvedData, error: approvedError } = await supabase
+        .from('deposit_requests')
+        .select('amount')
+        .eq('status', 'approved')
+        .gte('processed_at', `${today}T00:00:00.000Z`)
+        .lt('processed_at', `${today}T23:59:59.999Z`);
+
+      if (approvedError) {
+        console.error('❌ Error getting approved deposits:', approvedError);
+        throw approvedError;
+      }
+
+      const pendingAmount = (pendingData || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+      const approvedAmount = (approvedData || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+
       return {
-        pending_count: stats.pending_count || 0,
-        pending_amount: stats.pending_amount || 0,
-        today_approved_count: stats.today_approved_count || 0,
-        today_approved_amount: stats.today_approved_amount || 0
+        pending_count: (pendingData || []).length,
+        pending_amount: pendingAmount,
+        today_approved_count: (approvedData || []).length,
+        today_approved_amount: approvedAmount
       };
     } catch (error) {
       console.error('❌ Exception getting deposit stats:', error);
