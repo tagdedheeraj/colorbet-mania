@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { PaymentConfig, ConfigType } from '@/types/paymentConfig';
+import AdminAuthService from './adminAuthService';
 
 export class PaymentConfigService {
   static async loadConfigs(): Promise<PaymentConfig[]> {
@@ -23,6 +24,23 @@ export class PaymentConfigService {
   static async saveConfig(gatewayType: ConfigType, configData: any, existingConfigs: PaymentConfig[]): Promise<PaymentConfig> {
     console.log('Saving config:', gatewayType, configData);
     
+    // Check admin authentication first
+    const isAdmin = await AdminAuthService.hasAdminRole();
+    if (!isAdmin) {
+      const error = new Error('Authentication required: Please login as admin to save payment configurations');
+      console.error('❌ Admin authentication required for config save');
+      throw error;
+    }
+
+    const adminUser = await AdminAuthService.getCurrentAdminUser();
+    if (!adminUser) {
+      const error = new Error('Admin session expired: Please login again');
+      console.error('❌ Admin session expired');
+      throw error;
+    }
+
+    console.log('✅ Admin authenticated:', adminUser.email);
+    
     const existingConfig = existingConfigs.find(c => c.gateway_type === gatewayType);
 
     let result;
@@ -40,6 +58,10 @@ export class PaymentConfigService {
 
       if (result.error) {
         console.error('Update error:', result.error);
+        // Enhanced error handling for common RLS issues
+        if (result.error.code === '42501' || result.error.message?.includes('permission denied')) {
+          throw new Error('Permission denied: Admin authentication may have expired. Please login again.');
+        }
         throw result.error;
       }
     } else {
@@ -56,6 +78,10 @@ export class PaymentConfigService {
 
       if (result.error) {
         console.error('Insert error:', result.error);
+        // Enhanced error handling for common RLS issues
+        if (result.error.code === '42501' || result.error.message?.includes('permission denied')) {
+          throw new Error('Permission denied: Admin authentication may have expired. Please login again.');
+        }
         throw result.error;
       }
     }

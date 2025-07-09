@@ -115,7 +115,13 @@ class AdminAuthService {
     }
   }
 
-  // Logout
+  // Get current admin user for authenticated operations
+  static async getCurrentAdminUser(): Promise<AdminUser | null> {
+    const { authenticated, user } = await this.isAuthenticated();
+    return authenticated ? user || null : null;
+  }
+
+  // Enhanced logout with proper cleanup
   static async logout(): Promise<void> {
     try {
       const sessionToken = localStorage.getItem(this.SESSION_KEY);
@@ -151,6 +157,12 @@ class AdminAuthService {
   static async getCurrentUser(): Promise<AdminUser | null> {
     const { authenticated, user } = await this.isAuthenticated();
     return authenticated ? user || null : null;
+  }
+
+  // Check if current user has admin role
+  static async hasAdminRole(): Promise<boolean> {
+    const user = await this.getCurrentUser();
+    return user?.role === 'admin';
   }
 }
 

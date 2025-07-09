@@ -2,28 +2,42 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings } from 'lucide-react';
+import { Settings, AlertCircle, Shield } from 'lucide-react';
 import { usePaymentGatewayConfig } from '@/hooks/usePaymentGatewayConfig';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import UpiConfigForm from './payment/UpiConfigForm';
 import QrConfigForm from './payment/QrConfigForm';
 import BankConfigForm from './payment/BankConfigForm';
 
 const PaymentGatewayConfig: React.FC = () => {
+  const navigate = useNavigate();
   const {
     loading,
     saveLoading,
+    isAdminAuthenticated,
     upiConfig,
     setUpiConfig,
     qrConfig,
     setQrConfig,
     bankConfig,
     setBankConfig,
-    saveConfig
+    saveConfig,
+    checkAdminAuth
   } = usePaymentGatewayConfig();
 
   const handleUpiSave = () => saveConfig('upi', upiConfig);
   const handleQrSave = () => saveConfig('qr_code', qrConfig);
   const handleBankSave = () => saveConfig('net_banking', bankConfig);
+
+  const handleLoginRedirect = () => {
+    navigate('/admin-login');
+  };
+
+  const handleRefreshAuth = async () => {
+    await checkAdminAuth();
+  };
 
   if (loading) {
     return (
@@ -58,6 +72,32 @@ const PaymentGatewayConfig: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {!isAdminAuthenticated && (
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>You need to be logged in as admin to save payment configurations.</span>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleRefreshAuth}
+                >
+                  <Shield className="h-4 w-4 mr-1" />
+                  Check Auth
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={handleLoginRedirect}
+                >
+                  Admin Login
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Tabs defaultValue="upi" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="upi">UPI Settings</TabsTrigger>
@@ -71,6 +111,7 @@ const PaymentGatewayConfig: React.FC = () => {
               setUpiConfig={setUpiConfig}
               onSave={handleUpiSave}
               isLoading={saveLoading.upi || false}
+              disabled={!isAdminAuthenticated}
             />
           </TabsContent>
 
@@ -80,6 +121,7 @@ const PaymentGatewayConfig: React.FC = () => {
               setQrConfig={setQrConfig}
               onSave={handleQrSave}
               isLoading={saveLoading.qr_code || false}
+              disabled={!isAdminAuthenticated}
             />
           </TabsContent>
 
@@ -89,6 +131,7 @@ const PaymentGatewayConfig: React.FC = () => {
               setBankConfig={setBankConfig}
               onSave={handleBankSave}
               isLoading={saveLoading.net_banking || false}
+              disabled={!isAdminAuthenticated}
             />
           </TabsContent>
         </Tabs>

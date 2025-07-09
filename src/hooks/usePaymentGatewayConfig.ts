@@ -1,14 +1,17 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { PaymentConfig, ConfigType } from '@/types/paymentConfig';
 import { PaymentConfigService } from '@/services/paymentConfigService';
 import { usePaymentConfigState } from '@/hooks/usePaymentConfigState';
 import { isUpiConfig, isQrConfig, isBankConfig, validateConfigData } from '@/utils/paymentConfigValidators';
+import AdminAuthService from '@/services/adminAuthService';
 
 export const usePaymentGatewayConfig = () => {
   const [configs, setConfigs] = useState<PaymentConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState<{[key: string]: boolean}>({});
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   
   const {
     upiConfig,
@@ -19,6 +22,24 @@ export const usePaymentGatewayConfig = () => {
     setBankConfig,
     resetConfigs
   } = usePaymentConfigState();
+
+  // Check admin authentication status
+  const checkAdminAuth = async () => {
+    try {
+      const { authenticated } = await AdminAuthService.isAuthenticated();
+      setIsAdminAuthenticated(authenticated);
+      
+      if (!authenticated) {
+        console.log('⚠️ Admin not authenticated for payment config operations');
+      }
+      
+      return authenticated;
+    } catch (error) {
+      console.error('Admin auth check failed:', error);
+      setIsAdminAuthenticated(false);
+      return false;
+    }
+  };
 
   const loadConfigs = async () => {
     try {
@@ -56,6 +77,13 @@ export const usePaymentGatewayConfig = () => {
     setSaveLoading(prev => ({ ...prev, [gatewayType]: true }));
     
     try {
+      // First check admin authentication
+      const isAuthenticated = await checkAdminAuth();
+      if (!isAuthenticated) {
+        toast.error('Please login as admin to save payment configurations');
+        return;
+      }
+
       if (!validateConfigData(configData)) {
         toast.error('Please fill in all required fields');
         return;
@@ -80,7 +108,21 @@ export const usePaymentGatewayConfig = () => {
 
     } catch (error) {
       console.error('Error saving config:', error);
-      toast.error('Failed to save configuration');
+      
+      // Enhanced error handling
+      if (error instanceof Error) {
+        if (error.message.includes('Authentication required') || error.message.includes('Permission denied')) {
+          toast.error('Authentication Error: Please login as admin first');
+          setIsAdminAuthenticated(false);
+        } else if (error.message.includes('session expired')) {
+          toast.error('Session expired: Please login again as admin');
+          setIsAdminAuthenticated(false);
+        } else {
+          toast.error(`Failed to save configuration: ${error.message}`);
+        }
+      } else {
+        toast.error('Failed to save configuration');
+      }
       
       // On error, reload to ensure consistency
       loadConfigs();
@@ -91,12 +133,14 @@ export const usePaymentGatewayConfig = () => {
 
   useEffect(() => {
     loadConfigs();
+    checkAdminAuth();
   }, []);
 
   return {
     configs,
     loading,
     saveLoading,
+    isAdminAuthenticated,
     upiConfig,
     setUpiConfig,
     qrConfig,
@@ -104,6 +148,7 @@ export const usePaymentGatewayConfig = () => {
     bankConfig,
     setBankConfig,
     saveConfig,
-    loadConfigs
+    loadConfigs,
+    checkAdminAuth
   };
 };
