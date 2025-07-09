@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import AdminAuthService from './adminAuthService';
 import { toast } from 'sonner';
@@ -35,41 +34,57 @@ class DepositRequestService {
     try {
       console.log('🔄 Loading deposit requests...');
       
+      // Fix: Use specific foreign key relationship to avoid ambiguity
+      // We want the user who made the request (user_id), not the admin who processed it (processed_by)
       const { data, error } = await supabase
         .from('deposit_requests')
         .select(`
           *,
-          users!inner(username, email, balance)
+          users!deposit_requests_user_id_fkey(username, email, balance)
         `)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Error loading deposit requests:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
 
-      console.log('✅ Loaded deposit requests:', data?.length || 0);
+      console.log('✅ Raw data loaded:', data?.length || 0, 'requests');
+      console.log('🔍 Sample raw data:', data?.[0]);
       
       // Transform the data to match our interface
-      const transformedData: DepositRequest[] = (data || []).map(item => ({
-        id: item.id,
-        user_id: item.user_id,
-        amount: item.amount,
-        payment_method: item.payment_method,
-        transaction_id: item.transaction_id,
-        status: item.status as 'pending' | 'approved' | 'rejected',
-        admin_notes: item.admin_notes || undefined,
-        processed_by: item.processed_by || undefined,
-        processed_at: item.processed_at || undefined,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        users: Array.isArray(item.users) ? item.users[0] : item.users
-      }));
+      const transformedData: DepositRequest[] = (data || []).map(item => {
+        console.log('🔄 Transforming item:', item.id, 'with users:', item.users);
+        
+        return {
+          id: item.id,
+          user_id: item.user_id,
+          amount: item.amount,
+          payment_method: item.payment_method,
+          transaction_id: item.transaction_id,
+          status: item.status as 'pending' | 'approved' | 'rejected',
+          admin_notes: item.admin_notes || undefined,
+          processed_by: item.processed_by || undefined,
+          processed_at: item.processed_at || undefined,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          users: item.users ? {
+            username: item.users.username,
+            email: item.users.email,
+            balance: item.users.balance
+          } : undefined
+        };
+      });
 
-      console.log('🎯 Transformed data sample:', transformedData[0]);
+      console.log('✅ Transformed data:', transformedData.length, 'requests');
+      console.log('🎯 Sample transformed data:', transformedData[0]);
+      console.log('📊 Pending requests:', transformedData.filter(r => r.status === 'pending').length);
+      
       return transformedData;
     } catch (error) {
       console.error('❌ Exception loading deposit requests:', error);
+      toast.error('Failed to load deposit requests: ' + (error instanceof Error ? error.message : 'Unknown error'));
       throw error;
     }
   }
