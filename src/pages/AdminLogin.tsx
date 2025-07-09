@@ -73,13 +73,15 @@ const AdminLogin: React.FC = () => {
         // Clear form data for security
         setFormData({ email: '', password: '' });
         
+        // Force page reload to ensure clean state
         setTimeout(() => {
-          navigate('/admin', { replace: true });
+          window.location.href = '/admin';
         }, 1000);
       } else {
         const errorMessage = result.error?.message || 'Login failed';
         console.error('❌ Enhanced login failed:', errorMessage);
         setError(errorMessage);
+        toast.error(errorMessage);
       }
       
     } catch (error) {

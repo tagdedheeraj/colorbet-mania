@@ -620,6 +620,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_current_admin_context: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          email: string
+          username: string
+          role: string
+          is_authenticated: boolean
+        }[]
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: string

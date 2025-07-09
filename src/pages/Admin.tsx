@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
@@ -18,7 +19,7 @@ import LiveGameControl from '@/components/admin/LiveGameControl';
 import LiveGameManagement from '@/components/admin/LiveGameManagement';
 import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
 import AdminSettings from '@/components/admin/AdminSettings';
-import { AdminGameService } from '@/services/adminGameService';
+import { ManualGameService } from '@/services/admin/manualGameService';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -52,6 +53,7 @@ const Admin: React.FC = () => {
       const { authenticated, user } = await AdminAuthService.isAuthenticated();
       
       if (!authenticated || !user) {
+        console.error('❌ Admin authentication failed');
         toast.error('Admin access required');
         navigate('/admin-login');
         return;
@@ -61,7 +63,7 @@ const Admin: React.FC = () => {
       setAdminUser(user);
       await loadData();
     } catch (error) {
-      console.error('Error checking admin access:', error);
+      console.error('❌ Error checking admin access:', error);
       toast.error('Error checking admin access');
       navigate('/admin-login');
     } finally {
@@ -96,7 +98,7 @@ const Admin: React.FC = () => {
       await loadDepositRequests();
       await loadDepositStats();
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ Error loading data:', error);
       toast.error('Failed to load admin data');
     }
   };
@@ -140,7 +142,7 @@ const Admin: React.FC = () => {
         setUsers(usersResult.data || []);
       }
     } catch (error) {
-      console.error('Error approving deposit:', error);
+      console.error('❌ Error approving deposit:', error);
     }
   };
 
@@ -154,7 +156,7 @@ const Admin: React.FC = () => {
         await loadDepositStats();
       }
     } catch (error) {
-      console.error('Error rejecting deposit:', error);
+      console.error('❌ Error rejecting deposit:', error);
     }
   };
 
@@ -181,6 +183,8 @@ const Admin: React.FC = () => {
 
   const handleSetManualResult = async (number: number) => {
     try {
+      console.log('🎯 Setting manual result:', number);
+      
       // Find the latest active game
       const { data: activeGame, error } = await supabase
         .from('games')
@@ -191,18 +195,25 @@ const Admin: React.FC = () => {
         .single();
 
       if (error || !activeGame) {
+        console.error('❌ No active game found:', error);
         toast.error('No active game found');
         return;
       }
 
-      // Use the AdminGameService to set manual result
-      const success = await AdminGameService.setManualResult(activeGame.id, number);
+      console.log('🎮 Found active game:', activeGame.game_number);
+
+      // Use the ManualGameService to set manual result
+      const success = await ManualGameService.setManualResult(activeGame.id, number);
 
       if (success) {
-        toast.success(`Manual result set to ${number} successfully!`);
+        toast.success(`Manual result set to ${number} successfully!`, {
+          description: `Game #${activeGame.game_number} result has been set`
+        });
         loadData();
       } else {
-        toast.error('Failed to set manual result');
+        toast.error('Failed to set manual result', {
+          description: 'Please check console logs for detailed information'
+        });
       }
     } catch (error) {
       console.error('❌ Manual result exception:', error);
@@ -211,8 +222,16 @@ const Admin: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await AdminAuthService.logout();
-    navigate('/admin-login');
+    try {
+      console.log('🚪 Logging out admin...');
+      await AdminAuthService.logout();
+      toast.success('Logged out successfully');
+      // Force page reload to ensure clean state
+      window.location.href = '/admin-login';
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      navigate('/admin-login');
+    }
   };
 
   if (loading) {
@@ -232,7 +251,8 @@ const Admin: React.FC = () => {
   console.log('🎛️ Admin render:', {
     depositRequests: depositRequests.length,
     pendingDeposits,
-    loading: depositRequestsLoading
+    loading: depositRequestsLoading,
+    adminUser: adminUser?.email
   });
 
   return (
