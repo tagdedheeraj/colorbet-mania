@@ -1,55 +1,60 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import AdminAuthService from '@/services/adminAuthService';
 
 export class GameModeService {
   static async setGameMode(gameId: string, mode: 'automatic' | 'manual'): Promise<boolean> {
     try {
-      console.log('🔄 Setting game mode:', { gameId, mode });
+      console.log('🔄 Setting game mode using enhanced method:', { gameId, mode });
 
-      // Get current authenticated user
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        console.error('❌ Auth error in setGameMode:', authError);
-        return false;
-      }
-      
-      if (!user) {
-        console.error('❌ No authenticated user found for setGameMode');
+      // Get current admin user
+      const adminUser = await AdminAuthService.getCurrentAdminUser();
+      if (!adminUser) {
+        console.error('❌ No authenticated admin user found');
         return false;
       }
 
-      // Verify admin user
-      const { data: adminUser, error: adminError } = await supabase
-        .from('users')
-        .select('id, role, email')
-        .eq('id', user.id)
-        .eq('role', 'admin')
-        .single();
+      console.log('✅ Admin user validated:', adminUser.email);
 
-      if (adminError || !adminUser) {
-        console.error('❌ Admin validation failed for setGameMode:', adminError);
-        return false;
-      }
+      // Use enhanced database function
+      const { data, error } = await supabase.rpc('set_game_mode_enhanced', {
+        p_game_id: gameId,
+        p_admin_user_id: adminUser.id,
+        p_mode: mode
+      });
 
-      console.log('✅ Admin validated for setGameMode:', adminUser.email);
-
-      const { error } = await supabase
-        .from('games')
-        .update({
-          game_mode_type: mode,
-          admin_controlled: mode === 'manual'
-        })
-        .eq('id', gameId);
+      console.log('📡 Enhanced database function response:', { data, error });
 
       if (error) {
-        console.error('❌ Error setting game mode:', error);
+        console.error('❌ Enhanced database function error:', error);
         return false;
       }
 
-      console.log('✅ Game mode set successfully:', mode);
+      // Parse the response
+      let response;
+      try {
+        if (typeof data === 'string') {
+          response = JSON.parse(data);
+        } else {
+          response = data;
+        }
+      } catch (parseError) {
+        console.error('❌ Error parsing response:', parseError);
+        return false;
+      }
+
+      console.log('📋 Parsed response:', response);
+
+      if (response && !response.success) {
+        console.error('❌ Game mode setting failed:', response.message);
+        return false;
+      }
+
+      console.log('✅ Game mode set successfully using enhanced method');
       return true;
+
     } catch (error) {
-      console.error('❌ Error in setGameMode:', error);
+      console.error('❌ Exception in enhanced setGameMode:', error);
       return false;
     }
   }

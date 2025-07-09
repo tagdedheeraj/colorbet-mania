@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,23 +78,22 @@ const LiveGameManagement: React.FC = () => {
       const mode = manual ? 'manual' : 'automatic';
       console.log(`🔄 Changing game mode to: ${mode} for game ${gameStats.activeGame.id}`);
       
+      // Use the enhanced AdminGameService method
       const success = await AdminGameService.setGameMode(gameStats.activeGame.id, mode);
       
       if (success) {
         setIsManualMode(manual);
-        await AdminGameService.logAdminAction('change_game_mode', { 
-          gameId: gameStats.activeGame.id,
-          mode 
-        });
         toast.success(`Game mode changed to ${mode}`, {
-          description: `Game #${gameStats.activeGame.game_number} is now in ${mode} mode`
+          description: `Game #${gameStats.activeGame.game_number} is now in ${mode} mode`,
+          icon: <CheckCircle className="h-4 w-4" />
         });
         setTimeout(loadGameStats, 1000);
       } else {
         const error = `Failed to change game mode to ${mode}`;
         setLastError(error);
         toast.error(error, {
-          description: 'Please check the console for detailed error information'
+          description: 'Please check the console for detailed error information',
+          icon: <AlertTriangle className="h-4 w-4" />
         });
       }
     } catch (error) {
@@ -124,12 +122,6 @@ const LiveGameManagement: React.FC = () => {
     
     try {
       console.log(`🎯 Setting manual result: ${selectedNumber} for game ${gameStats.activeGame.id}`);
-      console.log('🔍 Game details:', {
-        gameId: gameStats.activeGame.id,
-        gameNumber: gameStats.activeGame.game_number,
-        status: gameStats.activeGame.status,
-        currentMode: gameStats.activeGame.game_mode_type
-      });
       
       const success = await AdminGameService.setManualResult(
         gameStats.activeGame.id,
@@ -137,11 +129,6 @@ const LiveGameManagement: React.FC = () => {
       );
 
       if (success) {
-        await AdminGameService.logAdminAction('set_manual_result', {
-          number: selectedNumber,
-          gameId: gameStats.activeGame.id
-        });
-        
         toast.success(`Result set to ${selectedNumber}`, {
           description: `Manual result has been set for Game #${gameStats.activeGame.game_number}`,
           icon: <CheckCircle className="h-4 w-4" />
@@ -192,10 +179,6 @@ const LiveGameManagement: React.FC = () => {
       const success = await AdminGameService.completeGameManually(gameStats.activeGame.id);
       
       if (success) {
-        await AdminGameService.logAdminAction('complete_game_manually', {
-          gameId: gameStats.activeGame.id
-        });
-        
         toast.success('Game completed successfully', {
           description: `Game #${gameStats.activeGame.game_number} has been completed manually`,
           icon: <CheckCircle className="h-4 w-4" />

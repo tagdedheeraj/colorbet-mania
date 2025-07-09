@@ -661,6 +661,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_game_mode_enhanced: {
+        Args: { p_game_id: string; p_admin_user_id: string; p_mode: string }
+        Returns: Json
+      }
       set_manual_game_result: {
         Args: {
           p_game_id: string
@@ -676,6 +680,16 @@ export type Database = {
           p_result_number: number
         }
         Returns: Json
+      }
+      validate_admin_session_enhanced: {
+        Args: { p_session_token: string }
+        Returns: {
+          user_id: string
+          email: string
+          username: string
+          role: string
+          is_valid: boolean
+        }[]
       }
       verify_admin_auth_session: {
         Args: { p_session_token: string }

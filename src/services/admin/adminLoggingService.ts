@@ -1,41 +1,31 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import AdminAuthService from '@/services/adminAuthService';
 
 export class AdminLoggingService {
   static async logAdminAction(action: string, details: any = {}) {
     try {
-      console.log('📝 Logging admin action:', { action, details });
+      console.log('📝 Logging admin action with enhanced auth:', { action, details });
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        console.error('❌ Auth error in logAdminAction:', authError);
-        return;
-      }
-      
-      if (!user) {
-        console.error('❌ No authenticated user found for logging');
+      // Get current admin user
+      const adminUser = await AdminAuthService.getCurrentAdminUser();
+      if (!adminUser) {
+        console.error('❌ No authenticated admin user found for logging');
         return;
       }
 
-      // Verify admin user
-      const { data: adminUser, error: adminError } = await supabase
-        .from('users')
-        .select('id, role, email')
-        .eq('id', user.id)
-        .eq('role', 'admin')
-        .single();
-
-      if (adminError || !adminUser) {
-        console.error('❌ Admin validation failed for logging:', adminError);
-        return;
-      }
+      console.log('✅ Admin user validated for logging:', adminUser.email);
 
       const { error: logError } = await supabase
         .from('admin_logs')
         .insert({
-          admin_user_id: user.id,
+          admin_user_id: adminUser.id,
           action,
-          details
+          details: {
+            ...details,
+            admin_email: adminUser.email,
+            timestamp: new Date().toISOString()
+          }
         });
 
       if (logError) {
@@ -44,7 +34,7 @@ export class AdminLoggingService {
         console.log('✅ Admin action logged successfully');
       }
     } catch (error) {
-      console.error('❌ Exception in logAdminAction:', error);
+      console.error('❌ Exception in enhanced logAdminAction:', error);
     }
   }
 }
