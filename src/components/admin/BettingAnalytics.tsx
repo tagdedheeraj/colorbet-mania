@@ -1,57 +1,60 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
+interface Bet {
+  id: string;
+  amount: number;
+  bet_type: string;
+  is_winner: boolean;
+  actual_win: number;
+  created_at: string;
+  users?: {
+    username: string;
+  };
+  games?: {
+    game_number: number;
+  };
+}
 
 interface BettingAnalyticsProps {
-  bets: any[];
+  bets: Bet[];
 }
 
 const BettingAnalytics: React.FC<BettingAnalyticsProps> = ({ bets }) => {
+  const totalBetsAmount = bets.reduce((sum, bet) => sum + (bet.amount || 0), 0);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Betting Analytics</CardTitle>
-        <CardDescription>View all betting activity</CardDescription>
+        <CardDescription>View betting history and analytics</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-300">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-300 p-2 text-left">User</th>
-                <th className="border border-gray-300 p-2 text-left">Game #</th>
-                <th className="border border-gray-300 p-2 text-left">Bet</th>
-                <th className="border border-gray-300 p-2 text-left">Amount</th>
-                <th className="border border-gray-300 p-2 text-left">Result</th>
-                <th className="border border-gray-300 p-2 text-left">Win Amount</th>
-                <th className="border border-gray-300 p-2 text-left">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bets.map(bet => (
-                <tr key={bet.id}>
-                  <td className="border border-gray-300 p-2">{bet.users?.username}</td>
-                  <td className="border border-gray-300 p-2">{bet.games?.game_number}</td>
-                  <td className="border border-gray-300 p-2">
-                    {bet.bet_type === 'color' ? bet.bet_value : `Number ${bet.bet_value}`}
-                  </td>
-                  <td className="border border-gray-300 p-2">{bet.amount}</td>
-                  <td className="border border-gray-300 p-2">
-                    <Badge variant={bet.is_winner ? 'default' : 'destructive'}>
-                      {bet.is_winner ? 'Win' : 'Loss'}
-                    </Badge>
-                  </td>
-                  <td className="border border-gray-300 p-2">
-                    {bet.actual_win || 0}
-                  </td>
-                  <td className="border border-gray-300 p-2">
-                    {new Date(bet.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mb-4 p-4 bg-muted rounded-lg">
+          <p><strong>Total Bets Volume:</strong> ₹{totalBetsAmount.toFixed(2)}</p>
+          <p><strong>Average Bet:</strong> ₹{bets.length > 0 ? (totalBetsAmount / bets.length).toFixed(2) : '0'}</p>
+        </div>
+        <div className="space-y-4">
+          {bets.slice(0, 20).map((bet) => (
+            <div key={bet.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium">₹{bet.amount} on {bet.bet_type}</p>
+                <p className="text-sm text-muted-foreground">
+                  User: {bet.users?.username || 'Unknown'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Game: #{bet.games?.game_number || 'Unknown'}
+                </p>
+                <p className="text-sm">
+                  Result: {bet.is_winner ? `Won ₹${bet.actual_win}` : 'Lost'}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm">{new Date(bet.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>

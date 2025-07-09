@@ -49,7 +49,10 @@ class DepositRequestService {
       }
 
       console.log('✅ Loaded deposit requests:', data?.length || 0);
-      return data || [];
+      return (data || []).map(item => ({
+        ...item,
+        status: item.status as 'pending' | 'approved' | 'rejected'
+      }));
     } catch (error) {
       console.error('❌ Exception loading deposit requests:', error);
       throw error;
@@ -66,7 +69,14 @@ class DepositRequestService {
         throw error;
       }
 
-      return data as DepositStats;
+      // Parse the JSON response from the function
+      const stats = typeof data === 'string' ? JSON.parse(data) : data;
+      return {
+        pending_count: stats.pending_count || 0,
+        pending_amount: stats.pending_amount || 0,
+        today_approved_count: stats.today_approved_count || 0,
+        today_approved_amount: stats.today_approved_amount || 0
+      };
     } catch (error) {
       console.error('❌ Exception getting deposit stats:', error);
       throw error;
