@@ -253,7 +253,7 @@ const DetailedBettingAnalytics: React.FC<DetailedBettingAnalyticsProps> = ({
                   <TableBody>
                     {analytics.detailedBets.map((bet) => (
                       <TableRow key={bet.bet_id}>
-                        <TableCell font-medium>{bet.username}</TableCell>
+                        <TableCell className="font-medium">{bet.username}</TableCell>
                         <TableCell>
                           <Badge variant="outline">
                             {bet.bet_type}
