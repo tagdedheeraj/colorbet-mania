@@ -23,19 +23,22 @@ export const usePaymentGatewayConfig = () => {
     resetConfigs
   } = usePaymentConfigState();
 
-  // Check admin authentication status
+  // Enhanced admin authentication check
   const checkAdminAuth = async () => {
     try {
-      const { authenticated } = await AdminAuthService.isAuthenticated();
+      console.log('🔍 Checking enhanced admin authentication...');
+      const { authenticated, user } = await AdminAuthService.isAuthenticated();
       setIsAdminAuthenticated(authenticated);
       
       if (!authenticated) {
         console.log('⚠️ Admin not authenticated for payment config operations');
+      } else {
+        console.log('✅ Admin authenticated:', user?.email, 'Role:', user?.role);
       }
       
       return authenticated;
     } catch (error) {
-      console.error('Admin auth check failed:', error);
+      console.error('❌ Enhanced admin auth check failed:', error);
       setIsAdminAuthenticated(false);
       return false;
     }
@@ -44,6 +47,7 @@ export const usePaymentGatewayConfig = () => {
   const loadConfigs = async () => {
     try {
       setLoading(true);
+      console.log('📥 Loading payment configurations...');
       const data = await PaymentConfigService.loadConfigs();
       setConfigs(data);
 
@@ -52,21 +56,23 @@ export const usePaymentGatewayConfig = () => {
 
       // Populate form fields with existing config using type guards
       data.forEach(config => {
-        console.log('Processing config:', config.gateway_type, config.config_data);
+        console.log('🔄 Processing config:', config.gateway_type, config.config_data);
         
         if (config.gateway_type === 'upi' && isUpiConfig(config.config_data)) {
-          console.log('Setting UPI config:', config.config_data);
+          console.log('💳 Setting UPI config:', config.config_data);
           setUpiConfig(config.config_data);
         } else if (config.gateway_type === 'qr_code' && isQrConfig(config.config_data)) {
-          console.log('Setting QR config:', config.config_data);
+          console.log('📱 Setting QR config:', config.config_data);
           setQrConfig(config.config_data);
         } else if (config.gateway_type === 'net_banking' && isBankConfig(config.config_data)) {
-          console.log('Setting Bank config:', config.config_data);
+          console.log('🏦 Setting Bank config:', config.config_data);
           setBankConfig(config.config_data);
         }
       });
+      
+      console.log('✅ Payment configurations loaded successfully');
     } catch (error) {
-      console.error('Error loading configs:', error);
+      console.error('❌ Error loading configs:', error);
       toast.error('Failed to load payment configurations');
     } finally {
       setLoading(false);
@@ -77,7 +83,9 @@ export const usePaymentGatewayConfig = () => {
     setSaveLoading(prev => ({ ...prev, [gatewayType]: true }));
     
     try {
-      // First check admin authentication
+      console.log('💾 Starting enhanced config save:', gatewayType);
+      
+      // Enhanced authentication check
       const isAuthenticated = await checkAdminAuth();
       if (!isAuthenticated) {
         toast.error('Please login as admin to save payment configurations');
@@ -99,23 +107,33 @@ export const usePaymentGatewayConfig = () => {
           return [...filtered, savedConfig];
         });
 
-        // Keep the form state as is (don't reset to database values)
-        // This prevents the automatic reset issue
-        console.log('Keeping current form state for:', gatewayType);
+        console.log('✅ Config saved and local state updated for:', gatewayType);
       }
 
       toast.success(`${gatewayType.replace('_', ' ').toUpperCase()} configuration saved successfully`);
 
     } catch (error) {
-      console.error('Error saving config:', error);
+      console.error('❌ Enhanced error saving config:', error);
       
-      // Enhanced error handling
+      // Enhanced error handling with specific messages
       if (error instanceof Error) {
         if (error.message.includes('Authentication required') || error.message.includes('Permission denied')) {
           toast.error('Authentication Error: Please login as admin first');
           setIsAdminAuthenticated(false);
-        } else if (error.message.includes('session expired')) {
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            window.location.href = '/admin-login';
+          }, 2000);
+        } else if (error.message.includes('session expired') || error.message.includes('Session validation failed')) {
           toast.error('Session expired: Please login again as admin');
+          setIsAdminAuthenticated(false);
+          // Clear local storage and redirect
+          AdminAuthService.logout();
+          setTimeout(() => {
+            window.location.href = '/admin-login';
+          }, 2000);
+        } else if (error.message.includes('Database access denied')) {
+          toast.error('Database Error: Admin access required');
           setIsAdminAuthenticated(false);
         } else {
           toast.error(`Failed to save configuration: ${error.message}`);
@@ -132,9 +150,26 @@ export const usePaymentGatewayConfig = () => {
   };
 
   useEffect(() => {
+    console.log('🚀 Initializing payment gateway config hook...');
     loadConfigs();
     checkAdminAuth();
   }, []);
+
+  // Set up periodic session validation
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (isAdminAuthenticated) {
+        const stillValid = await AdminAuthService.validateCurrentSession();
+        if (!stillValid) {
+          console.log('⚠️ Session expired during periodic check');
+          setIsAdminAuthenticated(false);
+          toast.warning('Admin session expired. Please login again.');
+        }
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [isAdminAuthenticated]);
 
   return {
     configs,

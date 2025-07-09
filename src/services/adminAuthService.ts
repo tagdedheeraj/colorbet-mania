@@ -18,22 +18,22 @@ export interface AdminSession {
 class AdminAuthService {
   private static readonly SESSION_KEY = 'admin_session_token';
 
-  // Login with email and password
+  // Enhanced login with new database functions
   static async login(email: string, password: string): Promise<{ success: boolean; error?: any; user?: AdminUser }> {
     try {
-      console.log('🔐 Starting admin login for:', email);
+      console.log('🔐 Starting enhanced admin login for:', email);
       
       // Clear any existing session first
       this.clearLocalSession();
 
-      // Verify credentials using our database function
-      const { data: credentialCheck, error: credentialError } = await supabase.rpc('verify_admin_credentials', {
+      // Use enhanced credentials verification function
+      const { data: credentialCheck, error: credentialError } = await supabase.rpc('verify_admin_credentials_enhanced', {
         p_email: email.trim(),
         p_password: password.trim()
       });
 
       if (credentialError) {
-        console.error('❌ Credential verification error:', credentialError);
+        console.error('❌ Enhanced credential verification error:', credentialError);
         toast.error('Login failed - system error');
         return { success: false, error: credentialError };
       }
@@ -45,21 +45,10 @@ class AdminAuthService {
       }
 
       const userData = credentialCheck[0];
-      console.log('✅ Credentials verified, creating session...');
-
-      // Create admin session
-      const { data: sessionToken, error: sessionError } = await supabase.rpc('create_admin_auth_session', {
-        p_user_id: userData.user_id
-      });
-
-      if (sessionError || !sessionToken) {
-        console.error('❌ Session creation error:', sessionError);
-        toast.error('Failed to create session');
-        return { success: false, error: sessionError };
-      }
+      console.log('✅ Enhanced credentials verified, session created:', userData.session_token);
 
       // Store session token locally
-      localStorage.setItem(this.SESSION_KEY, sessionToken);
+      localStorage.setItem(this.SESSION_KEY, userData.session_token);
 
       const user: AdminUser = {
         id: userData.user_id,
@@ -68,38 +57,47 @@ class AdminAuthService {
         role: userData.role
       };
 
-      console.log('✅ Admin login successful!');
+      console.log('✅ Enhanced admin login successful!');
       toast.success('Welcome to Admin Panel!');
       return { success: true, user };
 
     } catch (error) {
-      console.error('❌ Login exception:', error);
+      console.error('❌ Enhanced login exception:', error);
       toast.error('System error during login');
       return { success: false, error };
     }
   }
 
-  // Check if user is logged in and verify session
+  // Enhanced authentication check using new database function
   static async isAuthenticated(): Promise<{ authenticated: boolean; user?: AdminUser }> {
     try {
       const sessionToken = localStorage.getItem(this.SESSION_KEY);
       
       if (!sessionToken) {
+        console.log('🔍 No session token found');
         return { authenticated: false };
       }
 
-      // Verify session with database
-      const { data: sessionCheck, error } = await supabase.rpc('verify_admin_auth_session', {
+      // Use enhanced session verification function
+      const { data: sessionCheck, error } = await supabase.rpc('verify_admin_session_with_user', {
         p_session_token: sessionToken
       });
 
-      if (error || !sessionCheck || sessionCheck.length === 0) {
-        console.log('❌ Invalid or expired session');
+      if (error) {
+        console.error('❌ Enhanced session verification error:', error);
+        this.clearLocalSession();
+        return { authenticated: false };
+      }
+
+      if (!sessionCheck || sessionCheck.length === 0) {
+        console.log('❌ Invalid or expired enhanced session');
         this.clearLocalSession();
         return { authenticated: false };
       }
 
       const userData = sessionCheck[0];
+      console.log('✅ Enhanced session verified for user:', userData.email);
+
       const user: AdminUser = {
         id: userData.user_id,
         email: userData.email,
@@ -109,7 +107,7 @@ class AdminAuthService {
 
       return { authenticated: true, user };
     } catch (error) {
-      console.error('❌ Session check error:', error);
+      console.error('❌ Enhanced session check error:', error);
       this.clearLocalSession();
       return { authenticated: false };
     }
@@ -137,7 +135,7 @@ class AdminAuthService {
       this.clearLocalSession();
       toast.success('Logged out successfully');
     } catch (error) {
-      console.error('❌ Logout error:', error);
+      console.error('❌ Enhanced logout error:', error);
       this.clearLocalSession();
     }
   }
@@ -163,6 +161,17 @@ class AdminAuthService {
   static async hasAdminRole(): Promise<boolean> {
     const user = await this.getCurrentUser();
     return user?.role === 'admin';
+  }
+
+  // Enhanced method to get session token for API calls
+  static getSessionToken(): string | null {
+    return localStorage.getItem(this.SESSION_KEY);
+  }
+
+  // Method to verify session is still valid
+  static async validateCurrentSession(): Promise<boolean> {
+    const { authenticated } = await this.isAuthenticated();
+    return authenticated;
   }
 }
 

@@ -22,9 +22,9 @@ export class PaymentConfigService {
   }
 
   static async saveConfig(gatewayType: ConfigType, configData: any, existingConfigs: PaymentConfig[]): Promise<PaymentConfig> {
-    console.log('Saving config:', gatewayType, configData);
+    console.log('🚀 Starting enhanced config save:', gatewayType, configData);
     
-    // Check admin authentication first
+    // Enhanced admin authentication check
     const isAdmin = await AdminAuthService.hasAdminRole();
     if (!isAdmin) {
       const error = new Error('Authentication required: Please login as admin to save payment configurations');
@@ -39,13 +39,31 @@ export class PaymentConfigService {
       throw error;
     }
 
-    console.log('✅ Admin authenticated:', adminUser.email);
+    console.log('✅ Enhanced admin authenticated:', adminUser.email, 'Role:', adminUser.role);
+    
+    // Check if we have a valid session token
+    const sessionToken = AdminAuthService.getSessionToken();
+    if (!sessionToken) {
+      const error = new Error('No valid session token found');
+      console.error('❌ No session token found');
+      throw error;
+    }
+
+    // Validate current session before proceeding
+    const sessionValid = await AdminAuthService.validateCurrentSession();
+    if (!sessionValid) {
+      const error = new Error('Session validation failed: Please login again');
+      console.error('❌ Session validation failed');
+      throw error;
+    }
+
+    console.log('✅ Session validation passed, proceeding with save...');
     
     const existingConfig = existingConfigs.find(c => c.gateway_type === gatewayType);
 
     let result;
     if (existingConfig) {
-      console.log('Updating existing config:', existingConfig.id);
+      console.log('🔄 Updating existing config:', existingConfig.id);
       result = await supabase
         .from('payment_gateway_config')
         .update({
@@ -57,15 +75,18 @@ export class PaymentConfigService {
         .single();
 
       if (result.error) {
-        console.error('Update error:', result.error);
+        console.error('❌ Update error:', result.error);
         // Enhanced error handling for common RLS issues
         if (result.error.code === '42501' || result.error.message?.includes('permission denied')) {
           throw new Error('Permission denied: Admin authentication may have expired. Please login again.');
         }
+        if (result.error.message?.includes('RLS')) {
+          throw new Error('Database access denied: Please ensure you are logged in as admin.');
+        }
         throw result.error;
       }
     } else {
-      console.log('Creating new config');
+      console.log('➕ Creating new config');
       result = await supabase
         .from('payment_gateway_config')
         .insert({
@@ -77,16 +98,38 @@ export class PaymentConfigService {
         .single();
 
       if (result.error) {
-        console.error('Insert error:', result.error);
+        console.error('❌ Insert error:', result.error);
         // Enhanced error handling for common RLS issues
         if (result.error.code === '42501' || result.error.message?.includes('permission denied')) {
           throw new Error('Permission denied: Admin authentication may have expired. Please login again.');
+        }
+        if (result.error.message?.includes('RLS')) {
+          throw new Error('Database access denied: Please ensure you are logged in as admin.');
         }
         throw result.error;
       }
     }
 
-    console.log('Save successful, updated data:', result.data);
+    console.log('✅ Enhanced save successful, updated data:', result.data);
     return result.data;
+  }
+
+  // Method to get active payment configs for users
+  static async getActiveConfigs(): Promise<PaymentConfig[]> {
+    console.log('Loading active payment configs for users...');
+    
+    const { data, error } = await supabase
+      .from('payment_gateway_config')
+      .select('*')
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading active configs:', error);
+      throw error;
+    }
+
+    console.log('Loaded active configs:', data);
+    return data || [];
   }
 }

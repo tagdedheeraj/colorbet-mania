@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Shield, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { Shield, Eye, EyeOff, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import AdminAuthService from '@/services/adminAuthService';
 
@@ -26,16 +26,16 @@ const AdminLogin: React.FC = () => {
 
   const checkExistingSession = async () => {
     try {
-      console.log('🔍 Checking existing admin session...');
-      const { authenticated } = await AdminAuthService.isAuthenticated();
+      console.log('🔍 Checking existing enhanced admin session...');
+      const { authenticated, user } = await AdminAuthService.isAuthenticated();
       if (authenticated) {
-        console.log('✅ Already logged in as admin, redirecting...');
+        console.log('✅ Already logged in as enhanced admin, redirecting...', user?.email);
         navigate('/admin');
         return;
       }
-      console.log('ℹ️ No existing admin session');
+      console.log('ℹ️ No existing enhanced admin session');
     } catch (error) {
-      console.error('❌ Session check failed:', error);
+      console.error('❌ Enhanced session check failed:', error);
     } finally {
       setChecking(false);
     }
@@ -63,22 +63,23 @@ const AdminLogin: React.FC = () => {
     setLoading(true);
     
     try {
-      console.log('🚀 Submitting login form...');
+      console.log('🚀 Submitting enhanced login form...');
       const result = await AdminAuthService.login(formData.email.trim(), formData.password.trim());
       
       if (result.success) {
-        console.log('✅ Login successful, redirecting to admin panel...');
+        console.log('✅ Enhanced login successful, redirecting to admin panel...');
+        toast.success('Login successful! Redirecting to admin panel...');
         setTimeout(() => {
           navigate('/admin', { replace: true });
-        }, 500);
+        }, 1000);
       } else {
         const errorMessage = result.error?.message || 'Login failed';
-        console.error('❌ Login failed:', errorMessage);
+        console.error('❌ Enhanced login failed:', errorMessage);
         setError(errorMessage);
       }
       
     } catch (error) {
-      console.error('❌ Login exception:', error);
+      console.error('❌ Enhanced login exception:', error);
       const errorMessage = 'System error occurred during login';
       setError(errorMessage);
       toast.error(errorMessage);
@@ -92,7 +93,7 @@ const AdminLogin: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-4">
         <div className="text-center">
           <RefreshCw className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-lg font-medium">Checking admin session...</p>
+          <p className="text-lg font-medium">Checking enhanced admin session...</p>
         </div>
       </div>
     );
@@ -108,7 +109,7 @@ const AdminLogin: React.FC = () => {
             </div>
             <CardTitle className="text-2xl">TradeForWin Admin</CardTitle>
             <CardDescription>
-              Login to access the admin dashboard
+              Enhanced admin login with improved security
             </CardDescription>
           </CardHeader>
           
@@ -170,17 +171,24 @@ const AdminLogin: React.FC = () => {
                     Signing In...
                   </>
                 ) : (
-                  'Sign In to Admin Panel'
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Sign In to Enhanced Admin Panel
+                  </>
                 )}
               </Button>
             </form>
 
             <div className="mt-6 p-4 bg-muted/50 rounded-lg border">
               <p className="text-sm text-muted-foreground">
-                <strong>Admin Credentials:</strong><br/>
+                <strong>Enhanced Admin Credentials:</strong><br/>
                 Email: <span className="font-mono text-primary">admin@tradeforwin.xyz</span><br/>
                 Password: <span className="font-mono text-primary">Trade@123</span>
               </p>
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                <CheckCircle className="h-3 w-3 inline mr-1" />
+                Enhanced authentication with session management
+              </div>
             </div>
 
             <div className="mt-4 text-center">

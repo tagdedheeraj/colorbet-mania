@@ -491,6 +491,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      create_admin_auth_session_enhanced: {
+        Args: { p_email: string }
+        Returns: string
+      }
       create_admin_session: {
         Args: { p_admin_id: string }
         Returns: string
@@ -533,6 +537,16 @@ export type Database = {
           role: string
         }[]
       }
+      verify_admin_credentials_enhanced: {
+        Args: { p_email: string; p_password: string }
+        Returns: {
+          user_id: string
+          email: string
+          username: string
+          role: string
+          session_token: string
+        }[]
+      }
       verify_admin_login: {
         Args: { p_username: string; p_password: string }
         Returns: {
@@ -550,6 +564,16 @@ export type Database = {
           username: string
           email: string
           full_name: string
+        }[]
+      }
+      verify_admin_session_with_user: {
+        Args: { p_session_token: string }
+        Returns: {
+          user_id: string
+          email: string
+          username: string
+          role: string
+          session_valid: boolean
         }[]
       }
     }
