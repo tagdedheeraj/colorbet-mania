@@ -8,19 +8,26 @@ import { Switch } from '@/components/ui/switch';
 import { Settings } from 'lucide-react';
 
 interface LiveGameControlProps {
-  onSetManualResult: (number: number, color: string) => void;
+  onSetManualResult: (number: number) => void;
 }
 
 const LiveGameControl: React.FC<LiveGameControlProps> = ({ onSetManualResult }) => {
   const [manualGameMode, setManualGameMode] = useState(false);
-  const [manualResult, setManualResult] = useState<{number: number | '', color: string}>({ number: '', color: '' });
+  const [manualNumber, setManualNumber] = useState<number | ''>('');
 
   const handleSetManualResult = () => {
-    if (!manualResult.number || !manualResult.color) {
+    if (manualNumber === '' || manualNumber < 0 || manualNumber > 9) {
       return;
     }
-    onSetManualResult(Number(manualResult.number), manualResult.color);
-    setManualResult({ number: '', color: '' });
+    onSetManualResult(Number(manualNumber));
+    setManualNumber('');
+  };
+
+  const getColorForNumber = (num: number): string => {
+    if ([1, 3, 7, 9].includes(num)) return 'red';
+    if ([2, 4, 6, 8].includes(num)) return 'green';
+    if ([0, 5].includes(num)) return 'purple-red';
+    return 'red';
   };
 
   return (
@@ -31,7 +38,7 @@ const LiveGameControl: React.FC<LiveGameControlProps> = ({ onSetManualResult }) 
           Live Game Control
         </CardTitle>
         <CardDescription>
-          Control live games and set manual results
+          Control live games and set manual results (number only)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -39,7 +46,7 @@ const LiveGameControl: React.FC<LiveGameControlProps> = ({ onSetManualResult }) 
           <div>
             <h3 className="font-semibold">Manual Game Mode</h3>
             <p className="text-sm text-muted-foreground">
-              When enabled, you can set custom results for games
+              When enabled, you can set custom number results for games
             </p>
           </div>
           <Switch
@@ -53,47 +60,58 @@ const LiveGameControl: React.FC<LiveGameControlProps> = ({ onSetManualResult }) 
             <CardHeader>
               <CardTitle>Set Manual Result</CardTitle>
               <CardDescription>
-                Set the result for the current active game
+                Set the number result for the current active game (color will be auto-determined)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="manualNumber">Number (0-9)</Label>
-                  <Input
-                    id="manualNumber"
-                    type="number"
-                    min="0"
-                    max="9"
-                    value={manualResult.number}
-                    onChange={(e) => setManualResult({...manualResult, number: parseInt(e.target.value) || ''})}
-                    placeholder="Enter number 0-9"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="manualColor">Color</Label>
-                  <select
-                    id="manualColor"
-                    value={manualResult.color}
-                    onChange={(e) => setManualResult({...manualResult, color: e.target.value})}
-                    className="w-full p-2 border rounded-md"
-                  >
-                    <option value="">Select color</option>
-                    <option value="red">Red</option>
-                    <option value="green">Green</option>
-                    <option value="violet">Violet</option>
-                  </select>
-                </div>
+              <div>
+                <Label htmlFor="manualNumber">Number (0-9)</Label>
+                <Input
+                  id="manualNumber"
+                  type="number"
+                  min="0"
+                  max="9"
+                  value={manualNumber}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 0 && val <= 9) {
+                      setManualNumber(val);
+                    } else if (e.target.value === '') {
+                      setManualNumber('');
+                    }
+                  }}
+                  placeholder="Enter number 0-9"
+                  className="w-32"
+                />
+                
+                {/* Color Preview */}
+                {manualNumber !== '' && (
+                  <div className="mt-2 p-2 bg-muted rounded">
+                    <span className="text-sm">
+                      Color will be: <span className={`px-2 py-1 rounded text-white text-xs ${
+                        getColorForNumber(Number(manualNumber)) === 'red' ? 'bg-red-500' :
+                        getColorForNumber(Number(manualNumber)) === 'green' ? 'bg-green-500' :
+                        'bg-purple-500'
+                      }`}>
+                        {getColorForNumber(Number(manualNumber)) === 'purple-red' ? 'Purple-Red' : getColorForNumber(Number(manualNumber))}
+                      </span>
+                    </span>
+                  </div>
+                )}
               </div>
+              
               <Button 
                 onClick={handleSetManualResult}
                 className="w-full"
-                disabled={!manualResult.number || !manualResult.color}
+                disabled={manualNumber === '' || manualNumber < 0 || manualNumber > 9}
               >
                 Set Manual Result
               </Button>
               <p className="text-sm text-muted-foreground">
-                ⚠️ This will override the automatic result for the current game
+                ⚠️ This will set the number for the current game. Color will be determined automatically:
+                <br />• Numbers 1,3,7,9 = Red
+                <br />• Numbers 2,4,6,8 = Green  
+                <br />• Numbers 0,5 = Purple-Red
               </p>
             </CardContent>
           </Card>

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { GAME_MODES } from '@/config/gameModes';
@@ -77,22 +76,43 @@ export class GameCreationService {
         return false;
       }
 
-      // Generate random result
-      const colors = ['red', 'green', 'purple-red'];
-      const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      const randomNumber = numbers[Math.floor(Math.random() * numbers.length)];
+      let resultColor: string;
+      let resultNumber: number;
 
-      console.log('Game result:', randomColor, randomNumber);
+      // Check if this is a manually controlled game with admin-set result
+      if (gameData.admin_controlled && gameData.admin_set_result_number !== null) {
+        console.log('Using admin-set manual result:', gameData.admin_set_result_number);
+        resultNumber = gameData.admin_set_result_number;
+        
+        // Determine color based on admin-set number
+        if ([1, 3, 7, 9].includes(resultNumber)) {
+          resultColor = 'red';
+        } else if ([2, 4, 6, 8].includes(resultNumber)) {
+          resultColor = 'green';
+        } else if ([0, 5].includes(resultNumber)) {
+          resultColor = 'purple-red';
+        } else {
+          resultColor = 'red';
+        }
+      } else {
+        // Generate random result for automatic games
+        const colors = ['red', 'green', 'purple-red'];
+        const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        resultColor = colors[Math.floor(Math.random() * colors.length)];
+        resultNumber = numbers[Math.floor(Math.random() * numbers.length)];
+      }
+
+      console.log('Game result:', { resultColor, resultNumber, wasManual: gameData.admin_controlled });
 
       // Complete the game
       const { error: updateError } = await supabase
         .from('games')
         .update({
           status: 'completed',
-          result_color: randomColor,
-          result_number: randomNumber,
-          end_time: new Date().toISOString()
+          result_color: resultColor,
+          result_number: resultNumber,
+          end_time: new Date().toISOString(),
+          admin_notes: gameData.admin_controlled ? 'Completed with admin-set result' : null
         })
         .eq('id', gameId);
 
@@ -102,7 +122,7 @@ export class GameCreationService {
       }
 
       // Process bets
-      await this.processBetsForGame(gameData.game_number, randomColor, randomNumber);
+      await this.processBetsForGame(gameData.game_number, resultColor, resultNumber);
 
       console.log('Game completed successfully');
       return true;

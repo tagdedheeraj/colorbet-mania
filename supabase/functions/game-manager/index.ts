@@ -76,12 +76,43 @@ serve(async (req) => {
       
       console.log('Completing game:', gameId)
       
-      // Generate random result
-      const colors = ['red', 'green', 'purple-red']
-      const resultColor = colors[Math.floor(Math.random() * colors.length)]
-      const resultNumber = Math.floor(Math.random() * 10)
+      // Get game details first to check if it's manual
+      const { data: gameData, error: gameError } = await supabaseClient
+        .from('games')
+        .select('*')
+        .eq('id', gameId)
+        .single()
 
-      console.log('Generated result:', { resultColor, resultNumber })
+      if (gameError || !gameData) {
+        throw new Error('Game not found')
+      }
+
+      let resultColor: string
+      let resultNumber: number
+
+      // Check if admin has set manual result
+      if (gameData.admin_controlled && gameData.admin_set_result_number !== null) {
+        console.log('Using admin-set manual result:', gameData.admin_set_result_number)
+        resultNumber = gameData.admin_set_result_number
+        
+        // Determine color based on admin-set number
+        if ([1, 3, 7, 9].includes(resultNumber)) {
+          resultColor = 'red'
+        } else if ([2, 4, 6, 8].includes(resultNumber)) {
+          resultColor = 'green'
+        } else if ([0, 5].includes(resultNumber)) {
+          resultColor = 'purple-red'
+        } else {
+          resultColor = 'red'
+        }
+      } else {
+        // Generate random result for automatic games
+        const colors = ['red', 'green', 'purple-red']
+        resultColor = colors[Math.floor(Math.random() * colors.length)]
+        resultNumber = Math.floor(Math.random() * 10)
+      }
+
+      console.log('Game result:', { resultColor, resultNumber, wasManual: gameData.admin_controlled })
 
       // Update game with result
       const { error: updateError } = await supabaseClient
@@ -89,7 +120,8 @@ serve(async (req) => {
         .update({
           result_color: resultColor,
           result_number: resultNumber,
-          status: 'completed'
+          status: 'completed',
+          admin_notes: gameData.admin_controlled ? 'Completed with admin-set result' : 'Completed automatically'
         })
         .eq('id', gameId)
 
@@ -147,7 +179,7 @@ serve(async (req) => {
               user_id: bet.user_id,
               type: 'win',
               amount: actualWin,
-              description: `Win from Game #${gameId} - ${bet.bet_type}: ${bet.bet_value}`
+              description: `Win from Game #${gameData.game_number} - ${bet.bet_type}: ${bet.bet_value}`
             })
           }
         }
@@ -217,7 +249,8 @@ serve(async (req) => {
             if (bet.bet_type === 'color' && bet.bet_value === resultColor) return true
             if (bet.bet_type === 'number' && parseInt(bet.bet_value) === resultNumber && resultNumber !== 0) return true
             return false
-          }).length || 0
+          }).length || 0,
+          wasManual: gameData.admin_controlled
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

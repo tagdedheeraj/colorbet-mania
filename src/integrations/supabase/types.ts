@@ -326,6 +326,7 @@ export type Database = {
       games: {
         Row: {
           admin_controlled: boolean | null
+          admin_notes: string | null
           admin_set_result_color: string | null
           admin_set_result_number: number | null
           created_at: string | null
@@ -334,6 +335,7 @@ export type Database = {
           game_mode_type: string | null
           game_number: number
           id: string
+          manual_result_set: boolean | null
           result_color: string | null
           result_number: number | null
           start_time: string
@@ -341,6 +343,7 @@ export type Database = {
         }
         Insert: {
           admin_controlled?: boolean | null
+          admin_notes?: string | null
           admin_set_result_color?: string | null
           admin_set_result_number?: number | null
           created_at?: string | null
@@ -349,6 +352,7 @@ export type Database = {
           game_mode_type?: string | null
           game_number: number
           id?: string
+          manual_result_set?: boolean | null
           result_color?: string | null
           result_number?: number | null
           start_time: string
@@ -356,6 +360,7 @@ export type Database = {
         }
         Update: {
           admin_controlled?: boolean | null
+          admin_notes?: string | null
           admin_set_result_color?: string | null
           admin_set_result_number?: number | null
           created_at?: string | null
@@ -364,12 +369,58 @@ export type Database = {
           game_mode_type?: string | null
           game_number?: number
           id?: string
+          manual_result_set?: boolean | null
           result_color?: string | null
           result_number?: number | null
           start_time?: string
           status?: string | null
         }
         Relationships: []
+      }
+      manual_game_logs: {
+        Row: {
+          action: string
+          admin_user_id: string
+          created_at: string | null
+          game_id: string
+          id: string
+          notes: string | null
+          result_number: number | null
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          created_at?: string | null
+          game_id: string
+          id?: string
+          notes?: string | null
+          result_number?: number | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          created_at?: string | null
+          game_id?: string
+          id?: string
+          notes?: string | null
+          result_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_game_logs_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_game_logs_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_gateway_config: {
         Row: {
@@ -540,6 +591,10 @@ export type Database = {
         }
         Returns: Json
       }
+      complete_manual_game: {
+        Args: { p_game_id: string; p_admin_user_id: string }
+        Returns: Json
+      }
       create_admin_account: {
         Args: {
           p_username: string
@@ -593,6 +648,14 @@ export type Database = {
           p_request_id: string
           p_admin_id: string
           p_admin_notes: string
+        }
+        Returns: Json
+      }
+      set_manual_game_result: {
+        Args: {
+          p_game_id: string
+          p_admin_user_id: string
+          p_result_number: number
         }
         Returns: Json
       }

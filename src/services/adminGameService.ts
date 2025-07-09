@@ -114,18 +114,28 @@ export class AdminGameService {
     }
   }
 
-  static async setManualResult(gameId: string, color: string, number: number): Promise<boolean> {
+  static async setManualResult(gameId: string, number: number): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('games')
-        .update({
-          admin_set_result_color: color,
-          admin_set_result_number: number
-        })
-        .eq('id', gameId);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No authenticated user');
+        return false;
+      }
+
+      // Use the new database function
+      const { data, error } = await supabase.rpc('set_manual_game_result', {
+        p_game_id: gameId,
+        p_admin_user_id: user.id,
+        p_result_number: number
+      });
 
       if (error) {
         console.error('Error setting manual result:', error);
+        return false;
+      }
+
+      if (data && !data.success) {
+        console.error('Manual result setting failed:', data.message);
         return false;
       }
 
@@ -138,40 +148,25 @@ export class AdminGameService {
 
   static async completeGameManually(gameId: string): Promise<boolean> {
     try {
-      // Get the game with admin-set results
-      const { data: game, error: fetchError } = await supabase
-        .from('games')
-        .select('*')
-        .eq('id', gameId)
-        .single();
-
-      if (fetchError || !game) {
-        console.error('Error fetching game:', fetchError);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No authenticated user');
         return false;
       }
 
-      // Use admin-set results if available, otherwise generate random
-      let resultColor = game.admin_set_result_color;
-      let resultNumber = game.admin_set_result_number;
-
-      if (!resultColor || resultNumber === null) {
-        const colors = ['red', 'green', 'purple-red'];
-        resultColor = colors[Math.floor(Math.random() * colors.length)];
-        resultNumber = Math.floor(Math.random() * 10);
-      }
-
-      const { error } = await supabase
-        .from('games')
-        .update({
-          status: 'completed',
-          result_color: resultColor,
-          result_number: resultNumber,
-          end_time: new Date().toISOString()
-        })
-        .eq('id', gameId);
+      // Use the new database function
+      const { data, error } = await supabase.rpc('complete_manual_game', {
+        p_game_id: gameId,
+        p_admin_user_id: user.id
+      });
 
       if (error) {
-        console.error('Error completing game:', error);
+        console.error('Error completing game manually:', error);
+        return false;
+      }
+
+      if (data && !data.success) {
+        console.error('Manual game completion failed:', data.message);
         return false;
       }
 

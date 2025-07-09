@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
@@ -18,6 +17,7 @@ import BettingAnalytics from '@/components/admin/BettingAnalytics';
 import LiveGameControl from '@/components/admin/LiveGameControl';
 import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
 import AdminSettings from '@/components/admin/AdminSettings';
+import AdminGameService from '@/services/adminGameService';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -178,7 +178,7 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleSetManualResult = async (number: number, color: string) => {
+  const handleSetManualResult = async (number: number) => {
     try {
       // Find the latest active game
       const { data: activeGame, error } = await supabase
@@ -194,24 +194,15 @@ const Admin: React.FC = () => {
         return;
       }
 
-      // Update the game with manual result
-      const { error: updateError } = await supabase
-        .from('games')
-        .update({
-          admin_controlled: true,
-          admin_set_result_number: number,
-          admin_set_result_color: color
-        })
-        .eq('id', activeGame.id);
+      // Use the AdminGameService to set manual result
+      const success = await AdminGameService.setManualResult(activeGame.id, number);
 
-      if (updateError) {
-        console.error('❌ Manual result error:', updateError);
+      if (success) {
+        toast.success(`Manual result set to ${number} successfully!`);
+        loadData();
+      } else {
         toast.error('Failed to set manual result');
-        return;
       }
-
-      toast.success('Manual result set successfully!');
-      loadData();
     } catch (error) {
       console.error('❌ Manual result exception:', error);
       toast.error('Failed to set manual result');
@@ -296,6 +287,7 @@ const Admin: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="live-control" className="space-y-4">
+            <LiveGameManagement />
             <LiveGameControl onSetManualResult={handleSetManualResult} />
           </TabsContent>
 
