@@ -26,6 +26,13 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
   const [notes, setNotes] = useState('');
   const [processing, setProcessing] = useState(false);
 
+  console.log('🎯 DepositRequestCard rendered:', {
+    id: request.id,
+    status: request.status,
+    amount: request.amount,
+    user: request.users?.username
+  });
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved':
@@ -51,7 +58,9 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
   const handleAction = async () => {
     if (!action) return;
     
+    console.log('🚀 Processing action:', action, 'for request:', request.id);
     setProcessing(true);
+    
     try {
       if (action === 'approve') {
         await onApprove(request.id, notes);
@@ -61,8 +70,9 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
       setShowActions(false);
       setAction(null);
       setNotes('');
+      console.log('✅ Action completed successfully');
     } catch (error) {
-      console.error('Error processing request:', error);
+      console.error('❌ Error processing request:', error);
     } finally {
       setProcessing(false);
     }
@@ -77,6 +87,8 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
       minute: '2-digit'
     });
   };
+
+  const isPending = request.status === 'pending';
 
   return (
     <Card className="w-full">
@@ -101,8 +113,8 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="font-medium">{request.users?.username}</p>
-              <p className="text-sm text-muted-foreground">{request.users?.email}</p>
+              <p className="font-medium">{request.users?.username || 'Unknown User'}</p>
+              <p className="text-sm text-muted-foreground">{request.users?.email || 'No email'}</p>
             </div>
           </div>
           <div>
@@ -156,17 +168,18 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
           </div>
         )}
 
-        {/* Action Buttons */}
-        {request.status === 'pending' && !showActions && (
-          <div className="flex gap-2 pt-2">
+        {/* Action Buttons - Only show for pending requests */}
+        {isPending && !showActions && (
+          <div className="flex gap-2 pt-2 border-t">
             <Button
               size="sm"
               onClick={() => {
+                console.log('👍 Approve button clicked for:', request.id);
                 setAction('approve');
                 setShowActions(true);
               }}
               className="bg-green-600 hover:bg-green-700"
-              disabled={loading}
+              disabled={loading || processing}
             >
               <CheckCircle className="h-4 w-4 mr-1" />
               Approve
@@ -175,10 +188,11 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
               size="sm"
               variant="destructive"
               onClick={() => {
+                console.log('👎 Reject button clicked for:', request.id);
                 setAction('reject');
                 setShowActions(true);
               }}
-              disabled={loading}
+              disabled={loading || processing}
             >
               <XCircle className="h-4 w-4 mr-1" />
               Reject
@@ -191,7 +205,7 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
           <div className="border-t pt-4 space-y-3">
             <div>
               <Label htmlFor="notes">
-                {action === 'approve' ? 'Approval Notes (Optional)' : 'Rejection Reason'}
+                {action === 'approve' ? 'Approval Notes (Optional)' : 'Rejection Reason (Required)'}
               </Label>
               <Textarea
                 id="notes"
@@ -219,6 +233,7 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
                 size="sm"
                 variant="outline"
                 onClick={() => {
+                  console.log('❌ Action cancelled');
                   setShowActions(false);
                   setAction(null);
                   setNotes('');
@@ -228,6 +243,16 @@ const DepositRequestCard: React.FC<DepositRequestCardProps> = ({
                 Cancel
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Status Message for processed requests */}
+        {!isPending && (
+          <div className="pt-2 border-t">
+            <p className="text-sm text-muted-foreground">
+              This request has been <span className="font-medium">{request.status}</span>
+              {request.processed_at && ` on ${formatDate(request.processed_at)}`}
+            </p>
           </div>
         )}
       </CardContent>

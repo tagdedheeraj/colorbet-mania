@@ -66,6 +66,7 @@ class DepositRequestService {
         users: Array.isArray(item.users) ? item.users[0] : item.users
       }));
 
+      console.log('🎯 Transformed data sample:', transformedData[0]);
       return transformedData;
     } catch (error) {
       console.error('❌ Exception loading deposit requests:', error);
@@ -76,6 +77,8 @@ class DepositRequestService {
   // Get deposit statistics using a direct query instead of RPC
   static async getDepositStats(): Promise<DepositStats> {
     try {
+      console.log('📊 Loading deposit stats...');
+      
       // Get pending requests
       const { data: pendingData, error: pendingError } = await supabase
         .from('deposit_requests')
@@ -104,12 +107,15 @@ class DepositRequestService {
       const pendingAmount = (pendingData || []).reduce((sum, item) => sum + (item.amount || 0), 0);
       const approvedAmount = (approvedData || []).reduce((sum, item) => sum + (item.amount || 0), 0);
 
-      return {
+      const stats = {
         pending_count: (pendingData || []).length,
         pending_amount: pendingAmount,
         today_approved_count: (approvedData || []).length,
         today_approved_amount: approvedAmount
       };
+      
+      console.log('📊 Deposit stats:', stats);
+      return stats;
     } catch (error) {
       console.error('❌ Exception getting deposit stats:', error);
       throw error;
@@ -122,12 +128,14 @@ class DepositRequestService {
     adminNotes?: string
   ): Promise<{ success: boolean; message: string; new_balance?: number }> {
     try {
-      console.log('✅ Approving deposit request:', requestId);
+      console.log('✅ Approving deposit request:', requestId, 'with notes:', adminNotes);
       
       const adminUser = await AdminAuthService.getCurrentAdminUser();
       if (!adminUser) {
         throw new Error('Admin authentication required');
       }
+
+      console.log('👤 Admin user verified:', adminUser.id);
 
       const { data, error } = await supabase.rpc('approve_deposit_request', {
         p_request_id: requestId,
@@ -139,6 +147,8 @@ class DepositRequestService {
         console.error('❌ Error approving deposit:', error);
         throw error;
       }
+
+      console.log('📤 RPC response:', data);
 
       const result = data as { success: boolean; message: string; new_balance?: number };
       
@@ -165,12 +175,14 @@ class DepositRequestService {
     adminNotes: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      console.log('❌ Rejecting deposit request:', requestId);
+      console.log('❌ Rejecting deposit request:', requestId, 'with notes:', adminNotes);
       
       const adminUser = await AdminAuthService.getCurrentAdminUser();
       if (!adminUser) {
         throw new Error('Admin authentication required');
       }
+
+      console.log('👤 Admin user verified:', adminUser.id);
 
       const { data, error } = await supabase.rpc('reject_deposit_request', {
         p_request_id: requestId,
@@ -182,6 +194,8 @@ class DepositRequestService {
         console.error('❌ Error rejecting deposit:', error);
         throw error;
       }
+
+      console.log('📤 RPC response:', data);
 
       const result = data as { success: boolean; message: string };
       

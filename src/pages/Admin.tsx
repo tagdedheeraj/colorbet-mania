@@ -46,6 +46,7 @@ const Admin: React.FC = () => {
 
   const checkAdminAndLoadData = async () => {
     try {
+      console.log('🔐 Checking admin authentication...');
       const { authenticated, user } = await AdminAuthService.isAuthenticated();
       
       if (!authenticated || !user) {
@@ -54,6 +55,7 @@ const Admin: React.FC = () => {
         return;
       }
 
+      console.log('✅ Admin authenticated:', user.username);
       setAdminUser(user);
       await loadData();
     } catch (error) {
@@ -67,7 +69,7 @@ const Admin: React.FC = () => {
 
   const loadData = async () => {
     try {
-      console.log('Loading admin data...');
+      console.log('📊 Loading admin data...');
       const [usersResult, gamesResult, betsResult] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('games').select('*').order('created_at', { ascending: false }).limit(100),
@@ -78,7 +80,7 @@ const Admin: React.FC = () => {
         `).order('created_at', { ascending: false }).limit(100)
       ]);
 
-      console.log('Admin data loaded:', {
+      console.log('📊 Admin data loaded:', {
         users: usersResult.data?.length,
         games: gamesResult.data?.length,
         bets: betsResult.data?.length
@@ -100,9 +102,11 @@ const Admin: React.FC = () => {
   const loadDepositRequests = async () => {
     try {
       setDepositRequestsLoading(true);
+      console.log('💰 Loading deposit requests...');
       const requests = await DepositRequestService.loadDepositRequests();
       setDepositRequests(requests);
-      console.log('✅ Loaded deposit requests:', requests.length);
+      console.log('✅ Deposit requests loaded:', requests.length, 'total requests');
+      console.log('📋 Pending requests:', requests.filter(r => r.status === 'pending').length);
     } catch (error) {
       console.error('❌ Error loading deposit requests:', error);
       toast.error('Failed to load deposit requests');
@@ -115,7 +119,7 @@ const Admin: React.FC = () => {
     try {
       const stats = await DepositRequestService.getDepositStats();
       setDepositStats(stats);
-      console.log('✅ Loaded deposit stats:', stats);
+      console.log('✅ Deposit stats loaded:', stats);
     } catch (error) {
       console.error('❌ Error loading deposit stats:', error);
     }
@@ -123,8 +127,10 @@ const Admin: React.FC = () => {
 
   const handleApproveDeposit = async (requestId: string, notes?: string) => {
     try {
+      console.log('🟢 Handling approve deposit:', requestId);
       const result = await DepositRequestService.approveDepositRequest(requestId, notes);
       if (result.success) {
+        console.log('✅ Deposit approved, reloading data...');
         await loadDepositRequests();
         await loadDepositStats();
         // Reload users to get updated balances
@@ -138,8 +144,10 @@ const Admin: React.FC = () => {
 
   const handleRejectDeposit = async (requestId: string, notes: string) => {
     try {
+      console.log('🔴 Handling reject deposit:', requestId);
       const result = await DepositRequestService.rejectDepositRequest(requestId, notes);
       if (result.success) {
+        console.log('✅ Deposit rejected, reloading data...');
         await loadDepositRequests();
         await loadDepositStats();
       }
@@ -228,6 +236,12 @@ const Admin: React.FC = () => {
   const totalBalance = users.reduce((sum, user) => sum + (user.balance || 0), 0);
   const pendingDeposits = depositStats?.pending_count || 0;
 
+  console.log('🎛️ Admin render:', {
+    depositRequests: depositRequests.length,
+    pendingDeposits,
+    loading: depositRequestsLoading
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
       <div className="container mx-auto max-w-7xl">
@@ -243,7 +257,9 @@ const Admin: React.FC = () => {
 
         <Tabs defaultValue="deposits" className="space-y-4">
           <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="deposits">Deposits ({pendingDeposits})</TabsTrigger>
+            <TabsTrigger value="deposits">
+              Deposits ({pendingDeposits})
+            </TabsTrigger>
             <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
             <TabsTrigger value="games">Games ({games.length})</TabsTrigger>
             <TabsTrigger value="bets">Bets ({bets.length})</TabsTrigger>
