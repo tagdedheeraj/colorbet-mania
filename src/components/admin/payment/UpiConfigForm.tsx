@@ -16,13 +16,15 @@ interface UpiConfigFormProps {
   setUpiConfig: (config: UpiConfig) => void;
   onSave: () => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
 const UpiConfigForm: React.FC<UpiConfigFormProps> = ({
   upiConfig,
   setUpiConfig,
   onSave,
-  isLoading
+  isLoading,
+  disabled = false
 }) => {
   return (
     <div className="space-y-4">
@@ -33,6 +35,7 @@ const UpiConfigForm: React.FC<UpiConfigFormProps> = ({
           value={upiConfig.upi_id}
           onChange={(e) => setUpiConfig({...upiConfig, upi_id: e.target.value})}
           placeholder="Enter UPI ID (e.g., merchant@paytm)"
+          disabled={disabled}
         />
       </div>
       <div>
@@ -42,11 +45,12 @@ const UpiConfigForm: React.FC<UpiConfigFormProps> = ({
           value={upiConfig.merchant_name}
           onChange={(e) => setUpiConfig({...upiConfig, merchant_name: e.target.value})}
           placeholder="Enter merchant name"
+          disabled={disabled}
         />
       </div>
       <Button 
         onClick={onSave}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         className="w-full"
       >
         {isLoading ? (

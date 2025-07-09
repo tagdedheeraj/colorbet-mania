@@ -17,13 +17,15 @@ interface QrConfigFormProps {
   setQrConfig: (config: QrConfig) => void;
   onSave: () => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
 const QrConfigForm: React.FC<QrConfigFormProps> = ({
   qrConfig,
   setQrConfig,
   onSave,
-  isLoading
+  isLoading,
+  disabled = false
 }) => {
   return (
     <div className="space-y-4">
@@ -34,6 +36,7 @@ const QrConfigForm: React.FC<QrConfigFormProps> = ({
           value={qrConfig.qr_image_url}
           onChange={(e) => setQrConfig({...qrConfig, qr_image_url: e.target.value})}
           placeholder="Enter QR code image URL"
+          disabled={disabled}
         />
       </div>
       <div>
@@ -43,6 +46,7 @@ const QrConfigForm: React.FC<QrConfigFormProps> = ({
           value={qrConfig.merchant_name}
           onChange={(e) => setQrConfig({...qrConfig, merchant_name: e.target.value})}
           placeholder="Enter merchant name"
+          disabled={disabled}
         />
       </div>
       {qrConfig.qr_image_url && (
@@ -57,7 +61,7 @@ const QrConfigForm: React.FC<QrConfigFormProps> = ({
       )}
       <Button 
         onClick={onSave}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         className="w-full"
       >
         {isLoading ? (

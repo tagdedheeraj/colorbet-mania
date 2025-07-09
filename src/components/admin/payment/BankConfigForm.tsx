@@ -18,13 +18,15 @@ interface BankConfigFormProps {
   setBankConfig: (config: BankConfig) => void;
   onSave: () => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
 const BankConfigForm: React.FC<BankConfigFormProps> = ({
   bankConfig,
   setBankConfig,
   onSave,
-  isLoading
+  isLoading,
+  disabled = false
 }) => {
   return (
     <div className="space-y-4">
@@ -35,6 +37,7 @@ const BankConfigForm: React.FC<BankConfigFormProps> = ({
           value={bankConfig.bank_name}
           onChange={(e) => setBankConfig({...bankConfig, bank_name: e.target.value})}
           placeholder="Enter bank name"
+          disabled={disabled}
         />
       </div>
       <div>
@@ -44,6 +47,7 @@ const BankConfigForm: React.FC<BankConfigFormProps> = ({
           value={bankConfig.account_number}
           onChange={(e) => setBankConfig({...bankConfig, account_number: e.target.value})}
           placeholder="Enter account number"
+          disabled={disabled}
         />
       </div>
       <div>
@@ -53,6 +57,7 @@ const BankConfigForm: React.FC<BankConfigFormProps> = ({
           value={bankConfig.ifsc}
           onChange={(e) => setBankConfig({...bankConfig, ifsc: e.target.value})}
           placeholder="Enter IFSC code"
+          disabled={disabled}
         />
       </div>
       <div>
@@ -62,11 +67,12 @@ const BankConfigForm: React.FC<BankConfigFormProps> = ({
           value={bankConfig.account_holder}
           onChange={(e) => setBankConfig({...bankConfig, account_holder: e.target.value})}
           placeholder="Enter account holder name"
+          disabled={disabled}
         />
       </div>
       <Button 
         onClick={onSave}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         className="w-full"
       >
         {isLoading ? (
