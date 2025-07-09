@@ -15,9 +15,10 @@ import UserManagement from '@/components/admin/UserManagement';
 import GameManagement from '@/components/admin/GameManagement';
 import BettingAnalytics from '@/components/admin/BettingAnalytics';
 import LiveGameControl from '@/components/admin/LiveGameControl';
+import LiveGameManagement from '@/components/admin/LiveGameManagement';
 import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
 import AdminSettings from '@/components/admin/AdminSettings';
-import AdminGameService from '@/services/adminGameService';
+import { AdminGameService } from '@/services/adminGameService';
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();

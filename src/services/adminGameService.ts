@@ -10,6 +10,14 @@ export interface LiveGameStats {
   activePlayers: number;
 }
 
+interface DatabaseResponse {
+  success: boolean;
+  message: string;
+  result_number?: number;
+  result_color?: string;
+  was_manual?: boolean;
+}
+
 export class AdminGameService {
   static async getCurrentGameStats(): Promise<LiveGameStats> {
     try {
@@ -134,8 +142,9 @@ export class AdminGameService {
         return false;
       }
 
-      if (data && !data.success) {
-        console.error('Manual result setting failed:', data.message);
+      const response = data as DatabaseResponse;
+      if (response && !response.success) {
+        console.error('Manual result setting failed:', response.message);
         return false;
       }
 
@@ -165,8 +174,9 @@ export class AdminGameService {
         return false;
       }
 
-      if (data && !data.success) {
-        console.error('Manual game completion failed:', data.message);
+      const response = data as DatabaseResponse;
+      if (response && !response.success) {
+        console.error('Manual game completion failed:', response.message);
         return false;
       }
 
