@@ -1,71 +1,46 @@
 
-import React, { useEffect, useState } from 'react';
-import { useGameState } from '@/store/gameState';
+import React, { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { RefreshCw, Bell } from 'lucide-react';
+import { ColorType } from '@/types/supabaseGame';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
-import { BetHistoryService } from '@/services/betHistoryService';
-import { ColorType, BetWithGame } from '@/types/supabaseGame';
+import { useGameHistoryData } from '@/hooks/useGameHistoryData';
+import { useGameHistoryRealtime } from '@/hooks/useGameHistoryRealtime';
+import { toast } from 'sonner';
 
 const GameHistory: React.FC = () => {
   const { user } = useSupabaseAuthStore();
-  const [userGameResults, setUserGameResults] = useState<any[]>([]);
-  const [latestResult, setLatestResult] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  
+  const {
+    userGameResults,
+    latestResult,
+    loading,
+    refreshing,
+    hasNewResults,
+    loadUserGameResults,
+    loadLatestResult,
+    refreshData,
+    clearNewResultsFlag
+  } = useGameHistoryData();
+
+  // Set up real-time subscriptions
+  useGameHistoryRealtime(
+    () => {
+      console.log('🎮 Game completed - refreshing history...');
+      refreshData();
+      toast.success('New game result available!');
+    },
+    () => {
+      console.log('💰 Bet updated - refreshing history...');
+      refreshData();
+    }
+  );
+
   useEffect(() => {
     if (user) {
       loadUserGameResults();
       loadLatestResult();
     }
-  }, [user]);
-
-  const loadUserGameResults = async () => {
-    if (!user) return;
-    
-    try {
-      const results: BetWithGame[] = await BetHistoryService.loadAllUserBets(user.id);
-      
-      // Group bets by game
-      const gameGroups = results.reduce((acc, bet) => {
-        const gameId = bet.game_id;
-        if (!acc[gameId]) {
-          acc[gameId] = {
-            game: bet.game,
-            bets: [],
-            totalBetAmount: 0,
-            totalWinAmount: 0,
-            netResult: 0
-          };
-        }
-        
-        acc[gameId].bets.push(bet);
-        acc[gameId].totalBetAmount += bet.amount;
-        acc[gameId].totalWinAmount += bet.actual_win || 0;
-        acc[gameId].netResult = acc[gameId].totalWinAmount - acc[gameId].totalBetAmount;
-        
-        return acc;
-      }, {} as any);
-      
-      // Convert to array and sort by game creation date
-      const sortedResults = Object.values(gameGroups).sort((a: any, b: any) => 
-        new Date(b.game.created_at).getTime() - new Date(a.game.created_at).getTime()
-      );
-      
-      setUserGameResults(sortedResults);
-    } catch (error) {
-      console.error('Error loading user game results:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadLatestResult = async () => {
-    try {
-      const latest = await BetHistoryService.getLatestCompletedGame();
-      setLatestResult(latest);
-    } catch (error) {
-      console.error('Error loading latest result:', error);
-    }
-  };
+  }, [user, loadUserGameResults, loadLatestResult]);
   
   const getColorStyle = (color: ColorType) => {
     switch (color) {
@@ -78,6 +53,11 @@ const GameHistory: React.FC = () => {
       default:
         return '';
     }
+  };
+
+  const handleManualRefresh = () => {
+    refreshData();
+    clearNewResultsFlag();
   };
 
   if (loading) {
@@ -100,7 +80,26 @@ const GameHistory: React.FC = () => {
   
   return (
     <div className="glass-panel p-4">
-      <h3 className="text-lg font-semibold mb-3">Your Game History</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-semibold">Your Game History</h3>
+        <div className="flex items-center gap-2">
+          {hasNewResults && (
+            <div className="flex items-center gap-1 text-game-green text-xs animate-pulse">
+              <Bell size={12} />
+              <span>New!</span>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="h-8 w-8 p-0"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+          </Button>
+        </div>
+      </div>
       
       {/* Latest Result Display */}
       {latestResult && (
@@ -124,8 +123,18 @@ const GameHistory: React.FC = () => {
         <p className="text-muted-foreground text-sm">No bets placed yet.</p>
       ) : (
         <div className="space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
-          {userGameResults.map((gameResult: any) => (
-            <div key={gameResult.game.id} className="glass-panel bg-secondary/30 p-3 rounded-md space-y-3">
+          {refreshing && (
+            <div className="text-center py-2">
+              <span className="text-xs text-muted-foreground">Updating results...</span>
+            </div>
+          )}
+          {userGameResults.map((gameResult: any, index: number) => (
+            <div 
+              key={gameResult.game.id} 
+              className={`glass-panel bg-secondary/30 p-3 rounded-md space-y-3 transition-all duration-300 ${
+                index === 0 && hasNewResults ? 'ring-2 ring-game-green/50 animate-pulse' : ''
+              }`}
+            >
               {/* Game result info */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
