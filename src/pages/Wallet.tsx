@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, RefreshCw, History } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, RefreshCw, History, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { toast } from 'sonner';
@@ -103,8 +103,20 @@ const Wallet: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
       <div className="container mx-auto max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-center mb-2">My Wallet</h1>
-          <p className="text-center text-muted-foreground">Manage your funds and view transaction history</p>
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className="rounded-full"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">My Wallet</h1>
+              <p className="text-muted-foreground">Manage your funds and view transaction history</p>
+            </div>
+          </div>
         </div>
 
         {/* Balance Card */}
