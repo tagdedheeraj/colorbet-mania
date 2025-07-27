@@ -29,14 +29,14 @@ export const UserSyncService = {
       // Extract username from metadata or email
       const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
       
-      // Create user entry in public.users
+      // Create user entry in public.users with no signup bonus
       const { error: insertError } = await supabase
         .from('users')
         .insert({
           id: user.id,
           email: user.email!,
           username: username,
-          balance: 1000.00
+          balance: 0.00  // No signup bonus
         });
 
       if (insertError) {
@@ -55,21 +55,9 @@ export const UserSyncService = {
         console.error('Error creating user profile:', profileError);
       }
 
-      // Add signup bonus transaction
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'signup_bonus',
-          amount: 1000.00,
-          description: 'Welcome bonus'
-        });
+      // No signup bonus transaction
 
-      if (transactionError && !transactionError.message.includes('duplicate key')) {
-        console.error('Error creating signup bonus transaction:', transactionError);
-      }
-
-      console.log('Successfully created user data');
+      console.log('Successfully created user data without signup bonus');
       return true;
     } catch (error) {
       console.error('Error in ensureUserExists:', error);

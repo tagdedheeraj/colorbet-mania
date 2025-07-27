@@ -241,7 +241,7 @@ const AuthPage = () => {
                 </div>
                 <div className="bg-secondary/30 p-3 rounded-md">
                   <p className="text-sm text-muted-foreground">
-                    You'll receive 1,000 coins as a welcome bonus!
+                    Welcome! Start playing and earn coins through deposits and wins.
                   </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
