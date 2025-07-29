@@ -78,6 +78,8 @@ class AdminAuthService {
         return { authenticated: false };
       }
 
+      console.log('🔍 Checking admin session with token:', sessionToken.substring(0, 10) + '...');
+
       // Use enhanced session verification function
       const { data: sessionCheck, error } = await supabase.rpc('verify_admin_session_with_user', {
         p_session_token: sessionToken
@@ -125,6 +127,7 @@ class AdminAuthService {
       const sessionToken = localStorage.getItem(this.SESSION_KEY);
       
       if (sessionToken) {
+        console.log('🚪 Cleaning up admin session...');
         // Clean up session in database
         await supabase
           .from('admin_auth_sessions')
@@ -133,6 +136,7 @@ class AdminAuthService {
       }
 
       this.clearLocalSession();
+      console.log('✅ Admin logout completed');
       toast.success('Logged out successfully');
     } catch (error) {
       console.error('❌ Enhanced logout error:', error);

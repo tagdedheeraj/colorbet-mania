@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit } from 'lucide-react';
+import { Edit, RefreshCw, Users } from 'lucide-react';
 
 interface User {
   id: string;
@@ -20,9 +20,16 @@ interface User {
 interface UserManagementProps {
   users: User[];
   onUpdateBalance: (userId: string, newBalance: number) => void;
+  loading?: boolean;
+  onRefresh?: () => void;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateBalance }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ 
+  users, 
+  onUpdateBalance, 
+  loading = false, 
+  onRefresh 
+}) => {
   const [editBalance, setEditBalance] = useState<{userId: string, balance: string} | null>(null);
 
   const handleUpdateBalance = () => {
@@ -41,51 +48,95 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateBalance 
     <>
       <Card>
         <CardHeader>
-          <CardTitle>User Management</CardTitle>
-          <CardDescription>Manage user accounts and balances</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                User Management
+              </CardTitle>
+              <CardDescription>
+                Manage user accounts and balances ({users.length} users)
+              </CardDescription>
+            </div>
+            {onRefresh && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRefresh}
+                disabled={loading}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh Users
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map(user => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.username}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>₹{user.balance}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
-                        {user.role || 'user'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditBalance({userId: user.id, balance: user.balance.toString()})}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Balance
-                      </Button>
-                    </TableCell>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-primary mr-2" />
+              <span>Loading users...</span>
+            </div>
+          ) : users.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No users found</p>
+              {onRefresh && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRefresh}
+                  className="mt-2"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Balance</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {users.map(user => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>₹{user.balance}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
+                          {user.role || 'user'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditBalance({userId: user.id, balance: user.balance.toString()})}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Balance
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

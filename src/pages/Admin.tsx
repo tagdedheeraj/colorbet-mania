@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
@@ -30,19 +31,39 @@ const Admin: React.FC = () => {
   const [depositStats, setDepositStats] = useState<DepositStats | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [depositRequestsLoading, setDepositRequestsLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   useEffect(() => {
     checkAdminAndLoadData();
     
     // Set up real-time subscription for deposit requests
-    const channel = DepositRequestService.subscribeToDepositUpdates(() => {
+    const depositChannel = DepositRequestService.subscribeToDepositUpdates(() => {
       console.log('📱 Real-time deposit update received, reloading...');
       loadDepositRequests();
       loadDepositStats();
     });
 
+    // Set up real-time subscription for users table
+    const usersChannel = supabase
+      .channel('admin-users-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'users'
+        },
+        (payload) => {
+          console.log('👥 Real-time user change received:', payload);
+          loadUsers();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(depositChannel);
+      supabase.removeChannel(usersChannel);
     };
   }, []);
 
@@ -63,6 +84,7 @@ const Admin: React.FC = () => {
       await loadData();
     } catch (error) {
       console.error('❌ Error checking admin access:', error);
+      setDataError('Error checking admin access');
       toast.error('Error checking admin access');
       navigate('/admin-login');
     } finally {
@@ -73,8 +95,9 @@ const Admin: React.FC = () => {
   const loadData = async () => {
     try {
       console.log('📊 Loading admin data...');
-      const [usersResult, gamesResult, betsResult] = await Promise.all([
-        supabase.from('users').select('*').order('created_at', { ascending: false }),
+      setDataError(null);
+      
+      const [gamesResult, betsResult] = await Promise.all([
         supabase.from('games').select('*').order('created_at', { ascending: false }).limit(100),
         supabase.from('bets').select(`
           *,
@@ -84,21 +107,51 @@ const Admin: React.FC = () => {
       ]);
 
       console.log('📊 Admin data loaded:', {
-        users: usersResult.data?.length,
         games: gamesResult.data?.length,
         bets: betsResult.data?.length
       });
 
-      setUsers(usersResult.data || []);
       setGames(gamesResult.data || []);
       setBets(betsResult.data || []);
+      
+      // Load users separately with better error handling
+      await loadUsers();
       
       // Load deposit requests and stats
       await loadDepositRequests();
       await loadDepositStats();
     } catch (error) {
       console.error('❌ Error loading data:', error);
+      setDataError('Failed to load admin data');
       toast.error('Failed to load admin data');
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      setUsersLoading(true);
+      setDataError(null);
+      console.log('👥 Loading users...');
+      
+      const { data: usersResult, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Users loading error:', error);
+        throw error;
+      }
+
+      console.log('✅ Users loaded successfully:', usersResult?.length || 0, 'users');
+      setUsers(usersResult || []);
+    } catch (error) {
+      console.error('❌ Error loading users:', error);
+      setDataError('Failed to load users');
+      toast.error('Failed to load users');
+      setUsers([]);
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -137,8 +190,7 @@ const Admin: React.FC = () => {
         await loadDepositRequests();
         await loadDepositStats();
         // Reload users to get updated balances
-        const usersResult = await supabase.from('users').select('*').order('created_at', { ascending: false });
-        setUsers(usersResult.data || []);
+        await loadUsers();
       }
     } catch (error) {
       console.error('❌ Error approving deposit:', error);
@@ -173,7 +225,7 @@ const Admin: React.FC = () => {
       }
 
       toast.success('Balance updated successfully');
-      loadData();
+      await loadUsers();
     } catch (error) {
       console.error('❌ Balance update exception:', error);
       toast.error('Failed to update balance');
@@ -208,7 +260,7 @@ const Admin: React.FC = () => {
         toast.success(`Manual result set to ${number} successfully!`, {
           description: `Game #${activeGame.game_number} result has been set`
         });
-        loadData();
+        await loadData();
       } else {
         toast.error('Failed to set manual result', {
           description: 'Please check console logs for detailed information'
@@ -233,6 +285,13 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleManualRefresh = async () => {
+    console.log('🔄 Manual refresh triggered');
+    toast.info('Refreshing admin data...');
+    await loadData();
+    toast.success('Admin data refreshed successfully');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
@@ -248,16 +307,31 @@ const Admin: React.FC = () => {
   const pendingDeposits = depositStats?.pending_count || 0;
 
   console.log('🎛️ Admin render:', {
+    users: users.length,
     depositRequests: depositRequests.length,
     pendingDeposits,
     loading: depositRequestsLoading,
+    usersLoading,
+    dataError,
     adminUser: adminUser?.email
   });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
       <div className="container mx-auto max-w-7xl">
-        <AdminHeader adminUser={adminUser} onLogout={handleLogout} />
+        <AdminHeader adminUser={adminUser} onLogout={handleLogout} onRefresh={handleManualRefresh} />
+
+        {dataError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700 font-medium">Error: {dataError}</p>
+            <button 
+              onClick={handleManualRefresh}
+              className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         <AdminStatsCards
           usersCount={users.length}
@@ -272,7 +346,9 @@ const Admin: React.FC = () => {
             <TabsTrigger value="deposits">
               Deposits ({pendingDeposits})
             </TabsTrigger>
-            <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
+            <TabsTrigger value="users">
+              Users ({users.length}) {usersLoading && <RefreshCw className="h-3 w-3 ml-1 animate-spin" />}
+            </TabsTrigger>
             <TabsTrigger value="games">Games ({games.length})</TabsTrigger>
             <TabsTrigger value="bets">Bets ({bets.length})</TabsTrigger>
             <TabsTrigger value="live-control">Live Control</TabsTrigger>
@@ -295,7 +371,12 @@ const Admin: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">
-            <UserManagement users={users} onUpdateBalance={handleUpdateBalance} />
+            <UserManagement 
+              users={users} 
+              onUpdateBalance={handleUpdateBalance}
+              loading={usersLoading}
+              onRefresh={loadUsers}
+            />
           </TabsContent>
 
           <TabsContent value="games" className="space-y-4">
