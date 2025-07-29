@@ -38,13 +38,13 @@ export const ensureUserDataExists = async (user: any) => {
       // Extract username from metadata or email
       const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
       
-      // Insert into profiles table with no signup bonus
+      // Insert into profiles table with 50rs signup bonus
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
           id: user.id,
           email: user.email,
-          balance: 0.00  // No signup bonus
+          balance: 50.00  // 50rs signup bonus
         });
 
       if (profileError && !profileError.message.includes('duplicate key')) {
@@ -52,9 +52,23 @@ export const ensureUserDataExists = async (user: any) => {
         throw profileError;
       }
 
-      // No signup bonus transaction
+      // Create signup bonus transaction
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'bonus',
+          amount: 50.00,
+          description: 'Welcome bonus - Thank you for joining!',
+          status: 'completed'
+        });
 
-      console.log('Successfully created missing user data without signup bonus');
+      if (transactionError) {
+        console.error('Signup bonus transaction error:', transactionError);
+        // Don't fail the process
+      }
+
+      console.log('Successfully created missing user data with 50rs signup bonus');
       return true;
     }
 

@@ -141,7 +141,7 @@ const AuthPage = () => {
       if (data.user && !data.user.email_confirmed_at) {
         toast.success('Account created successfully! Please check your email to verify your account.');
       } else {
-        toast.success('Account created successfully! You can now log in.');
+        toast.success('Account created successfully! You received 50rs welcome bonus. You can now log in.');
         // Navigation will be handled by auth state change
       }
     } catch (error) {
@@ -241,7 +241,7 @@ const AuthPage = () => {
                 </div>
                 <div className="bg-secondary/30 p-3 rounded-md">
                   <p className="text-sm text-muted-foreground">
-                    Welcome! Start playing and earn coins through deposits and wins.
+                    Welcome! Get 50rs signup bonus and start playing to earn more coins through deposits and wins.
                   </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>

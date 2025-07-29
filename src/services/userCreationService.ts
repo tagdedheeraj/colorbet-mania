@@ -19,13 +19,13 @@ export const UserCreationService = {
         return;
       }
 
-      // Create profile with no initial balance
+      // Create profile with 50rs signup bonus
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
           id: user.id,
           email: user.email,
-          balance: 0.00  // No signup bonus
+          balance: 50.00  // 50rs signup bonus
         });
 
       if (profileError) {
@@ -33,9 +33,23 @@ export const UserCreationService = {
         throw profileError;
       }
 
-      // No signup bonus transaction
+      // Create signup bonus transaction
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'bonus',
+          amount: 50.00,
+          description: 'Welcome bonus - Thank you for joining!',
+          status: 'completed'
+        });
 
-      console.log('Successfully created user data without signup bonus');
+      if (transactionError) {
+        console.error('Signup bonus transaction error:', transactionError);
+        // Don't throw error here as profile is already created
+      }
+
+      console.log('Successfully created user data with 50rs signup bonus');
     } catch (error) {
       console.error('Error creating user data:', error);
       throw error;
