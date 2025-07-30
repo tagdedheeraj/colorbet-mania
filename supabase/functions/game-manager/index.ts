@@ -34,15 +34,15 @@ serve(async (req) => {
 
       const gameNumber = (lastGame?.game_number || 0) + 1
       
-      // Game durations in seconds
+      // Updated game durations in seconds (3 minutes for quick mode)
       const durations = {
-        blitz: 30,
-        quick: 60,
-        classic: 180,
-        extended: 300
+        blitz: 60,    // 1 minute
+        quick: 180,   // 3 minutes
+        classic: 300, // 5 minutes
+        extended: 600 // 10 minutes
       }
       
-      const duration = durations[gameMode as keyof typeof durations] || 60
+      const duration = durations[gameMode as keyof typeof durations] || 180
       const startTime = new Date()
       const endTime = new Date(startTime.getTime() + duration * 1000)
 
@@ -84,35 +84,43 @@ serve(async (req) => {
         .single()
 
       if (gameError || !gameData) {
+        console.error('Game not found error:', gameError)
         throw new Error('Game not found')
       }
 
       let resultColor: string
       let resultNumber: number
 
-      // Check if admin has set manual result
-      if (gameData.admin_controlled && gameData.admin_set_result_number !== null) {
+      // Check if admin has set manual result - improved logic
+      if (gameData.admin_controlled && gameData.admin_set_result_number !== null && gameData.admin_set_result_number !== undefined) {
         console.log('Using admin-set manual result:', gameData.admin_set_result_number)
         resultNumber = gameData.admin_set_result_number
         
-        // Determine color based on admin-set number
-        if ([1, 3, 7, 9].includes(resultNumber)) {
-          resultColor = 'red'
-        } else if ([2, 4, 6, 8].includes(resultNumber)) {
-          resultColor = 'green'
-        } else if ([0, 5].includes(resultNumber)) {
-          resultColor = 'purple-red'
+        // Use admin-set color if available, otherwise determine based on number
+        if (gameData.admin_set_result_color) {
+          resultColor = gameData.admin_set_result_color
         } else {
-          resultColor = 'red'
+          // Determine color based on admin-set number
+          if ([1, 3, 7, 9].includes(resultNumber)) {
+            resultColor = 'red'
+          } else if ([2, 4, 6, 8].includes(resultNumber)) {
+            resultColor = 'green'
+          } else if ([0, 5].includes(resultNumber)) {
+            resultColor = 'purple-red'
+          } else {
+            resultColor = 'red'
+          }
         }
+        console.log('Manual result applied - Number:', resultNumber, 'Color:', resultColor)
       } else {
         // Generate random result for automatic games
         const colors = ['red', 'green', 'purple-red']
         resultColor = colors[Math.floor(Math.random() * colors.length)]
         resultNumber = Math.floor(Math.random() * 10)
+        console.log('Random result generated - Number:', resultNumber, 'Color:', resultColor)
       }
 
-      console.log('Game result:', { resultColor, resultNumber, wasManual: gameData.admin_controlled })
+      console.log('Final game result:', { resultColor, resultNumber, wasManual: gameData.admin_controlled })
 
       // Update game with result
       const { error: updateError } = await supabaseClient
@@ -121,7 +129,9 @@ serve(async (req) => {
           result_color: resultColor,
           result_number: resultNumber,
           status: 'completed',
-          admin_notes: gameData.admin_controlled ? 'Completed with admin-set result' : 'Completed automatically'
+          admin_notes: gameData.admin_controlled ? 
+            `Completed with admin-set result: ${resultNumber} (${resultColor})` : 
+            'Completed automatically'
         })
         .eq('id', gameId)
 
@@ -129,6 +139,8 @@ serve(async (req) => {
         console.error('Error updating game:', updateError)
         throw updateError
       }
+
+      console.log('Game updated successfully with result')
 
       // Process all bets for this game
       const { data: bets, error: betsError } = await supabaseClient
@@ -156,7 +168,7 @@ serve(async (req) => {
           if (bet.bet_type === 'color' && bet.bet_value === resultColor) {
             isWinner = true
             actualWin = bet.potential_win
-          } else if (bet.bet_type === 'number' && parseInt(bet.bet_value) === resultNumber && resultNumber !== 0) {
+          } else if (bet.bet_type === 'number' && parseInt(bet.bet_value) === resultNumber) {
             isWinner = true
             actualWin = bet.potential_win
           }
@@ -247,10 +259,11 @@ serve(async (req) => {
           processedBets: bets?.length || 0,
           winners: bets?.filter(bet => {
             if (bet.bet_type === 'color' && bet.bet_value === resultColor) return true
-            if (bet.bet_type === 'number' && parseInt(bet.bet_value) === resultNumber && resultNumber !== 0) return true
+            if (bet.bet_type === 'number' && parseInt(bet.bet_value) === resultNumber) return true
             return false
           }).length || 0,
-          wasManual: gameData.admin_controlled
+          wasManual: gameData.admin_controlled,
+          gameNumber: gameData.game_number
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
