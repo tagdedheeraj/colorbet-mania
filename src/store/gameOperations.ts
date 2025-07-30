@@ -19,13 +19,13 @@ export const useGameOperations = () => {
     if (isInitializing) return;
     isInitializing = true;
 
-    console.log('Initializing game operations...');
+    console.log('🚀 Initializing game operations...');
     setIsLoading(true);
     
     try {
       // Add timeout to prevent infinite loading
       const initTimeout = setTimeout(() => {
-        console.log('Game initialization timeout - completing with defaults');
+        console.log('⏰ Game initialization timeout - completing with defaults');
         setIsLoading(false);
         isInitializing = false;
       }, 10000); // 10 second timeout
@@ -72,6 +72,16 @@ export const useGameOperations = () => {
 
       if (formattedActiveGame) {
         await loadCurrentBets();
+        
+        // Start timer immediately for active game
+        console.log('⚡ Starting timer immediately for active game:', formattedActiveGame.game_number);
+        const { useGameTimer } = await import('./gameTimer');
+        const gameTimer = useGameTimer();
+        
+        // Start timer after a short delay to ensure state is set
+        setTimeout(() => {
+          gameTimer.startGameTimer();
+        }, 500);
       }
 
       // Setup realtime subscriptions with delay
@@ -82,13 +92,13 @@ export const useGameOperations = () => {
             () => loadCurrentBets()
           );
         } catch (error) {
-          console.error('Error setting up realtime subscriptions:', error);
+          console.error('❌ Error setting up realtime subscriptions:', error);
         }
       }, 2000);
 
-      console.log('Game operations initialized successfully');
+      console.log('✅ Game operations initialized successfully');
     } catch (error) {
-      console.error('Game operations initialization error:', error);
+      console.error('❌ Game operations initialization error:', error);
     } finally {
       setIsLoading(false);
       isInitializing = false;
@@ -104,16 +114,16 @@ export const useGameOperations = () => {
         gameState.currentGame.id,
         gameState.currentGame.id
       );
-      console.log('Current bets loaded:', currentBets.length);
+      console.log('📊 Current bets loaded:', currentBets.length);
       setCurrentBets(currentBets);
     } catch (error) {
-      console.error('Error loading current bets:', error);
+      console.error('❌ Error loading current bets:', error);
     }
   };
 
   const loadCurrentData = async () => {
     try {
-      console.log('Reloading current data...');
+      console.log('🔄 Reloading current data...');
       const { activeGame, gameHistory } = await GameInitializationService.loadInitialData();
       
       const formattedActiveGame = activeGame ? {
@@ -145,9 +155,20 @@ export const useGameOperations = () => {
 
       if (formattedActiveGame) {
         await loadCurrentBets();
+        
+        // If we got a new active game, start its timer
+        const currentState = useGameState.getState();
+        if (!currentState.currentGame || currentState.currentGame.id !== formattedActiveGame.id) {
+          console.log('🆕 New game detected, starting timer:', formattedActiveGame.game_number);
+          const { useGameTimer } = await import('./gameTimer');
+          const gameTimer = useGameTimer();
+          setTimeout(() => {
+            gameTimer.startGameTimer();
+          }, 1000);
+        }
       }
     } catch (error) {
-      console.error('Error loading current data:', error);
+      console.error('❌ Error loading current data:', error);
     }
   };
 
@@ -157,7 +178,7 @@ export const useGameOperations = () => {
       const gameState = useGameState.getState();
       gameState.setUserGameResults(userGameResults);
     } catch (error) {
-      console.error('Error loading user game results:', error);
+      console.error('❌ Error loading user game results:', error);
     }
   };
 

@@ -10,55 +10,45 @@ export class GameTimerService {
     onTimerUpdate: (timeRemaining: number, isAcceptingBets: boolean) => void,
     onGameComplete: () => void
   ) {
-    if (!currentGame) {
-      console.log('No game provided to start timer');
+    if (!currentGame || !currentGame.end_time) {
+      console.log('❌ Invalid game data for timer:', currentGame);
       return;
     }
 
-    console.log('Starting timer for game:', currentGame.game_number);
+    console.log('🚀 Starting enhanced timer for game:', currentGame.game_number);
 
-    // Clear existing timer
+    // Clear existing timer for this game
     this.clearTimer(currentGame.id);
     
     // Store completion callback
     this.gameCompletionCallbacks.set(currentGame.id, onGameComplete);
 
     const updateTimer = () => {
-      if (!currentGame.end_time) {
-        console.warn('Game end_time is null, setting default');
-        const now = new Date();
-        currentGame.end_time = new Date(now.getTime() + 60000).toISOString();
-      }
-
       const now = new Date().getTime();
       const endTime = new Date(currentGame.end_time).getTime();
       const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
       const isAcceptingBets = timeRemaining > 5; // Stop accepting bets 5 seconds before end
 
-      console.log('Timer update:', {
-        gameId: currentGame.id,
-        gameNumber: currentGame.game_number, // Fixed: use game_number consistently
-        timeRemaining,
-        isAcceptingBets
-      });
-
+      // Call update callback
       onTimerUpdate(timeRemaining, isAcceptingBets);
 
       if (timeRemaining > 0) {
+        // Schedule next update
         const timerId = setTimeout(updateTimer, 1000);
         this.timers.set(currentGame.id, timerId);
       } else {
-        console.log('Game timer ended, completing game...');
+        console.log('⏰ Timer ended for game:', currentGame.game_number);
         this.completeGameAndCreateNext(currentGame);
       }
     };
 
+    // Start the timer immediately
     updateTimer();
   }
 
   private static async completeGameAndCreateNext(currentGame: any) {
     try {
-      console.log('Completing game and creating next...');
+      console.log('🏁 Completing game and creating next...', currentGame.game_number);
       
       // Complete current game
       const completed = await GameCreationService.completeGame(currentGame.id);
@@ -67,6 +57,7 @@ export class GameTimerService {
         // Trigger completion callback
         const callback = this.gameCompletionCallbacks.get(currentGame.id);
         if (callback) {
+          console.log('📞 Calling game completion callback');
           callback();
         }
 
@@ -74,12 +65,12 @@ export class GameTimerService {
         setTimeout(async () => {
           const newGame = await GameCreationService.createNewGame('quick');
           if (newGame) {
-            console.log('New game created:', newGame.game_number);
+            console.log('✨ New game created:', newGame.game_number);
           }
         }, 2000);
       }
     } catch (error) {
-      console.error('Error in game completion flow:', error);
+      console.error('❌ Error in game completion flow:', error);
     } finally {
       this.clearTimer(currentGame.id);
       this.gameCompletionCallbacks.delete(currentGame.id);
@@ -91,12 +82,12 @@ export class GameTimerService {
     if (timerId) {
       clearTimeout(timerId);
       this.timers.delete(gameId);
-      console.log('Timer cleared for game:', gameId);
+      console.log('🧹 Timer cleared for game:', gameId);
     }
   }
 
   static clearAllTimers() {
-    console.log('Clearing all timers');
+    console.log('🧹 Clearing all timers');
     this.timers.forEach((timerId) => clearTimeout(timerId));
     this.timers.clear();
     this.gameCompletionCallbacks.clear();
