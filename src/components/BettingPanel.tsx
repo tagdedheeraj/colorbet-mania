@@ -109,13 +109,13 @@ const BettingPanel: React.FC = () => {
   const hasActiveGame = currentGame && currentGame.status === 'active';
   const hasTimeRemaining = timeRemaining > 0;
   const canAffordBet = userBalance >= betAmount;
-  const canBet = isAuthenticated && !isSystemLoading && hasActiveGame && isAcceptingBets && canAffordBet;
+  const canBet = Boolean(isAuthenticated && !isSystemLoading && hasActiveGame && isAcceptingBets && canAffordBet);
 
   console.log('🎮 Betting panel state:', {
     isAuthenticated,
     isSystemLoading,
     currentGame: currentGame?.game_number || 'none',
-    hasActiveGame,
+    hasActiveGame: Boolean(hasActiveGame),
     isAcceptingBets,
     hasTimeRemaining,
     timeRemaining,
