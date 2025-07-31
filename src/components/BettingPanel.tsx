@@ -35,19 +35,19 @@ const BettingPanel: React.FC = () => {
     console.log('🎨 Color bet clicked:', color);
     
     if (!isAuthenticated) {
-      toast.error('Please log in to place bets');
+      toast.error('कृपया bet लगाने के लिए login करें');
       return;
     }
     if (!currentGame) {
-      toast.error('No active game found');
+      toast.error('कोई active game नहीं मिला');
       return;
     }
     if (!isAcceptingBets) {
-      toast.error(`Betting closed! ${timeRemaining > 0 ? `Next game in ${timeRemaining}s` : 'Please wait for next game'}`);
+      toast.error(`Betting बंद! ${timeRemaining > 0 ? `अगला game ${timeRemaining}s में` : 'कृपया अगले game का इंतज़ार करें'}`);
       return;
     }
     if (userBalance < betAmount) {
-      toast.error(`Insufficient balance! You have ₹${userBalance.toFixed(2)}, need ₹${betAmount}`);
+      toast.error(`Balance कम है! आपके पास ₹${userBalance.toFixed(2)} है, जरूरत ₹${betAmount} की`);
       return;
     }
     
@@ -56,15 +56,15 @@ const BettingPanel: React.FC = () => {
       const success = await placeBet('color', color);
       
       if (success) {
-        toast.success(`Bet placed: ₹${betAmount} on ${color}`, {
-          description: `Game #${currentGame.game_number} • Time remaining: ${timeRemaining}s`
+        toast.success(`Bet लगाई गई: ₹${betAmount} ${color} पर`, {
+          description: `Game #${currentGame.game_number} • समय बचा: ${timeRemaining}s`
         });
       } else {
-        toast.error('Failed to place bet');
+        toast.error('Bet लगाने में असफल');
       }
     } catch (error) {
       console.error('❌ Error placing color bet:', error);
-      toast.error('Failed to place bet');
+      toast.error('Bet लगाने में असफल');
     }
   };
   
@@ -72,19 +72,19 @@ const BettingPanel: React.FC = () => {
     console.log('🔢 Number bet clicked:', number);
     
     if (!isAuthenticated) {
-      toast.error('Please log in to place bets');
+      toast.error('कृपया bet लगाने के लिए login करें');
       return;
     }
     if (!currentGame) {
-      toast.error('No active game found');
+      toast.error('कोई active game नहीं मिला');
       return;
     }
     if (!isAcceptingBets) {
-      toast.error(`Betting closed! ${timeRemaining > 0 ? `Next game in ${timeRemaining}s` : 'Please wait for next game'}`);
+      toast.error(`Betting बंद! ${timeRemaining > 0 ? `अगला game ${timeRemaining}s में` : 'कृपया अगले game का इंतज़ार करें'}`);
       return;
     }
     if (userBalance < betAmount) {
-      toast.error(`Insufficient balance! You have ₹${userBalance.toFixed(2)}, need ₹${betAmount}`);
+      toast.error(`Balance कम है! आपके पास ₹${userBalance.toFixed(2)} है, जरूरत ₹${betAmount} की`);
       return;
     }
     
@@ -93,15 +93,15 @@ const BettingPanel: React.FC = () => {
       const success = await placeBet('number', number.toString());
       
       if (success) {
-        toast.success(`Bet placed: ₹${betAmount} on number ${number}`, {
-          description: `Game #${currentGame.game_number} • Time remaining: ${timeRemaining}s`
+        toast.success(`Bet लगाई गई: ₹${betAmount} number ${number} पर`, {
+          description: `Game #${currentGame.game_number} • समय बचा: ${timeRemaining}s`
         });
       } else {
-        toast.error('Failed to place bet');
+        toast.error('Bet लगाने में असफल');
       }
     } catch (error) {
       console.error('❌ Error placing number bet:', error);
-      toast.error('Failed to place bet');
+      toast.error('Bet लगाने में असफल');
     }
   };
 
@@ -129,7 +129,7 @@ const BettingPanel: React.FC = () => {
     <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6 space-y-6">
       {/* Enhanced Status Info */}
       <div className="text-center">
-        <p className="text-sm text-gray-400">Your Balance</p>
+        <p className="text-sm text-gray-400">आपका Balance</p>
         <p className="text-2xl font-bold text-white">₹{userBalance.toFixed(2)}</p>
         {currentGame && (
           <div className="mt-2 flex justify-center items-center gap-2">
@@ -139,7 +139,7 @@ const BettingPanel: React.FC = () => {
                 ? 'bg-green-500/20 text-green-300' 
                 : 'bg-red-500/20 text-red-300'
             }`}>
-              {isAcceptingBets ? `Betting Open (${timeRemaining}s)` : 'Betting Closed'}
+              {isAcceptingBets ? `Betting खुली (${timeRemaining}s)` : 'Betting बंद'}
             </span>
           </div>
         )}
@@ -172,6 +172,13 @@ const BettingPanel: React.FC = () => {
         isSystemLoading={isSystemLoading}
         currentGame={currentGame}
       />
+
+      {/* Debug Info - Remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-black/20 p-2 rounded text-xs text-gray-400">
+          Debug: canBet={canBet.toString()}, balance={userBalance}, betAmount={betAmount}, isAcceptingBets={isAcceptingBets.toString()}
+        </div>
+      )}
     </div>
   );
 };

@@ -10,7 +10,7 @@ export class BetManagementService {
     type: 'color' | 'number',
     value: string
   ): Promise<boolean> {
-    console.log('BetManagementService.placeBet called:', {
+    console.log('🎯 BetManagementService.placeBet called:', {
       gameId: currentGame?.id,
       gameNumber: currentGame?.game_number,
       betAmount,
@@ -20,7 +20,7 @@ export class BetManagementService {
 
     if (!currentGame) {
       console.error('No active game found');
-      toast.error('No active game available');
+      toast.error('कोई active game available नहीं');
       return false;
     }
 
@@ -28,11 +28,11 @@ export class BetManagementService {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         console.error('No authenticated user');
-        toast.error('Please log in to place bets');
+        toast.error('कृपया bet लगाने के लिए login करें');
         return false;
       }
 
-      // Get user profile with fresh balance from users table
+      // Get fresh user balance from users table
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
         .select('balance')
@@ -41,16 +41,29 @@ export class BetManagementService {
 
       if (profileError || !userProfile) {
         console.error('Error fetching user profile:', profileError);
-        toast.error('Error loading user data');
+        toast.error('User data load करने में error');
         return false;
       }
 
-      console.log('User balance:', userProfile.balance);
+      console.log('📊 Fresh user balance:', userProfile.balance);
 
       const currentBalance = userProfile.balance || 0;
       if (currentBalance < betAmount) {
         console.error('Insufficient balance:', currentBalance, 'needed:', betAmount);
-        toast.error(`Insufficient balance! You have ${currentBalance} coins, need ${betAmount} coins`);
+        toast.error(`Balance कम है! आपके पास ${currentBalance} coins हैं, जरूरत ${betAmount} coins की`);
+        return false;
+      }
+
+      // Validate bet amount
+      if (betAmount < 10) {
+        console.error('Minimum bet amount is 10');
+        toast.error('Minimum bet amount ₹10 है');
+        return false;
+      }
+
+      if (betAmount > 1000) {
+        console.error('Maximum bet amount is 1000');
+        toast.error('Maximum bet amount ₹1000 है');
         return false;
       }
 
@@ -62,7 +75,7 @@ export class BetManagementService {
         return false;
       }
 
-      console.log('Placing bet with game number:', gameNumber);
+      console.log('✅ Placing bet with game number:', gameNumber);
 
       const success = await BetService.placeBet(
         currentGame.id,
@@ -75,15 +88,15 @@ export class BetManagementService {
       );
 
       if (success) {
-        console.log('Bet placed successfully');
+        console.log('🎉 Bet placed successfully');
         const newBalance = currentBalance - betAmount;
-        toast.info(`New balance: ${newBalance} coins`);
+        toast.success(`✅ Bet successful! नया balance: ${newBalance} coins`);
       }
 
       return success;
     } catch (error) {
-      console.error('Bet placement error:', error);
-      toast.error('Failed to place bet - server error');
+      console.error('❌ Bet placement error:', error);
+      toast.error('Bet लगाने में server error');
       return false;
     }
   }
@@ -106,9 +119,9 @@ export class BetManagementService {
         return [];
       }
 
-      console.log('Loading bets for game:', currentGame.game_number);
+      console.log('📊 Loading bets for game:', currentGame.game_number);
 
-      // Load bets by game_id directly since we don't have period_number in bets table
+      // Load bets by game_id directly
       const { data: bets, error } = await supabase
         .from('bets')
         .select('*')
@@ -121,7 +134,7 @@ export class BetManagementService {
         return [];
       }
 
-      console.log('Current bets loaded:', bets?.length || 0);
+      console.log('📈 Current bets loaded:', bets?.length || 0);
       return bets || [];
     } catch (error) {
       console.error('Error loading current bets:', error);

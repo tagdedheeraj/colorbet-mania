@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { GameMode, SupabaseGame } from '@/types/supabaseGame';
 import { GAME_MODES } from '@/config/gameModes';
@@ -45,7 +46,7 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
   isAcceptingBets: false,
   gameHistory: [],
   currentBets: [],
-  betAmount: 100,
+  betAmount: 10, // Set minimum bet amount as default
   currentGameMode: 'quick',
   gameModesConfig: GAME_MODES,
   isLoading: false,
@@ -59,13 +60,26 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
   setIsAcceptingBets: (accepting) => set({ isAcceptingBets: accepting }),
   setGameHistory: (history) => set({ gameHistory: history }),
   setCurrentBets: (bets) => set({ currentBets: bets }),
-  setBetAmount: (amount) => set({ betAmount: Math.max(10, amount) }),
+  setBetAmount: (amount) => {
+    const state = get();
+    const maxAffordable = Math.min(state.userBalance, 1000);
+    const validAmount = Math.max(10, Math.min(amount, maxAffordable));
+    set({ betAmount: validAmount });
+  },
   setCurrentGameMode: (mode) => set({ currentGameMode: mode }),
   setIsLoading: (loading) => set({ isLoading: loading }),
   setShowResultPopup: (show) => set({ showResultPopup: show }),
   setLastCompletedGame: (game) => set({ lastCompletedGame: game }),
   setUserGameResults: (results) => set({ userGameResults: results }),
-  setUserBalance: (balance) => set({ userBalance: balance }),
+  setUserBalance: (balance) => {
+    const state = get();
+    set({ userBalance: balance });
+    // Auto-adjust bet amount if current bet exceeds balance
+    if (state.betAmount > balance) {
+      const newBetAmount = Math.max(10, Math.min(balance, 100));
+      set({ betAmount: newBetAmount });
+    }
+  },
 
   loadUserBalance: async () => {
     try {
@@ -84,12 +98,12 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
 
       if (error) {
         console.error('Error loading user balance:', error);
-        // Don't set balance to 0 on error, keep existing value
         return;
       }
 
       const balance = userData?.balance || 0;
-      set({ userBalance: balance });
+      const state = get();
+      state.setUserBalance(balance);
       console.log('User balance loaded:', balance);
     } catch (error) {
       console.error('Error loading user balance:', error);
@@ -99,7 +113,7 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
   placeBet: async (type: 'color' | 'number', value: string) => {
     const state = get();
     
-    console.log('Placing bet:', { type, value, betAmount: state.betAmount, currentGame: state.currentGame?.id });
+    console.log('🎯 Placing bet:', { type, value, betAmount: state.betAmount, currentGame: state.currentGame?.id });
     
     if (!state.currentGame) {
       console.error('No active game found');
@@ -111,12 +125,12 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
       return false;
     }
 
-    // Check balance
+    // Check balance before placing bet
     await get().loadUserBalance();
     const currentBalance = get().userBalance;
     
     if (currentBalance < state.betAmount) {
-      console.error('Insufficient balance');
+      console.error('Insufficient balance:', currentBalance, 'needed:', state.betAmount);
       return false;
     }
 
@@ -132,12 +146,12 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
         // Reload current bets and balance after successful bet placement
         await get().loadCurrentBets();
         await get().loadUserBalance();
-        console.log('Bet placed successfully');
+        console.log('✅ Bet placed successfully');
       }
 
       return success;
     } catch (error) {
-      console.error('Error placing bet:', error);
+      console.error('❌ Error placing bet:', error);
       return false;
     }
   },

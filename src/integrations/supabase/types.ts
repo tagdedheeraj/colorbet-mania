@@ -223,7 +223,7 @@ export type Database = {
           id: string
           is_winner: boolean | null
           potential_win: number
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           actual_win?: number | null
@@ -235,7 +235,7 @@ export type Database = {
           id?: string
           is_winner?: boolean | null
           potential_win: number
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           actual_win?: number | null
@@ -247,7 +247,7 @@ export type Database = {
           id?: string
           is_winner?: boolean | null
           potential_win?: number
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
