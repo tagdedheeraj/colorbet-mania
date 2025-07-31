@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { ManualGameService } from './admin/manualGameService';
 import { GameModeService } from './admin/gameModeService';
 import { AdminLoggingService } from './admin/adminLoggingService';
 import AdminAuthService from './adminAuthService';
@@ -13,7 +14,7 @@ export interface LiveGameStats {
 }
 
 export class AdminGameService {
-  // Enhanced method using the new GameModeService
+  // Enhanced method using the new GameModeService with manual mode support
   static async setGameMode(gameId: string, mode: 'automatic' | 'manual'): Promise<boolean> {
     try {
       console.log('🔄 AdminGameService: Setting game mode via enhanced service:', { gameId, mode });
@@ -26,6 +27,8 @@ export class AdminGameService {
           mode: mode,
           method: 'enhanced_service'
         });
+        
+        console.log('✅ Game mode set successfully with enhanced service');
       }
       
       return success;
@@ -37,106 +40,45 @@ export class AdminGameService {
 
   static async setManualResult(gameId: string, number: number): Promise<boolean> {
     try {
-      console.log('🎯 AdminGameService: Setting manual result:', { gameId, number });
+      console.log('🎯 AdminGameService: Setting manual result via enhanced service:', { gameId, number });
       
-      // Get current admin user
-      const adminUser = await AdminAuthService.getCurrentAdminUser();
-      if (!adminUser) {
-        console.error('❌ No authenticated admin user found');
-        return false;
+      const success = await ManualGameService.setManualResult(gameId, number);
+      
+      if (success) {
+        await AdminLoggingService.logAdminAction('set_manual_result', {
+          game_id: gameId,
+          result_number: number,
+          method: 'enhanced_service'
+        });
+        
+        console.log('✅ Manual result set successfully with enhanced service');
       }
-
-      // Use enhanced database function
-      const { data, error } = await supabase.rpc('set_manual_game_result_enhanced', {
-        p_game_id: gameId,
-        p_admin_user_id: adminUser.id,
-        p_result_number: number
-      });
-
-      if (error) {
-        console.error('❌ Error setting manual result:', error);
-        return false;
-      }
-
-      let response;
-      try {
-        if (typeof data === 'string') {
-          response = JSON.parse(data);
-        } else {
-          response = data;
-        }
-      } catch (parseError) {
-        console.error('❌ Error parsing response:', parseError);
-        return false;
-      }
-
-      if (response && !response.success) {
-        console.error('❌ Manual result setting failed:', response.message);
-        return false;
-      }
-
-      await AdminLoggingService.logAdminAction('set_manual_result', {
-        game_id: gameId,
-        result_number: number
-      });
-
-      console.log('✅ Manual result set successfully');
-      return true;
-
+      
+      return success;
     } catch (error) {
-      console.error('❌ Exception in setManualResult:', error);
+      console.error('❌ AdminGameService: Error in setManualResult:', error);
       return false;
     }
   }
 
   static async completeGameManually(gameId: string): Promise<boolean> {
     try {
-      console.log('🏁 AdminGameService: Completing game manually:', gameId);
+      console.log('🏁 AdminGameService: Completing game manually via enhanced service:', gameId);
       
-      // Get current admin user
-      const adminUser = await AdminAuthService.getCurrentAdminUser();
-      if (!adminUser) {
-        console.error('❌ No authenticated admin user found');
-        return false;
+      const success = await ManualGameService.completeGameManually(gameId);
+      
+      if (success) {
+        await AdminLoggingService.logAdminAction('complete_game_manually', {
+          game_id: gameId,
+          method: 'enhanced_service'
+        });
+        
+        console.log('✅ Game completed manually with enhanced service');
       }
-
-      // Use database function
-      const { data, error } = await supabase.rpc('complete_manual_game', {
-        p_game_id: gameId,
-        p_admin_user_id: adminUser.id
-      });
-
-      if (error) {
-        console.error('❌ Error completing game manually:', error);
-        return false;
-      }
-
-      let response;
-      try {
-        if (typeof data === 'string') {
-          response = JSON.parse(data);
-        } else {
-          response = data;
-        }
-      } catch (parseError) {
-        console.error('❌ Error parsing completion response:', parseError);
-        return false;
-      }
-
-      if (response && !response.success) {
-        console.error('❌ Manual game completion failed:', response.message);
-        return false;
-      }
-
-      await AdminLoggingService.logAdminAction('complete_game_manually', {
-        game_id: gameId
-      });
-
-      console.log('✅ Game completed manually');
-      return true;
-
+      
+      return success;
     } catch (error) {
-      console.error('❌ Exception in completeGameManually:', error);
+      console.error('❌ AdminGameService: Error in completeGameManually:', error);
       return false;
     }
   }
@@ -206,7 +148,9 @@ export class AdminGameService {
         gameNumber: activeGame.game_number,
         activePlayers,
         totalBets,
-        totalBetAmount
+        totalBetAmount,
+        isManual: activeGame.admin_controlled,
+        timerPaused: activeGame.timer_paused
       });
 
       return stats;

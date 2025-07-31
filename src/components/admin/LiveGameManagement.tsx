@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,8 +7,9 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { AdminGameService, LiveGameStats } from '@/services/adminGameService';
+import { ManualGameService } from '@/services/admin/manualGameService';
 import { toast } from 'sonner';
-import { Users, Target, DollarSign, Clock, Play, Square, RefreshCw, AlertTriangle, CheckCircle, Settings, Info } from 'lucide-react';
+import { Users, Target, DollarSign, Clock, Play, Square, RefreshCw, AlertTriangle, CheckCircle, Settings, Info, Pause, Timer } from 'lucide-react';
 import DetailedBettingAnalytics from './DetailedBettingAnalytics';
 
 const LiveGameManagement: React.FC = () => {
@@ -19,6 +21,7 @@ const LiveGameManagement: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [timerPaused, setTimerPaused] = useState(false);
 
   const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -31,15 +34,20 @@ const LiveGameManagement: React.FC = () => {
   useEffect(() => {
     if (gameStats?.activeGame) {
       const mode = gameStats.activeGame.game_mode_type === 'manual';
+      const paused = gameStats.activeGame.timer_paused === true;
+      
       setIsManualMode(mode);
+      setTimerPaused(paused);
       setSelectedNumber(gameStats.activeGame.admin_set_result_number || null);
       
       // Calculate time remaining
-      if (gameStats.activeGame.end_time) {
+      if (gameStats.activeGame.end_time && !paused) {
         const endTime = new Date(gameStats.activeGame.end_time).getTime();
         const now = Date.now();
         const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
         setTimeRemaining(remaining);
+      } else if (paused) {
+        setTimeRemaining(0); // Show 0 when paused
       }
     }
   }, [gameStats]);
@@ -79,14 +87,17 @@ const LiveGameManagement: React.FC = () => {
       const mode = manual ? 'manual' : 'automatic';
       console.log(`🔄 Changing game mode to: ${mode} for game ${gameStats.activeGame.id}`);
       
-      const success = await AdminGameService.setGameMode(gameStats.activeGame.id, mode);
+      const success = await ManualGameService.setManualMode(gameStats.activeGame.id, manual);
       
       if (success) {
         setIsManualMode(manual);
+        setTimerPaused(manual);
+        
         toast.success(`Game mode changed to ${mode}`, {
-          description: `Game #${gameStats.activeGame.game_number} is now in ${mode} mode`,
-          icon: <CheckCircle className="h-4 w-4" />
+          description: `Game #${gameStats.activeGame.game_number} is now in ${mode} mode${manual ? ' with timer paused' : ''}`,
+          icon: manual ? <Pause className="h-4 w-4" /> : <Timer className="h-4 w-4" />
         });
+        
         setTimeout(loadGameStats, 1000);
       } else {
         const error = `Failed to change game mode to ${mode}`;
@@ -130,7 +141,7 @@ const LiveGameManagement: React.FC = () => {
 
       if (success) {
         toast.success(`Result set to ${selectedNumber}`, {
-          description: `Manual result has been set for Game #${gameStats.activeGame.game_number}`,
+          description: `Manual result has been set for Game #${gameStats.activeGame.game_number} - Timer remains paused`,
           icon: <CheckCircle className="h-4 w-4" />
         });
         
@@ -142,7 +153,8 @@ const LiveGameManagement: React.FC = () => {
           gameId: gameStats.activeGame.id,
           selectedNumber,
           gameStatus: gameStats.activeGame.status,
-          gameMode: gameStats.activeGame.game_mode_type
+          gameMode: gameStats.activeGame.game_mode_type,
+          timerPaused: gameStats.activeGame.timer_paused
         });
         toast.error(error, {
           description: 'Check console logs for detailed information',
@@ -169,6 +181,13 @@ const LiveGameManagement: React.FC = () => {
       return;
     }
 
+    if (!gameStats.activeGame.manual_result_set) {
+      const error = 'Please set a result before completing the game';
+      setLastError(error);
+      toast.error(error);
+      return;
+    }
+
     setActionLoading(true);
     setLastError(null);
     setDebugInfo(null);
@@ -180,11 +199,11 @@ const LiveGameManagement: React.FC = () => {
       
       if (success) {
         toast.success('Game completed successfully', {
-          description: `Game #${gameStats.activeGame.game_number} has been completed manually`,
+          description: `Game #${gameStats.activeGame.game_number} has been completed manually with the set result`,
           icon: <CheckCircle className="h-4 w-4" />
         });
         
-        setTimeout(loadGameStats, 1000);
+        setTimeout(loadGameStats, 2000);
       } else {
         const error = 'Failed to complete game';
         setLastError(error);
@@ -278,7 +297,7 @@ const LiveGameManagement: React.FC = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              Game Control - Game #{gameStats.activeGame.game_number}
+              Enhanced Game Control - Game #{gameStats.activeGame.game_number}
             </div>
             <Button onClick={loadGameStats} variant="outline" size="sm" disabled={actionLoading}>
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -295,11 +314,29 @@ const LiveGameManagement: React.FC = () => {
               <Badge variant={isManualMode ? 'destructive' : 'secondary'}>
                 {isManualMode ? 'Manual' : 'Automatic'}
               </Badge>
+              {timerPaused && (
+                <>
+                  <span>| Timer:</span>
+                  <Badge variant="outline" className="text-orange-600">
+                    <Pause className="h-3 w-3 mr-1" />
+                    Paused
+                  </Badge>
+                </>
+              )}
               {gameStats.activeGame.admin_set_result_number !== null && (
                 <>
                   <span>| Set Result:</span>
                   <Badge variant="outline">
                     {gameStats.activeGame.admin_set_result_number}
+                  </Badge>
+                </>
+              )}
+              {gameStats.activeGame.manual_result_set && (
+                <>
+                  <span>| Result Ready:</span>
+                  <Badge variant="outline" className="text-green-600">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Ready to Complete
                   </Badge>
                 </>
               )}
@@ -316,18 +353,29 @@ const LiveGameManagement: React.FC = () => {
               disabled={actionLoading}
             />
             <Label htmlFor="manual-mode">
-              Manual Mode {isManualMode ? '(ON)' : '(OFF)'}
+              Manual Mode {isManualMode ? '(ON - Timer Paused)' : '(OFF - Auto Timer)'}
             </Label>
+            {timerPaused && (
+              <Badge variant="outline" className="ml-2 text-orange-600">
+                <Pause className="h-3 w-3 mr-1" />
+                Timer Override Active
+              </Badge>
+            )}
           </div>
 
           {/* Manual Controls */}
           {isManualMode && (
             <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
-              <h3 className="text-lg font-semibold">Set Manual Result</h3>
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-lg font-semibold">Enhanced Manual Game Control</h3>
+                <Badge variant="outline" className="text-blue-600">
+                  Timer Protected
+                </Badge>
+              </div>
               
               {/* Number Selection */}
               <div>
-                <Label>Select Number (0-9):</Label>
+                <Label>Select Result Number (0-9):</Label>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   {numbers.map(num => (
                     <Button
@@ -376,7 +424,11 @@ const LiveGameManagement: React.FC = () => {
                   <Play className="h-4 w-4" />
                   {actionLoading ? 'Setting...' : 'Set Result'}
                 </Button>
-                <Button onClick={handleCompleteGame} variant="destructive" disabled={actionLoading}>
+                <Button 
+                  onClick={handleCompleteGame} 
+                  variant="destructive" 
+                  disabled={actionLoading || !gameStats.activeGame.manual_result_set}
+                >
                   <Square className="h-4 w-4 mr-2" />
                   {actionLoading ? 'Completing...' : 'Complete Game'}
                 </Button>
@@ -396,6 +448,20 @@ const LiveGameManagement: React.FC = () => {
                   </span>
                 </div>
               )}
+
+              {/* Manual Mode Status */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                <div className="flex items-center gap-2 text-blue-800">
+                  <Info className="h-4 w-4" />
+                  <strong>Manual Mode Status:</strong>
+                </div>
+                <ul className="mt-2 text-sm text-blue-700 space-y-1">
+                  <li>• ✅ Automatic timer is paused</li>
+                  <li>• ✅ Game won't auto-complete at timer end</li>
+                  <li>• ✅ Manual result will be used when completing</li>
+                  <li>• ✅ Protected from timer interference</li>
+                </ul>
+              </div>
             </div>
           )}
         </CardContent>

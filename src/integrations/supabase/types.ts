@@ -327,6 +327,7 @@ export type Database = {
         Row: {
           admin_controlled: boolean | null
           admin_notes: string | null
+          admin_override_timer: boolean | null
           admin_set_result_color: string | null
           admin_set_result_number: number | null
           created_at: string | null
@@ -335,15 +336,19 @@ export type Database = {
           game_mode_type: string | null
           game_number: number
           id: string
+          manual_completion_required: boolean | null
+          manual_mode_enabled_at: string | null
           manual_result_set: boolean | null
           result_color: string | null
           result_number: number | null
           start_time: string
           status: string | null
+          timer_paused: boolean | null
         }
         Insert: {
           admin_controlled?: boolean | null
           admin_notes?: string | null
+          admin_override_timer?: boolean | null
           admin_set_result_color?: string | null
           admin_set_result_number?: number | null
           created_at?: string | null
@@ -352,15 +357,19 @@ export type Database = {
           game_mode_type?: string | null
           game_number: number
           id?: string
+          manual_completion_required?: boolean | null
+          manual_mode_enabled_at?: string | null
           manual_result_set?: boolean | null
           result_color?: string | null
           result_number?: number | null
           start_time: string
           status?: string | null
+          timer_paused?: boolean | null
         }
         Update: {
           admin_controlled?: boolean | null
           admin_notes?: string | null
+          admin_override_timer?: boolean | null
           admin_set_result_color?: string | null
           admin_set_result_number?: number | null
           created_at?: string | null
@@ -369,11 +378,14 @@ export type Database = {
           game_mode_type?: string | null
           game_number?: number
           id?: string
+          manual_completion_required?: boolean | null
+          manual_mode_enabled_at?: string | null
           manual_result_set?: boolean | null
           result_color?: string | null
           result_number?: number | null
           start_time?: string
           status?: string | null
+          timer_paused?: boolean | null
         }
         Relationships: []
       }
@@ -595,6 +607,10 @@ export type Database = {
         Args: { p_game_id: string; p_admin_user_id: string }
         Returns: Json
       }
+      complete_manual_game_enhanced: {
+        Args: { p_game_id: string; p_admin_user_id: string }
+        Returns: Json
+      }
       create_admin_account: {
         Args: {
           p_username: string
@@ -641,6 +657,10 @@ export type Database = {
           salt: string
         }[]
       }
+      is_game_manual: {
+        Args: { p_game_id: string }
+        Returns: boolean
+      }
       log_password_change: {
         Args: {
           p_admin_email: string
@@ -674,6 +694,22 @@ export type Database = {
         Returns: Json
       }
       set_manual_game_result_enhanced: {
+        Args: {
+          p_game_id: string
+          p_admin_user_id: string
+          p_result_number: number
+        }
+        Returns: Json
+      }
+      set_manual_mode_enhanced: {
+        Args: {
+          p_game_id: string
+          p_admin_user_id: string
+          p_enable_manual: boolean
+        }
+        Returns: Json
+      }
+      set_manual_result_enhanced: {
         Args: {
           p_game_id: string
           p_admin_user_id: string

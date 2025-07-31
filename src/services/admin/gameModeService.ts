@@ -17,10 +17,10 @@ export class GameModeService {
       console.log('✅ Admin user validated:', adminUser.email);
 
       // Use enhanced database function
-      const { data, error } = await supabase.rpc('set_game_mode_enhanced', {
+      const { data, error } = await supabase.rpc('set_manual_mode_enhanced', {
         p_game_id: gameId,
         p_admin_user_id: adminUser.id,
-        p_mode: mode
+        p_enable_manual: mode === 'manual'
       });
 
       console.log('📡 Enhanced database function response:', { data, error });
