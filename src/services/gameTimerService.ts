@@ -1,5 +1,5 @@
 import { GameCreationService } from './gameCreationService';
-import { ManualGameService } from './admin/manualGameService';
+import { EnhancedManualGameService } from './admin/enhancedManualGameService';
 
 export class GameTimerService {
   private static timers: Map<string, NodeJS.Timeout> = new Map();
@@ -28,43 +28,70 @@ export class GameTimerService {
     this.startManualModeMonitoring(currentGame.id);
 
     const updateTimer = async () => {
-      // Check if game is in manual mode before proceeding
-      const isManual = await ManualGameService.checkGameManualStatus(currentGame.id);
-      
-      if (isManual) {
-        console.log('⏸️ Game is in manual mode, timer paused for game:', currentGame.game_number);
-        // Still update UI but don't auto-complete
-        onTimerUpdate(0, false); // Show betting closed in manual mode
+      try {
+        // Check if game is in manual mode before proceeding
+        const gameStatus = await EnhancedManualGameService.checkGameStatus(currentGame.id);
         
-        // Schedule next check in 5 seconds
-        const timerId = setTimeout(updateTimer, 5000);
-        this.timers.set(currentGame.id, timerId);
-        return;
-      }
-
-      const now = new Date().getTime();
-      const endTime = new Date(currentGame.end_time).getTime();
-      const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
-      const isAcceptingBets = timeRemaining > 5; // Stop accepting bets 5 seconds before end
-
-      // Call update callback
-      onTimerUpdate(timeRemaining, isAcceptingBets);
-
-      if (timeRemaining > 0) {
-        // Schedule next update
-        const timerId = setTimeout(updateTimer, 1000);
-        this.timers.set(currentGame.id, timerId);
-      } else {
-        console.log('⏰ Timer ended for game (auto mode):', currentGame.game_number);
-        // Only auto-complete if not in manual mode
-        const finalManualCheck = await ManualGameService.checkGameManualStatus(currentGame.id);
-        if (!finalManualCheck) {
-          this.completeGameAndCreateNext(currentGame);
-        } else {
-          console.log('🛑 Game completion blocked - manual mode active');
-          // Keep checking every 10 seconds for manual completion
-          const timerId = setTimeout(updateTimer, 10000);
+        if (gameStatus.error) {
+          console.error('❌ Error checking game status:', gameStatus.error);
+          // Continue with normal timer in case of status check error
+        }
+        
+        if (gameStatus.isManual && gameStatus.timerPaused) {
+          console.log('⏸️ Game is in manual mode with timer paused:', currentGame.game_number);
+          // Update UI to show betting closed and timer at 0
+          onTimerUpdate(0, false);
+          
+          // Schedule next check in 5 seconds
+          const timerId = setTimeout(updateTimer, 5000);
           this.timers.set(currentGame.id, timerId);
+          return;
+        }
+
+        // Normal timer logic for automatic mode
+        const now = new Date().getTime();
+        const endTime = new Date(currentGame.end_time).getTime();
+        const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
+        const isAcceptingBets = timeRemaining > 5; // Stop accepting bets 5 seconds before end
+
+        // Call update callback
+        onTimerUpdate(timeRemaining, isAcceptingBets);
+
+        if (timeRemaining > 0) {
+          // Schedule next update
+          const timerId = setTimeout(updateTimer, 1000);
+          this.timers.set(currentGame.id, timerId);
+        } else {
+          console.log('⏰ Timer ended for game (checking manual mode):', currentGame.game_number);
+          
+          // Final check for manual mode before auto-completion
+          const finalStatus = await EnhancedManualGameService.checkGameStatus(currentGame.id);
+          
+          if (finalStatus.isManual) {
+            console.log('🛑 Game completion blocked - manual mode active');
+            // Keep checking every 10 seconds for manual completion
+            const timerId = setTimeout(updateTimer, 10000);
+            this.timers.set(currentGame.id, timerId);
+          } else {
+            // Auto-complete the game
+            this.completeGameAndCreateNext(currentGame);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error in timer update:', error);
+        // Fallback to normal timer behavior
+        const now = new Date().getTime();
+        const endTime = new Date(currentGame.end_time).getTime();
+        const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
+        const isAcceptingBets = timeRemaining > 5;
+        
+        onTimerUpdate(timeRemaining, isAcceptingBets);
+        
+        if (timeRemaining > 0) {
+          const timerId = setTimeout(updateTimer, 1000);
+          this.timers.set(currentGame.id, timerId);
+        } else {
+          this.completeGameAndCreateNext(currentGame);
         }
       }
     };
@@ -83,10 +110,14 @@ export class GameTimerService {
     // Check manual mode status every 3 seconds
     const intervalId = setInterval(async () => {
       try {
-        const isManual = await ManualGameService.checkGameManualStatus(gameId);
-        console.log('🔍 Manual mode check for game', gameId, ':', isManual);
+        const status = await EnhancedManualGameService.checkGameStatus(gameId);
+        console.log('🔍 Manual mode check for game', gameId, ':', {
+          isManual: status.isManual,
+          timerPaused: status.timerPaused,
+          resultSet: status.resultSet
+        });
       } catch (error) {
-        console.error('❌ Error checking manual mode:', error);
+        console.error('❌ Error in manual mode monitoring:', error);
       }
     }, 3000);
 
@@ -97,10 +128,10 @@ export class GameTimerService {
     try {
       console.log('🏁 Completing game and creating next...', currentGame.game_number);
       
-      // Double-check manual mode before completion
-      const isManual = await ManualGameService.checkGameManualStatus(currentGame.id);
-      if (isManual) {
-        console.log('🛑 Game completion aborted - manual mode detected');
+      // Triple-check manual mode before completion
+      const finalStatus = await EnhancedManualGameService.checkGameStatus(currentGame.id);
+      if (finalStatus.isManual && finalStatus.timerPaused) {
+        console.log('🛑 Game completion aborted - manual mode still active');
         return;
       }
       
