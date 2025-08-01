@@ -19,7 +19,8 @@ const BettingPanel: React.FC = () => {
     currentGame,
     isLoading: gameLoading,
     userBalance,
-    loadUserBalance
+    loadUserBalance,
+    isBettingInProgress
   } = useGameState();
   
   const { user, isAuthenticated, isLoading: authLoading } = useSupabaseAuthStore();
@@ -34,10 +35,14 @@ const BettingPanel: React.FC = () => {
     }
   }, [isAuthenticated, user, loadUserBalance]);
   
-  // Reset recently placed bet flag when betting window opens again
+  // Reset recently placed bet flag when betting window opens again or game changes
   useEffect(() => {
     if (isAcceptingBets && recentlyPlacedBet) {
-      setRecentlyPlacedBet(false);
+      const timer = setTimeout(() => {
+        setRecentlyPlacedBet(false);
+      }, 3000); // Clear after 3 seconds
+      
+      return () => clearTimeout(timer);
     }
   }, [isAcceptingBets, recentlyPlacedBet]);
   
@@ -71,11 +76,6 @@ const BettingPanel: React.FC = () => {
         toast.success(`Bet लगाई गई: ₹${betAmount} ${color} पर`, {
           description: `Game #${currentGame.game_number} • समय बचा: ${timeRemaining}s`
         });
-        
-        // Reload balance immediately after successful bet
-        setTimeout(() => {
-          loadUserBalance();
-        }, 500);
       } else {
         toast.error('Bet लगाने में असफल');
       }
@@ -115,11 +115,6 @@ const BettingPanel: React.FC = () => {
         toast.success(`Bet लगाई गई: ₹${betAmount} number ${number} पर`, {
           description: `Game #${currentGame.game_number} • समय बचा: ${timeRemaining}s`
         });
-        
-        // Reload balance immediately after successful bet
-        setTimeout(() => {
-          loadUserBalance();
-        }, 500);
       } else {
         toast.error('Bet लगाने में असफल');
       }
@@ -133,13 +128,22 @@ const BettingPanel: React.FC = () => {
   const hasActiveGame = currentGame && currentGame.status === 'active';
   const hasTimeRemaining = timeRemaining > 0;
   const canAffordBet = userBalance >= betAmount;
-  const canBet = Boolean(isAuthenticated && !isSystemLoading && hasActiveGame && isAcceptingBets && canAffordBet);
+  // Enhanced canBet logic that considers betting in progress state
+  const canBet = Boolean(
+    isAuthenticated && 
+    !isSystemLoading && 
+    hasActiveGame && 
+    isAcceptingBets && 
+    canAffordBet && 
+    !isBettingInProgress
+  );
 
   // Enhanced betting status display
   const getBettingStatusInfo = () => {
     if (!isAuthenticated) return { status: 'Login Required', color: 'text-red-400' };
     if (isSystemLoading) return { status: 'Loading...', color: 'text-yellow-400' };
     if (!hasActiveGame) return { status: 'No Active Game', color: 'text-gray-400' };
+    if (isBettingInProgress) return { status: 'Processing Bet...', color: 'text-blue-400' };
     if (!hasTimeRemaining) return { status: 'Awaiting New Game', color: 'text-blue-400' };
     if (!canAffordBet) return { status: 'Insufficient Balance', color: 'text-red-400' };
     if (!isAcceptingBets) return { status: `Result in ${timeRemaining}s`, color: 'text-orange-400' };
@@ -161,6 +165,7 @@ const BettingPanel: React.FC = () => {
     canAffordBet,
     canBet,
     recentlyPlacedBet,
+    isBettingInProgress,
     statusInfo: statusInfo.status
   });
 
@@ -175,7 +180,7 @@ const BettingPanel: React.FC = () => {
             <div className="flex justify-center items-center gap-2">
               <span className="text-xs text-gray-400">Game #{currentGame.game_number}</span>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                isAcceptingBets 
+                isAcceptingBets && !isBettingInProgress
                   ? 'bg-green-500/20 text-green-300 animate-pulse' 
                   : 'bg-red-500/20 text-red-300'
               }`}>
@@ -187,13 +192,17 @@ const BettingPanel: React.FC = () => {
             {hasTimeRemaining && (
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${
-                  isAcceptingBets ? 'bg-green-500 animate-pulse' : 'bg-orange-500'
+                  isAcceptingBets && !isBettingInProgress 
+                    ? 'bg-green-500 animate-pulse' 
+                    : 'bg-orange-500'
                 }`}></div>
                 <span className="text-lg font-mono font-bold text-white">
                   {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
                 </span>
                 <div className={`w-2 h-2 rounded-full ${
-                  isAcceptingBets ? 'bg-green-500 animate-pulse' : 'bg-orange-500'
+                  isAcceptingBets && !isBettingInProgress 
+                    ? 'bg-green-500 animate-pulse' 
+                    : 'bg-orange-500'
                 }`}></div>
               </div>
             )}
@@ -202,6 +211,13 @@ const BettingPanel: React.FC = () => {
             {recentlyPlacedBet && isAcceptingBets && (
               <div className="bg-green-500/20 text-green-300 text-xs px-3 py-1 rounded-full inline-block">
                 ✓ Bet Placed! आप और भी bet लगा सकते हैं
+              </div>
+            )}
+
+            {/* Show betting in progress indicator */}
+            {isBettingInProgress && (
+              <div className="bg-blue-500/20 text-blue-300 text-xs px-3 py-1 rounded-full inline-block animate-pulse">
+                🔄 Processing your bet...
               </div>
             )}
           </div>
@@ -239,7 +255,7 @@ const BettingPanel: React.FC = () => {
       {/* Enhanced debug info */}
       {process.env.NODE_ENV === 'development' && (
         <div className="bg-black/20 p-2 rounded text-xs text-gray-400 space-y-1">
-          <div>Timer: {timeRemaining}s | Betting: {isAcceptingBets ? 'Open' : 'Closed'}</div>
+          <div>Timer: {timeRemaining}s | Betting: {isAcceptingBets ? 'Open' : 'Closed'} | In Progress: {isBettingInProgress.toString()}</div>
           <div>Balance: ₹{userBalance} | Bet: ₹{betAmount} | Can Bet: {canBet.toString()}</div>
           <div>Recent Bet: {recentlyPlacedBet.toString()} | Game: #{currentGame?.game_number || 'None'}</div>
         </div>

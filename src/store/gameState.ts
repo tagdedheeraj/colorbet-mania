@@ -20,6 +20,10 @@ export interface GameStateSlice {
   userGameResults: any[];
   userBalance: number;
   
+  // New state for better bet management
+  isBettingInProgress: boolean;
+  lastBetTimestamp: number;
+  
   // State setters
   setCurrentGame: (game: SupabaseGame | null) => void;
   setTimeRemaining: (time: number) => void;
@@ -33,6 +37,7 @@ export interface GameStateSlice {
   setLastCompletedGame: (game: SupabaseGame | null) => void;
   setUserGameResults: (results: any[]) => void;
   setUserBalance: (balance: number) => void;
+  setIsBettingInProgress: (inProgress: boolean) => void;
   
   // Game operations
   placeBet: (type: 'color' | 'number', value: string) => Promise<boolean>;
@@ -46,7 +51,7 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
   isAcceptingBets: false,
   gameHistory: [],
   currentBets: [],
-  betAmount: 10, // Set minimum bet amount as default
+  betAmount: 10,
   currentGameMode: 'quick',
   gameModesConfig: GAME_MODES,
   isLoading: false,
@@ -54,6 +59,8 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
   lastCompletedGame: null,
   userGameResults: [],
   userBalance: 0,
+  isBettingInProgress: false,
+  lastBetTimestamp: 0,
 
   setCurrentGame: (game) => set({ currentGame: game }),
   setTimeRemaining: (time) => set({ timeRemaining: time }),
@@ -80,6 +87,7 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
       set({ betAmount: newBetAmount });
     }
   },
+  setIsBettingInProgress: (inProgress) => set({ isBettingInProgress: inProgress }),
 
   loadUserBalance: async () => {
     try {
@@ -125,12 +133,16 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
       return false;
     }
 
+    // Set betting in progress to prevent UI state reset
+    set({ isBettingInProgress: true });
+
     // Check balance before placing bet
     await get().loadUserBalance();
     const currentBalance = get().userBalance;
     
     if (currentBalance < state.betAmount) {
       console.error('Insufficient balance:', currentBalance, 'needed:', state.betAmount);
+      set({ isBettingInProgress: false });
       return false;
     }
 
@@ -143,6 +155,9 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
       );
 
       if (success) {
+        // Update last bet timestamp
+        set({ lastBetTimestamp: Date.now() });
+        
         // Reload current bets and balance after successful bet placement
         await get().loadCurrentBets();
         await get().loadUserBalance();
@@ -153,6 +168,9 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
     } catch (error) {
       console.error('❌ Error placing bet:', error);
       return false;
+    } finally {
+      // Always reset betting in progress
+      set({ isBettingInProgress: false });
     }
   },
 

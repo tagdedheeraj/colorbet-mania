@@ -1,4 +1,3 @@
-
 import { GameCreationService } from './gameCreationService';
 import { EnhancedManualGameService } from './admin/enhancedManualGameService';
 
@@ -54,18 +53,18 @@ export class GameTimerService {
         const endTime = new Date(currentGame.end_time).getTime();
         const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
         
-        // Enhanced betting window logic - allow betting until 2 seconds before end
-        // This gives users more time to place bets and see countdown
-        const isAcceptingBets = timeRemaining > 2;
+        // Enhanced betting window logic - allow betting until 3 seconds before end
+        // This gives users more time to place bets while ensuring proper game completion
+        const isAcceptingBets = timeRemaining > 3;
 
         console.log('⏰ Timer update:', {
           gameNumber: currentGame.game_number,
           timeRemaining,
           isAcceptingBets,
-          bettingWindowClosed: timeRemaining <= 2
+          bettingWindowClosed: timeRemaining <= 3
         });
 
-        // Call update callback - this maintains countdown visibility
+        // Always call update callback to maintain countdown visibility
         onTimerUpdate(timeRemaining, isAcceptingBets);
 
         if (timeRemaining > 0) {
@@ -94,7 +93,7 @@ export class GameTimerService {
         const now = new Date().getTime();
         const endTime = new Date(currentGame.end_time).getTime();
         const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
-        const isAcceptingBets = timeRemaining > 2; // Use 2 seconds instead of 5
+        const isAcceptingBets = timeRemaining > 3; // Changed from 2 to 3 for better user experience
         
         onTimerUpdate(timeRemaining, isAcceptingBets);
         

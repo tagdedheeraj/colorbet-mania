@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BetService } from './betService';
 import { toast } from 'sonner';
@@ -112,7 +111,8 @@ export class BetManagementService {
         
         const newBalance = currentBalance - betAmount;
         toast.success(`✅ Bet successful! ${type === 'color' ? value : `Number ${value}`}`, {
-          description: `Amount: ₹${betAmount} • New balance: ₹${newBalance}`
+          description: `Amount: ₹${betAmount} • New balance: ₹${newBalance}`,
+          duration: 2000 // Shorter duration to prevent UI clutter
         });
       }
 

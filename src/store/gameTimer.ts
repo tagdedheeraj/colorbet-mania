@@ -1,4 +1,3 @@
-
 import { GameTimerService } from '@/services/gameTimerService';
 import { GameInitializationService } from '@/services/gameInitializationService';
 import { BetHistoryService } from '@/services/betHistoryService';
@@ -27,15 +26,15 @@ export const useGameTimer = () => {
     const now = new Date().getTime();
     const endTime = new Date(currentGame.end_time).getTime();
     const initialTimeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
-    // Enhanced betting window - allow betting until 2 seconds before end
-    const initialIsAcceptingBets = initialTimeRemaining > 2;
+    // Enhanced betting window - allow betting until 3 seconds before end
+    const initialIsAcceptingBets = initialTimeRemaining > 3;
 
     console.log('⏰ Initial timer state:', {
       gameNumber: currentGame.game_number,
       timeRemaining: initialTimeRemaining,
       isAcceptingBets: initialIsAcceptingBets,
       endTime: currentGame.end_time,
-      bettingWindowEndsAt: `${initialTimeRemaining - 2}s`
+      bettingWindowEndsAt: `${initialTimeRemaining - 3}s`
     });
 
     // Set initial state immediately - this ensures countdown is visible
@@ -53,21 +52,33 @@ export const useGameTimer = () => {
     GameTimerService.startGameTimer(
       currentGame,
       (timeRemaining, isAcceptingBets) => {
+        const currentState = useGameState.getState();
+        
         console.log('⏱️ Timer update callback:', {
           gameNumber: currentGame.game_number,
           timeRemaining,
           isAcceptingBets,
-          bettingStatus: isAcceptingBets ? 'OPEN' : 'CLOSED'
+          bettingStatus: isAcceptingBets ? 'OPEN' : 'CLOSED',
+          isBettingInProgress: currentState.isBettingInProgress
         });
         
-        // Always update time remaining to maintain countdown visibility
-        gameState.setTimeRemaining(timeRemaining);
-        
-        // Update betting status based on timer logic
-        gameState.setIsAcceptingBets(isAcceptingBets);
+        // Only update timer state if not currently placing a bet
+        // This prevents timer reset during bet placement
+        if (!currentState.isBettingInProgress) {
+          // Always update time remaining to maintain countdown visibility
+          currentState.setTimeRemaining(timeRemaining);
+          
+          // Update betting status based on timer logic
+          currentState.setIsAcceptingBets(isAcceptingBets);
+        } else {
+          // During bet placement, only update time remaining
+          // Keep betting status as it was to prevent UI lockup
+          console.log('🔒 Bet in progress - preserving betting state');
+          currentState.setTimeRemaining(timeRemaining);
+        }
         
         // Provide user feedback when betting window closes
-        if (!isAcceptingBets && timeRemaining > 0) {
+        if (!isAcceptingBets && timeRemaining > 0 && timeRemaining <= 3) {
           console.log('🔒 Betting window closed, awaiting result...');
         }
       },
