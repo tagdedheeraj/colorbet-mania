@@ -27,16 +27,18 @@ export const useGameTimer = () => {
     const now = new Date().getTime();
     const endTime = new Date(currentGame.end_time).getTime();
     const initialTimeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
-    const initialIsAcceptingBets = initialTimeRemaining > 5;
+    // Enhanced betting window - allow betting until 2 seconds before end
+    const initialIsAcceptingBets = initialTimeRemaining > 2;
 
     console.log('⏰ Initial timer state:', {
       gameNumber: currentGame.game_number,
       timeRemaining: initialTimeRemaining,
       isAcceptingBets: initialIsAcceptingBets,
-      endTime: currentGame.end_time
+      endTime: currentGame.end_time,
+      bettingWindowEndsAt: `${initialTimeRemaining - 2}s`
     });
 
-    // Set initial state immediately
+    // Set initial state immediately - this ensures countdown is visible
     gameState.setTimeRemaining(initialTimeRemaining);
     gameState.setIsAcceptingBets(initialIsAcceptingBets);
 
@@ -47,17 +49,27 @@ export const useGameTimer = () => {
       return;
     }
 
-    // Start the timer
+    // Start the timer with enhanced callback handling
     GameTimerService.startGameTimer(
       currentGame,
       (timeRemaining, isAcceptingBets) => {
-        console.log('⏱️ Timer update:', {
+        console.log('⏱️ Timer update callback:', {
           gameNumber: currentGame.game_number,
           timeRemaining,
-          isAcceptingBets
+          isAcceptingBets,
+          bettingStatus: isAcceptingBets ? 'OPEN' : 'CLOSED'
         });
+        
+        // Always update time remaining to maintain countdown visibility
         gameState.setTimeRemaining(timeRemaining);
+        
+        // Update betting status based on timer logic
         gameState.setIsAcceptingBets(isAcceptingBets);
+        
+        // Provide user feedback when betting window closes
+        if (!isAcceptingBets && timeRemaining > 0) {
+          console.log('🔒 Betting window closed, awaiting result...');
+        }
       },
       handleGameCompletion
     );
@@ -83,6 +95,12 @@ export const useGameTimer = () => {
           created_at: completedGame.created_at || new Date().toISOString()
         };
 
+        console.log('🎉 Game result ready:', {
+          gameNumber: formattedCompletedGame.game_number,
+          resultColor: formattedCompletedGame.result_color,
+          resultNumber: formattedCompletedGame.result_number
+        });
+
         // Show result popup
         useGameState.getState().setLastCompletedGame(formattedCompletedGame);
         useGameState.getState().setShowResultPopup(true);
@@ -90,11 +108,12 @@ export const useGameTimer = () => {
         toast.success(`Game ${formattedCompletedGame.game_number} completed! Result: ${formattedCompletedGame.result_color} ${formattedCompletedGame.result_number}`);
       }
       
-      // Reload current data to get new game
+      // Reload current data to get new game with proper delay
       setTimeout(async () => {
+        console.log('🔄 Loading new game data...');
         await gameOps.loadCurrentData();
         
-        // Start timer for new game after a short delay
+        // Start timer for new game after ensuring state is loaded
         setTimeout(() => {
           console.log('🔄 Starting timer for new game');
           startGameTimer();
@@ -103,6 +122,11 @@ export const useGameTimer = () => {
       
     } catch (error) {
       console.error('❌ Error in game completion callback:', error);
+      // Even on error, try to reload after delay
+      setTimeout(async () => {
+        await gameOps.loadCurrentData();
+        setTimeout(() => startGameTimer(), 2000);
+      }, 5000);
     }
   };
 

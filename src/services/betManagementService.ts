@@ -15,7 +15,8 @@ export class BetManagementService {
       gameNumber: currentGame?.game_number,
       betAmount,
       type,
-      value
+      value,
+      timestamp: new Date().toISOString()
     });
 
     if (!currentGame) {
@@ -45,7 +46,12 @@ export class BetManagementService {
         return false;
       }
 
-      console.log('📊 Fresh user balance:', userProfile.balance);
+      console.log('📊 Fresh user balance check:', {
+        userId: session.user.id,
+        currentBalance: userProfile.balance,
+        betAmount,
+        hasEnoughBalance: userProfile.balance >= betAmount
+      });
 
       const currentBalance = userProfile.balance || 0;
       if (currentBalance < betAmount) {
@@ -54,7 +60,7 @@ export class BetManagementService {
         return false;
       }
 
-      // Validate bet amount
+      // Enhanced validation
       if (betAmount < 10) {
         console.error('Minimum bet amount is 10');
         toast.error('Minimum bet amount ₹10 है');
@@ -75,7 +81,15 @@ export class BetManagementService {
         return false;
       }
 
-      console.log('✅ Placing bet with game number:', gameNumber);
+      console.log('✅ Placing bet with enhanced validation:', {
+        gameId: currentGame.id,
+        gameNumber,
+        userId: session.user.id,
+        type,
+        value,
+        amount: betAmount,
+        userBalance: currentBalance
+      });
 
       const success = await BetService.placeBet(
         currentGame.id,
@@ -88,9 +102,18 @@ export class BetManagementService {
       );
 
       if (success) {
-        console.log('🎉 Bet placed successfully');
+        console.log('🎉 Bet placed successfully:', {
+          type,
+          value,
+          amount: betAmount,
+          gameNumber,
+          newBalance: currentBalance - betAmount
+        });
+        
         const newBalance = currentBalance - betAmount;
-        toast.success(`✅ Bet successful! नया balance: ${newBalance} coins`);
+        toast.success(`✅ Bet successful! ${type === 'color' ? value : `Number ${value}`}`, {
+          description: `Amount: ₹${betAmount} • New balance: ₹${newBalance}`
+        });
       }
 
       return success;
@@ -119,9 +142,13 @@ export class BetManagementService {
         return [];
       }
 
-      console.log('📊 Loading bets for game:', currentGame.game_number);
+      console.log('📊 Loading bets for game:', {
+        gameId,
+        gameNumber: currentGame.game_number,
+        userId: session.user.id
+      });
 
-      // Load bets by game_id directly
+      // Load bets by game_id directly with enhanced query
       const { data: bets, error } = await supabase
         .from('bets')
         .select('*')
@@ -134,7 +161,16 @@ export class BetManagementService {
         return [];
       }
 
-      console.log('📈 Current bets loaded:', bets?.length || 0);
+      console.log('📈 Current bets loaded successfully:', {
+        gameNumber: currentGame.game_number,
+        betsCount: bets?.length || 0,
+        bets: bets?.map(bet => ({
+          type: bet.bet_type,
+          value: bet.bet_value,
+          amount: bet.amount
+        })) || []
+      });
+      
       return bets || [];
     } catch (error) {
       console.error('Error loading current bets:', error);
