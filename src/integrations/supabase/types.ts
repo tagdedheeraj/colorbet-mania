@@ -94,6 +94,60 @@ export type Database = {
           },
         ]
       }
+      deposit_requests: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          notes: string | null
+          payment_method: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string | null
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          payment_method: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string | null
+          transaction_id: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          payment_method?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string | null
+          transaction_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposit_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_periods: {
         Row: {
           admin_set_result_color: string | null
@@ -139,6 +193,78 @@ export type Database = {
         }
         Relationships: []
       }
+      games: {
+        Row: {
+          admin_set_result_color: string | null
+          admin_set_result_number: number | null
+          created_at: string | null
+          end_time: string | null
+          game_mode: string | null
+          game_number: number
+          id: string
+          is_result_locked: boolean | null
+          result_color: string | null
+          result_number: number | null
+          start_time: string | null
+          status: string | null
+        }
+        Insert: {
+          admin_set_result_color?: string | null
+          admin_set_result_number?: number | null
+          created_at?: string | null
+          end_time?: string | null
+          game_mode?: string | null
+          game_number: number
+          id?: string
+          is_result_locked?: boolean | null
+          result_color?: string | null
+          result_number?: number | null
+          start_time?: string | null
+          status?: string | null
+        }
+        Update: {
+          admin_set_result_color?: string | null
+          admin_set_result_number?: number | null
+          created_at?: string | null
+          end_time?: string | null
+          game_mode?: string | null
+          game_number?: number
+          id?: string
+          is_result_locked?: boolean | null
+          result_color?: string | null
+          result_number?: number | null
+          start_time?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      payment_gateway_config: {
+        Row: {
+          config_data: Json
+          created_at: string | null
+          gateway_type: string
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          config_data: Json
+          created_at?: string | null
+          gateway_type: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          config_data?: Json
+          created_at?: string | null
+          gateway_type?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           balance: number | null
@@ -146,6 +272,7 @@ export type Database = {
           email: string | null
           id: string
           updated_at: string | null
+          username: string | null
         }
         Insert: {
           balance?: number | null
@@ -153,6 +280,7 @@ export type Database = {
           email?: string | null
           id: string
           updated_at?: string | null
+          username?: string | null
         }
         Update: {
           balance?: number | null
@@ -160,6 +288,7 @@ export type Database = {
           email?: string | null
           id?: string
           updated_at?: string | null
+          username?: string | null
         }
         Relationships: []
       }
@@ -201,7 +330,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      users: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       update_user_balance: {

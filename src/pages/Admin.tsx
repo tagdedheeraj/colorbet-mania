@@ -21,12 +21,41 @@ import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
 import AdminSettings from '@/components/admin/AdminSettings';
 import { ManualGameService } from '@/services/admin/manualGameService';
 
+interface Game {
+  id: string;
+  game_number: number;
+  status: string;
+  game_mode: string;
+  result_number?: number;
+  result_color?: string;
+  created_at: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  balance: number;
+  username?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Bet {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  users?: { username: string; email: string };
+  games?: { game_number: number; status: string };
+}
+
 const Admin: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<any[]>([]);
-  const [games, setGames] = useState<any[]>([]);
-  const [bets, setBets] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
+  const [bets, setBets] = useState<Bet[]>([]);
   const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
   const [depositStats, setDepositStats] = useState<DepositStats | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
@@ -44,7 +73,7 @@ const Admin: React.FC = () => {
       loadDepositStats();
     });
 
-    // Set up real-time subscription for users table
+    // Set up real-time subscription for profiles table (users)
     const usersChannel = supabase
       .channel('admin-users-changes')
       .on(
@@ -52,7 +81,7 @@ const Admin: React.FC = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'users'
+          table: 'profiles'
         },
         (payload) => {
           console.log('👥 Real-time user change received:', payload);
@@ -98,11 +127,10 @@ const Admin: React.FC = () => {
       setDataError(null);
       
       const [gamesResult, betsResult] = await Promise.all([
-        supabase.from('games').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('game_periods').select('*').order('created_at', { ascending: false }).limit(100),
         supabase.from('bets').select(`
           *,
-          users!inner(username, email),
-          games!inner(game_number, status)
+          profiles!inner(username, email)
         `).order('created_at', { ascending: false }).limit(100)
       ]);
 
@@ -111,7 +139,18 @@ const Admin: React.FC = () => {
         bets: betsResult.data?.length
       });
 
-      setGames(gamesResult.data || []);
+      // Map game_periods to games format for compatibility
+      const mappedGames = (gamesResult.data || []).map(game => ({
+        id: game.id,
+        game_number: game.period_number,
+        status: game.status,
+        game_mode: game.game_mode_type || 'classic',
+        result_number: game.result_number,
+        result_color: game.result_color,
+        created_at: game.created_at
+      }));
+
+      setGames(mappedGames);
       setBets(betsResult.data || []);
       
       // Load users separately with better error handling
@@ -134,7 +173,7 @@ const Admin: React.FC = () => {
       console.log('👥 Loading users...');
       
       const { data: usersResult, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -214,7 +253,7 @@ const Admin: React.FC = () => {
   const handleUpdateBalance = async (userId: string, newBalance: number) => {
     try {
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({ balance: newBalance })
         .eq('id', userId);
 
@@ -236,9 +275,9 @@ const Admin: React.FC = () => {
     try {
       console.log('🎯 Setting manual result:', number);
       
-      // Find the latest active game
+      // Find the latest active game from game_periods
       const { data: activeGame, error } = await supabase
-        .from('games')
+        .from('game_periods')
         .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
@@ -251,14 +290,14 @@ const Admin: React.FC = () => {
         return;
       }
 
-      console.log('🎮 Found active game:', activeGame.game_number);
+      console.log('🎮 Found active game:', activeGame.period_number);
 
       // Use the ManualGameService to set manual result
       const success = await ManualGameService.setManualResult(activeGame.id, number);
 
       if (success) {
         toast.success(`Manual result set to ${number} successfully!`, {
-          description: `Game #${activeGame.game_number} result has been set`
+          description: `Game #${activeGame.period_number} result has been set`
         });
         await loadData();
       } else {

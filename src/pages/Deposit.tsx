@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { UserSyncService } from '@/services/userSyncService';
 
 interface PaymentConfig {
+  id: string;
   gateway_type: string;
   config_data: any;
   is_active: boolean;
