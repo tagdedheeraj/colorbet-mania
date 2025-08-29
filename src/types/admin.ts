@@ -59,6 +59,13 @@ export interface AdminTransaction {
   reference_id?: string;
 }
 
+export interface DepositStats {
+  pending_count: number;
+  pending_amount: number;
+  today_approved_count: number;
+  today_approved_amount: number;
+}
+
 export interface DatabaseResponse {
   success: boolean;
   message: string;

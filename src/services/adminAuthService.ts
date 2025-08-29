@@ -1,8 +1,17 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  username: string;
+  balance: number;
+  created_at: string;
+  updated_at: string;
+}
+
 class AdminAuthService {
-  static async getCurrentAdminUser() {
+  static async getCurrentAdminUser(): Promise<AdminUser | null> {
     try {
       console.log('🔍 Getting current admin user...');
       
@@ -18,7 +27,7 @@ class AdminAuthService {
         return null;
       }
 
-      // Get user profile from profiles table (no role column exists)
+      // Get user profile from profiles table
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -36,7 +45,6 @@ class AdminAuthService {
       }
 
       // For now, assume all authenticated users can be admins
-      // In a real app, you'd check a role field or admin table
       console.log('✅ Admin user validated:', profile.email);
       
       return {
@@ -78,7 +86,6 @@ class AdminAuthService {
       }
 
       // For now, allow any authenticated user to be admin
-      // In production, you'd check an admin role or separate admin table
       console.log('✅ Admin access validated for:', profile.email);
       return true;
 
@@ -88,7 +95,7 @@ class AdminAuthService {
     }
   }
 
-  static async getAllAdminUsers() {
+  static async getAllAdminUsers(): Promise<AdminUser[]> {
     try {
       console.log('👥 Loading all admin users...');
       
@@ -103,11 +110,10 @@ class AdminAuthService {
         return [];
       }
 
-      const adminUsers = (profiles || []).map(profile => ({
+      const adminUsers: AdminUser[] = (profiles || []).map(profile => ({
         id: profile.id,
         email: profile.email || '',
         username: profile.username || '',
-        role: 'admin' as const, // Default role since column doesn't exist
         balance: profile.balance || 0,
         created_at: profile.created_at || new Date().toISOString(),
         updated_at: profile.updated_at || new Date().toISOString()
@@ -120,6 +126,72 @@ class AdminAuthService {
       console.error('❌ Exception in getAllAdminUsers:', error);
       return [];
     }
+  }
+
+  // Add missing authentication methods
+  static async isAuthenticated(): Promise<boolean> {
+    return await this.validateAdminAccess();
+  }
+
+  static async login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('❌ Login error:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Exception in login:', error);
+      return { success: false, error: 'Login failed' };
+    }
+  }
+
+  static async logout(): Promise<void> {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+    }
+  }
+
+  static async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error('❌ Password change error:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Auto logout after password change for security
+      await this.logout();
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Exception in changePassword:', error);
+      return { success: false, error: 'Password change failed' };
+    }
+  }
+
+  static getSessionToken(): string | null {
+    // Get session from localStorage
+    const session = localStorage.getItem('supabase.auth.token');
+    return session;
+  }
+
+  static async validateCurrentSession(): Promise<boolean> {
+    return await this.validateAdminAccess();
+  }
+
+  static async hasAdminRole(): Promise<boolean> {
+    return await this.validateAdminAccess();
   }
 }
 

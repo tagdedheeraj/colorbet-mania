@@ -68,6 +68,52 @@ export class BetHistoryService {
     }
   }
 
+  // Add missing loadAllUserBets method (alias for loadUserBetHistory)
+  static async loadAllUserBets(userId: string, limit: number = 50): Promise<BetWithGame[]> {
+    return await this.loadUserBetHistory(userId, limit);
+  }
+
+  // Add missing getLatestCompletedGame method
+  static async getLatestCompletedGame() {
+    try {
+      console.log('🎯 Loading latest completed game...');
+
+      const { data: latestGame, error } = await supabase
+        .from('game_periods')
+        .select('*')
+        .eq('status', 'completed')
+        .order('period_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Error loading latest game:', error);
+        return null;
+      }
+
+      if (!latestGame) {
+        console.log('📊 No completed games found');
+        return null;
+      }
+
+      return {
+        id: latestGame.id,
+        game_number: latestGame.period_number,
+        result_color: latestGame.result_color,
+        result_number: latestGame.result_number,
+        start_time: latestGame.start_time,
+        end_time: latestGame.end_time,
+        status: latestGame.status,
+        game_mode: 'quick',
+        created_at: latestGame.created_at
+      };
+
+    } catch (error) {
+      console.error('❌ Exception in getLatestCompletedGame:', error);
+      return null;
+    }
+  }
+
   static async getUserGameResults(userId: string, limit: number = 10) {
     try {
       console.log('🎯 Loading game results for user:', userId);

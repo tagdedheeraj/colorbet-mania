@@ -35,9 +35,6 @@ export const ensureUserDataExists = async (user: any) => {
     if (!existingUser) {
       console.log('User not found in profiles, creating...');
       
-      // Extract username from metadata or email
-      const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
-      
       // Insert into profiles table with 50rs signup bonus
       const { error: profileError } = await supabase
         .from('profiles')
@@ -52,16 +49,13 @@ export const ensureUserDataExists = async (user: any) => {
         throw profileError;
       }
 
-      // Create signup bonus transaction
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'bonus',
-          amount: 50.00,
-          description: 'Welcome bonus - Thank you for joining!',
-          status: 'completed'
-        });
+      // Create signup bonus transaction using the update_user_balance function
+      const { error: transactionError } = await supabase.rpc('update_user_balance', {
+        user_id_param: user.id,
+        amount_param: 50.00,
+        transaction_type_param: 'bonus',
+        description_param: 'Welcome bonus - Thank you for joining!'
+      });
 
       if (transactionError) {
         console.error('Signup bonus transaction error:', transactionError);
