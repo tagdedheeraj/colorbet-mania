@@ -14,46 +14,45 @@ export interface GameModeConfig {
 
 export interface GameResult {
   id: string;
-  game_number: number;
+  period_number: number;
   result_color: ColorType;
   result_number: NumberType;
   start_time: string;
   end_time: string;
   status: string;
-  game_mode: string;
+  game_mode_type: string;
   created_at: string;
 }
 
 export interface Bet {
   id: string;
-  game_id: string;
   user_id: string;
+  period_number: number;
   bet_type: 'color' | 'number';
   bet_value: string;
   amount: number;
-  potential_win: number;
-  is_winner: boolean;
-  actual_win: number;
+  profit: number;
+  status: string;
   created_at: string;
 }
 
-// Extended bet type that includes game data for history display
-export interface BetWithGame extends SupabaseBet {
-  game: SupabaseGame;
+// Extended bet type that includes game period data for history display
+export interface BetWithGame extends Bet {
+  game_period: GamePeriod;
 }
 
 export interface GameState {
-  currentGame: SupabaseGame | null;
+  currentGame: GamePeriod | null;
   timeRemaining: number;
   isAcceptingBets: boolean;
-  gameHistory: SupabaseGame[];
-  currentBets: SupabaseBet[];
+  gameHistory: GamePeriod[];
+  currentBets: Bet[];
   betAmount: number;
   currentGameMode: GameMode;
   gameModesConfig: GameModeConfig[];
   isLoading: boolean;
   showResultPopup?: boolean;
-  lastCompletedGame?: SupabaseGame | null;
+  lastCompletedGame?: GamePeriod | null;
   userGameResults?: any[];
 
   // Actions
@@ -70,40 +69,30 @@ export interface GameState {
   closeResultPopup?: () => void;
 }
 
-export interface SupabaseGame {
+export interface GamePeriod {
   id: string;
-  game_number: number;
+  period_number: number;
   start_time: string;
-  end_time: string;
+  end_time: string | null;
   status: string;
   result_color: string | null;
   result_number: number | null;
-  game_mode: string;
+  game_mode_type: string;
   created_at: string;
+  admin_set_result_number: number | null;
+  admin_set_result_color: string | null;
+  is_result_locked: boolean;
 }
 
-export interface SupabaseBet {
-  id: string;
-  game_id: string;
-  user_id: string;
-  bet_type: string;
-  bet_value: string;
-  amount: number;
-  potential_win: number;
-  is_winner: boolean | null;
-  actual_win: number | null;
-  created_at: string;
-}
+// Legacy aliases for backward compatibility
+export interface SupabaseGame extends GamePeriod {}
+
+export interface SupabaseBet extends Bet {}
 
 export interface UserProfile {
   id: string;
   email: string;
-  username: string;
   balance: number;
-  referral_code: string | null;
-  referred_by: string | null;
   created_at: string;
   updated_at: string;
-  full_name?: string;
-  phone?: string;
 }

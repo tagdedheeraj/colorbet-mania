@@ -26,60 +26,62 @@ export class BetHistoryService {
 
       console.log('✅ Loaded', bets.length, 'bets for user');
 
-      // Get unique game IDs from bets
-      const gameIds = [...new Set(bets.map(bet => bet.game_id).filter(Boolean))];
+      // Get unique period numbers from bets
+      const periodNumbers = [...new Set(bets.map(bet => bet.period_number).filter(Boolean))];
       
-      if (gameIds.length === 0) {
-        console.log('ℹ️ No game IDs found in bets');
+      if (periodNumbers.length === 0) {
+        console.log('ℹ️ No period numbers found in bets');
         return [];
       }
       
-      // Fetch game data for those game IDs with optimized query
-      const { data: games, error: gamesError } = await supabase
-        .from('games')
+      // Fetch game period data for those period numbers
+      const { data: gamePeriods, error: gamePeriodsError } = await supabase
+        .from('game_periods')
         .select('*')
-        .in('id', gameIds)
+        .in('period_number', periodNumbers)
         .order('created_at', { ascending: false });
 
-      if (gamesError) {
-        console.error('❌ Error loading games:', gamesError);
+      if (gamePeriodsError) {
+        console.error('❌ Error loading game periods:', gamePeriodsError);
         return [];
       }
 
-      console.log('✅ Loaded', games?.length || 0, 'games');
+      console.log('✅ Loaded', gamePeriods?.length || 0, 'game periods');
 
-      // Create a map of games for quick lookup
-      const gamesMap = (games || []).reduce((acc, game) => {
-        acc[game.id] = game;
+      // Create a map of game periods for quick lookup
+      const gamePeriodsMap = (gamePeriods || []).reduce((acc, gamePeriod) => {
+        acc[gamePeriod.period_number] = gamePeriod;
         return acc;
       }, {} as any);
 
-      // Combine bets with their corresponding game data
+      // Combine bets with their corresponding game period data
       const combinedData = bets.map(bet => ({
         id: bet.id,
-        game_id: bet.game_id || '',
         user_id: bet.user_id || '',
+        period_number: bet.period_number,
         bet_type: bet.bet_type as 'color' | 'number',
         bet_value: bet.bet_value,
         amount: bet.amount,
-        potential_win: bet.potential_win,
-        is_winner: bet.is_winner || false,
-        actual_win: bet.actual_win || 0,
+        profit: bet.profit || 0,
+        status: bet.status || 'pending',
         created_at: bet.created_at || new Date().toISOString(),
-        game: {
-          id: bet.game_id || '',
-          game_number: gamesMap[bet.game_id || '']?.game_number || 0,
-          result_color: gamesMap[bet.game_id || '']?.result_color || null,
-          result_number: gamesMap[bet.game_id || '']?.result_number || null,
-          start_time: gamesMap[bet.game_id || '']?.start_time || '',
-          end_time: gamesMap[bet.game_id || '']?.end_time || '',
-          status: gamesMap[bet.game_id || '']?.status || '',
-          game_mode: gamesMap[bet.game_id || '']?.game_mode || 'classic',
-          created_at: gamesMap[bet.game_id || '']?.created_at || ''
+        game_period: {
+          id: gamePeriodsMap[bet.period_number]?.id || '',
+          period_number: bet.period_number,
+          result_color: gamePeriodsMap[bet.period_number]?.result_color || null,
+          result_number: gamePeriodsMap[bet.period_number]?.result_number || null,
+          start_time: gamePeriodsMap[bet.period_number]?.start_time || '',
+          end_time: gamePeriodsMap[bet.period_number]?.end_time || '',
+          status: gamePeriodsMap[bet.period_number]?.status || '',
+          game_mode_type: gamePeriodsMap[bet.period_number]?.game_mode_type || 'automatic',
+          created_at: gamePeriodsMap[bet.period_number]?.created_at || '',
+          admin_set_result_number: gamePeriodsMap[bet.period_number]?.admin_set_result_number || null,
+          admin_set_result_color: gamePeriodsMap[bet.period_number]?.admin_set_result_color || null,
+          is_result_locked: gamePeriodsMap[bet.period_number]?.is_result_locked || false
         }
       }));
 
-      console.log('✅ Combined bet and game data successfully');
+      console.log('✅ Combined bet and game period data successfully');
       return combinedData;
     } catch (error) {
       console.error('❌ Error loading all user bets:', error);
@@ -92,7 +94,7 @@ export class BetHistoryService {
       console.log('🎯 Loading latest completed game...');
       
       const { data, error } = await supabase
-        .from('games')
+        .from('game_periods')
         .select('*')
         .eq('status', 'completed')
         .not('result_number', 'is', null)
@@ -107,7 +109,7 @@ export class BetHistoryService {
       }
 
       if (data) {
-        console.log('✅ Latest completed game loaded:', data.game_number);
+        console.log('✅ Latest completed game loaded:', data.period_number);
       } else {
         console.log('ℹ️ No completed games found');
       }
@@ -126,7 +128,7 @@ export class BetHistoryService {
       
       const allBets = await this.loadAllUserBets(userId);
       const recentBets = allBets
-        .filter(bet => bet.game.status === 'completed')
+        .filter(bet => bet.game_period.status === 'completed')
         .slice(0, limit);
       
       console.log('✅ Recent bet activity loaded:', recentBets.length, 'bets');
