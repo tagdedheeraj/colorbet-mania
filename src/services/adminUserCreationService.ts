@@ -1,73 +1,82 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export class AdminUserCreationService {
-  static async createAdminUser(email: string, password: string) {
+  static async createUser(userData: {
+    email: string;
+    username: string;
+    balance?: number;
+  }): Promise<{ success: boolean; user?: any; error?: any }> {
     try {
-      console.log('Creating admin user through Supabase Auth...');
-      
-      // Use Supabase's proper signup method
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/admin`
-        }
-      });
+      console.log('👤 Creating new user:', userData.email);
+
+      // Create user in profiles table
+      const { data: user, error } = await supabase
+        .from('profiles')
+        .insert({
+          email: userData.email,
+          username: userData.username,
+          balance: userData.balance || 100
+        })
+        .select()
+        .single();
 
       if (error) {
-        console.error('Error creating admin user:', error);
+        console.error('❌ Error creating user:', error);
+        toast.error('Failed to create user');
         return { success: false, error };
       }
 
-      if (!data.user) {
-        return { success: false, error: { message: 'No user created' } };
-      }
+      console.log('✅ User created successfully:', user.id);
+      toast.success('User created successfully');
+      return { success: true, user };
 
-      console.log('Admin user created successfully:', data.user.id);
-
-      // Update the user role to admin in public.users table
-      const { error: roleError } = await supabase
-        .from('users')
-        .update({ role: 'admin' })
-        .eq('id', data.user.id);
-
-      if (roleError) {
-        console.error('Error setting admin role:', roleError);
-        return { success: false, error: roleError };
-      }
-
-      console.log('Admin role set successfully');
-      return { success: true, user: data.user };
     } catch (error) {
-      console.error('Exception creating admin user:', error);
+      console.error('❌ Exception in createUser:', error);
+      toast.error('Failed to create user');
       return { success: false, error };
     }
   }
 
-  static async ensureAdminUserExists() {
-    try {
-      // Check if admin user already exists in public.users with admin role
-      const { data: existingUsers, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', 'admin@gameapp.com')
-        .eq('role', 'admin');
+  static async validateUserData(userData: {
+    email: string;
+    username: string;
+    balance?: number;
+  }): Promise<{ valid: boolean; errors: string[] }> {
+    const errors: string[] = [];
 
-      if (error) {
-        console.error('Error checking for existing admin:', error);
+    if (!userData.email || !userData.email.includes('@')) {
+      errors.push('Valid email is required');
+    }
+
+    if (!userData.username || userData.username.length < 3) {
+      errors.push('Username must be at least 3 characters');
+    }
+
+    if (userData.balance !== undefined && userData.balance < 0) {
+      errors.push('Balance cannot be negative');
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
+
+  static async checkUserExists(email: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('❌ Error checking user existence:', error);
         return false;
       }
 
-      if (existingUsers && existingUsers.length > 0) {
-        console.log('Admin user already exists in public.users');
-        return true;
-      }
-
-      console.log('Admin user not found in public.users, this should not happen after database migration');
-      return false;
+      return !!data;
     } catch (error) {
-      console.error('Exception ensuring admin user exists:', error);
+      console.error('❌ Exception checking user existence:', error);
       return false;
     }
   }

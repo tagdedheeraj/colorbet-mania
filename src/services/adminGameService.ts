@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { ManualGameService } from './admin/manualGameService';
 import { GameModeService } from './admin/gameModeService';
 import { AdminLoggingService } from './admin/adminLoggingService';
-import AdminAuthService from './adminAuthService';
 
 export interface LiveGameStats {
   activeGame: any;
@@ -14,10 +13,9 @@ export interface LiveGameStats {
 }
 
 export class AdminGameService {
-  // Enhanced method using the new GameModeService with manual mode support
   static async setGameMode(gameId: string, mode: 'automatic' | 'manual'): Promise<boolean> {
     try {
-      console.log('🔄 AdminGameService: Setting game mode via enhanced service:', { gameId, mode });
+      console.log('🔄 AdminGameService: Setting game mode:', { gameId, mode });
       
       const success = await GameModeService.setGameMode(gameId, mode);
       
@@ -28,7 +26,7 @@ export class AdminGameService {
           method: 'enhanced_service'
         });
         
-        console.log('✅ Game mode set successfully with enhanced service');
+        console.log('✅ Game mode set successfully');
       }
       
       return success;
@@ -40,7 +38,7 @@ export class AdminGameService {
 
   static async setManualResult(gameId: string, number: number): Promise<boolean> {
     try {
-      console.log('🎯 AdminGameService: Setting manual result via enhanced service:', { gameId, number });
+      console.log('🎯 AdminGameService: Setting manual result:', { gameId, number });
       
       const success = await ManualGameService.setManualResult(gameId, number);
       
@@ -51,7 +49,7 @@ export class AdminGameService {
           method: 'enhanced_service'
         });
         
-        console.log('✅ Manual result set successfully with enhanced service');
+        console.log('✅ Manual result set successfully');
       }
       
       return success;
@@ -63,7 +61,7 @@ export class AdminGameService {
 
   static async completeGameManually(gameId: string): Promise<boolean> {
     try {
-      console.log('🏁 AdminGameService: Completing game manually via enhanced service:', gameId);
+      console.log('🏁 AdminGameService: Completing game manually:', gameId);
       
       const success = await ManualGameService.completeGameManually(gameId);
       
@@ -73,7 +71,7 @@ export class AdminGameService {
           method: 'enhanced_service'
         });
         
-        console.log('✅ Game completed manually with enhanced service');
+        console.log('✅ Game completed manually');
       }
       
       return success;
@@ -105,7 +103,7 @@ export class AdminGameService {
       const { data: bets, error: betsError } = await supabase
         .from('bets')
         .select('*')
-        .eq('game_id', activeGame.id);
+        .eq('period_number', activeGame.game_number);
 
       if (betsError) {
         console.error('Error loading bets:', betsError);
@@ -149,8 +147,8 @@ export class AdminGameService {
         activePlayers,
         totalBets,
         totalBetAmount,
-        isManual: activeGame.admin_controlled,
-        timerPaused: activeGame.timer_paused
+        isManual: activeGame.game_mode === 'manual',
+        timerPaused: activeGame.is_result_locked
       });
 
       return stats;

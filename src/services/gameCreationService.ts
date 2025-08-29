@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { GAME_MODES } from '@/config/gameModes';
@@ -80,7 +81,7 @@ export class GameCreationService {
       let resultNumber: number;
 
       // Check if this is a manually controlled game with admin-set result
-      if (gameData.admin_controlled && gameData.admin_set_result_number !== null) {
+      if (gameData.game_mode === 'manual' && gameData.admin_set_result_number !== null) {
         console.log('Using admin-set manual result:', gameData.admin_set_result_number);
         resultNumber = gameData.admin_set_result_number;
         
@@ -102,7 +103,7 @@ export class GameCreationService {
         resultNumber = numbers[Math.floor(Math.random() * numbers.length)];
       }
 
-      console.log('Game result:', { resultColor, resultNumber, wasManual: gameData.admin_controlled });
+      console.log('Game result:', { resultColor, resultNumber, wasManual: gameData.game_mode === 'manual' });
 
       // Complete the game
       const { error: updateError } = await supabase
@@ -111,8 +112,7 @@ export class GameCreationService {
           status: 'completed',
           result_color: resultColor,
           result_number: resultNumber,
-          end_time: new Date().toISOString(),
-          admin_notes: gameData.admin_controlled ? 'Completed with admin-set result' : null
+          end_time: new Date().toISOString()
         })
         .eq('id', gameId);
 
@@ -139,7 +139,7 @@ export class GameCreationService {
       const { data: bets, error: betsError } = await supabase
         .from('bets')
         .select('*')
-        .eq('game_id', (await supabase.from('games').select('id').eq('game_number', gameNumber).single()).data?.id);
+        .eq('period_number', gameNumber);
 
       if (betsError || !bets || bets.length === 0) {
         console.log('No bets to process');
@@ -167,19 +167,19 @@ export class GameCreationService {
         const actualWin = isWinner ? bet.amount * multiplier : 0;
         const totalPayout = isWinner ? bet.amount + actualWin : 0;
 
-        // Update bet
+        // Update bet status
         await supabase
           .from('bets')
           .update({
-            is_winner: isWinner,
-            actual_win: actualWin
+            status: isWinner ? 'won' : 'lost',
+            profit: actualWin
           })
           .eq('id', bet.id);
 
         // Update user balance if winner
         if (isWinner && totalPayout > 0) {
           const { data: user } = await supabase
-            .from('users')
+            .from('profiles')
             .select('balance')
             .eq('id', bet.user_id)
             .single();
@@ -187,18 +187,17 @@ export class GameCreationService {
           if (user) {
             const newBalance = (user.balance || 0) + totalPayout;
             await supabase
-              .from('users')
+              .from('profiles')
               .update({ balance: newBalance })
               .eq('id', bet.user_id);
 
-            await supabase
-              .from('transactions')
-              .insert({
-                user_id: bet.user_id,
-                type: 'win',
-                amount: totalPayout,
-                description: `Win from Game #${gameNumber} - ${bet.bet_value}`
-              });
+            // Use the update_user_balance function for transaction logging
+            await supabase.rpc('update_user_balance', {
+              user_id_param: bet.user_id,
+              amount_param: totalPayout,
+              transaction_type_param: 'win',
+              description_param: `Win from Game #${gameNumber} - ${bet.bet_value}`
+            });
           }
         }
       }
