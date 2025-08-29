@@ -5,7 +5,7 @@ export interface AdminUser {
   email: string;
   username: string;
   role: string;
-  balance?: number;
+  balance: number; // Make balance required
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +22,9 @@ export interface AdminBet {
   created_at: string;
   // Additional properties for admin view
   profiles?: { username: string; email: string };
+  // Add missing properties for compatibility
+  is_winner?: boolean;
+  actual_win?: number;
 }
 
 export interface AdminGame {

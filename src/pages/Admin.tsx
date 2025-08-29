@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
@@ -21,6 +20,33 @@ import LiveGameManagement from '@/components/admin/LiveGameManagement';
 import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
 import AdminSettings from '@/components/admin/AdminSettings';
 import { ManualGameService } from '@/services/admin/manualGameService';
+import { SimpleManualGameService } from '@/services/admin/simpleManualGameService';
+
+// Create compatible types for components
+interface CompatibleUser {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  balance: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CompatibleBet {
+  id: string;
+  user_id: string;
+  period_number: number;
+  bet_type: 'color' | 'number';
+  bet_value: string;
+  amount: number;
+  profit: number;
+  status: string;
+  created_at: string;
+  profiles?: { username: string; email: string };
+  is_winner?: boolean;
+  actual_win?: number;
+}
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -291,8 +317,8 @@ const Admin: React.FC = () => {
 
       console.log('🎮 Found active game:', activeGame.period_number);
 
-      // Use the ManualGameService to set manual result
-      const success = await ManualGameService.setManualResult(activeGame.id, number);
+      // Use the SimpleManualGameService to set manual result
+      const success = await SimpleManualGameService.setManualResult(activeGame.id, number);
 
       if (success) {
         toast.success(`Manual result set to ${number} successfully!`, {
@@ -329,6 +355,18 @@ const Admin: React.FC = () => {
     await loadData();
     toast.success('Admin data refreshed successfully');
   };
+
+  // Create compatible data for components
+  const compatibleUsers: CompatibleUser[] = users.map(user => ({
+    ...user,
+    balance: user.balance || 0 // Ensure balance is always a number
+  }));
+
+  const compatibleBets: CompatibleBet[] = bets.map(bet => ({
+    ...bet,
+    is_winner: false, // Default value
+    actual_win: bet.profit || 0 // Use profit as actual_win
+  }));
 
   if (loading) {
     return (
@@ -410,7 +448,7 @@ const Admin: React.FC = () => {
 
           <TabsContent value="users" className="space-y-4">
             <UserManagement 
-              users={users} 
+              users={compatibleUsers} 
               onUpdateBalance={handleUpdateBalance}
               loading={usersLoading}
               onRefresh={loadUsers}
@@ -422,7 +460,7 @@ const Admin: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="bets" className="space-y-4">
-            <BettingAnalytics bets={bets} />
+            <BettingAnalytics bets={compatibleBets} />
           </TabsContent>
 
           <TabsContent value="live-control" className="space-y-4">
