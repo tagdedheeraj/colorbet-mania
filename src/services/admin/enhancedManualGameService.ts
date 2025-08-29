@@ -17,12 +17,13 @@ export class EnhancedManualGameService {
 
       console.log('✅ Enhanced: Admin user validated:', adminUser.email);
 
-      // Use enhanced database function
-      const { data, error } = await supabase.rpc('set_manual_mode_enhanced', {
-        p_game_id: gameId,
-        p_admin_user_id: adminUser.id,
-        p_enable_manual: enable
-      });
+      // Use direct table update instead of RPC function
+      const { data, error } = await supabase
+        .from('games')
+        .update({ admin_controlled: enable })
+        .eq('id', gameId)
+        .select()
+        .single();
 
       console.log('📡 Enhanced: Manual mode response:', { data, error });
 
@@ -31,24 +32,11 @@ export class EnhancedManualGameService {
         return { success: false, message: `Database error: ${error.message}` };
       }
 
-      let response: DatabaseResponse;
-      try {
-        response = typeof data === 'string' ? JSON.parse(data) : data;
-      } catch (parseError) {
-        console.error('❌ Enhanced: Response parsing error:', parseError);
-        return { success: false, message: 'Invalid response format' };
-      }
-
-      if (!response?.success) {
-        console.error('❌ Enhanced: Operation failed:', response?.message);
-        return { success: false, message: response?.message || 'Unknown error' };
-      }
-
       console.log('✅ Enhanced: Manual mode set successfully');
       return { 
         success: true, 
         message: `Game ${enable ? 'switched to manual mode' : 'switched to automatic mode'}`,
-        data: response
+        data
       };
 
     } catch (error) {
@@ -75,12 +63,27 @@ export class EnhancedManualGameService {
 
       console.log('✅ Enhanced: Admin user for result setting:', adminUser.email);
 
-      // Use enhanced database function
-      const { data, error } = await supabase.rpc('set_manual_result_enhanced', {
-        p_game_id: gameId,
-        p_admin_user_id: adminUser.id,
-        p_result_number: number
-      });
+      // Determine color based on number
+      const getColorForNumber = (num: number): string => {
+        if ([1, 3, 7, 9].includes(num)) return 'red';
+        if ([2, 4, 6, 8].includes(num)) return 'green';
+        if ([0, 5].includes(num)) return 'purple-red';
+        return 'red';
+      };
+
+      const color = getColorForNumber(number);
+
+      // Use direct table update
+      const { data, error } = await supabase
+        .from('games')
+        .update({
+          admin_set_result_number: number,
+          admin_set_result_color: color,
+          manual_result_set: true
+        })
+        .eq('id', gameId)
+        .select()
+        .single();
 
       console.log('📡 Enhanced: Manual result response:', { data, error });
 
@@ -89,24 +92,11 @@ export class EnhancedManualGameService {
         return { success: false, message: `Database error: ${error.message}` };
       }
 
-      let response: DatabaseResponse;
-      try {
-        response = typeof data === 'string' ? JSON.parse(data) : data;
-      } catch (parseError) {
-        console.error('❌ Enhanced: Result response parsing error:', parseError);
-        return { success: false, message: 'Invalid response format' };
-      }
-
-      if (!response?.success) {
-        console.error('❌ Enhanced: Result setting failed:', response?.message);
-        return { success: false, message: response?.message || 'Failed to set result' };
-      }
-
-      console.log('✅ Enhanced: Manual result set successfully:', response);
+      console.log('✅ Enhanced: Manual result set successfully:', data);
       return { 
         success: true, 
         message: `Result set to ${number} successfully`,
-        data: response
+        data
       };
 
     } catch (error) {
@@ -128,11 +118,17 @@ export class EnhancedManualGameService {
 
       console.log('✅ Enhanced: Admin user for completion:', adminUser.email);
 
-      // Use enhanced database function
-      const { data, error } = await supabase.rpc('complete_manual_game_enhanced', {
-        p_game_id: gameId,
-        p_admin_user_id: adminUser.id
-      });
+      // Use direct table update
+      const { data, error } = await supabase
+        .from('games')
+        .update({
+          status: 'completed',
+          end_time: new Date().toISOString()
+        })
+        .eq('id', gameId)
+        .eq('manual_result_set', true)
+        .select()
+        .single();
 
       console.log('📡 Enhanced: Game completion response:', { data, error });
 
@@ -141,24 +137,11 @@ export class EnhancedManualGameService {
         return { success: false, message: `Database error: ${error.message}` };
       }
 
-      let response: DatabaseResponse;
-      try {
-        response = typeof data === 'string' ? JSON.parse(data) : data;
-      } catch (parseError) {
-        console.error('❌ Enhanced: Completion response parsing error:', parseError);
-        return { success: false, message: 'Invalid response format' };
-      }
-
-      if (!response?.success) {
-        console.error('❌ Enhanced: Game completion failed:', response?.message);
-        return { success: false, message: response?.message || 'Failed to complete game' };
-      }
-
-      console.log('✅ Enhanced: Game completed successfully:', response);
+      console.log('✅ Enhanced: Game completed successfully:', data);
       return { 
         success: true, 
         message: 'Game completed successfully',
-        data: response
+        data
       };
 
     } catch (error) {
@@ -173,7 +156,7 @@ export class EnhancedManualGameService {
       
       const { data: game, error } = await supabase
         .from('games')
-        .select('admin_controlled, timer_paused, manual_result_set, admin_set_result_number')
+        .select('admin_controlled, timer_paused, manual_result_set')
         .eq('id', gameId)
         .single();
 

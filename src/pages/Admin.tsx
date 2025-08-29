@@ -1,25 +1,30 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
-import DepositRequestService, { DepositRequest, DepositStats } from '@/services/depositRequestService';
+import { AdminService } from '@/services/adminService';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { AdminGame, AdminBet, AdminUser as AdminUserType } from '@/types/admin';
-
-// Import new components
-import AdminHeader from '@/components/admin/AdminHeader';
+import { 
+  Users, 
+  GameController2, 
+  TrendingUp, 
+  Settings, 
+  LogOut, 
+  RefreshCw,
+  Target,
+  DollarSign
+} from 'lucide-react';
 import AdminStatsCards from '@/components/admin/AdminStatsCards';
-import DepositManagement from '@/components/admin/DepositManagement';
 import UserManagement from '@/components/admin/UserManagement';
 import GameManagement from '@/components/admin/GameManagement';
 import BettingAnalytics from '@/components/admin/BettingAnalytics';
-import LiveGameControl from '@/components/admin/LiveGameControl';
 import LiveGameManagement from '@/components/admin/LiveGameManagement';
+import DepositManagement from '@/components/admin/DepositManagement';
 import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
 import AdminSettings from '@/components/admin/AdminSettings';
-import { ManualGameService } from '@/services/admin/manualGameService';
 import { SimpleManualGameService } from '@/services/admin/simpleManualGameService';
 
 // Create compatible types for components
@@ -44,75 +49,45 @@ interface CompatibleBet {
   status: string;
   created_at: string;
   profiles?: { username: string; email: string };
-  is_winner?: boolean;
-  actual_win?: number;
+  is_winner: boolean;
+  actual_win: number;
 }
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<AdminUserType[]>([]);
-  const [games, setGames] = useState<AdminGame[]>([]);
-  const [bets, setBets] = useState<AdminBet[]>([]);
-  const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
-  const [depositStats, setDepositStats] = useState<DepositStats | null>(null);
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
-  const [depositRequestsLoading, setDepositRequestsLoading] = useState(false);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [games, setGames] = useState<any[]>([]);
+  const [bets, setBets] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Loading states for each section
   const [usersLoading, setUsersLoading] = useState(false);
-  const [dataError, setDataError] = useState<string | null>(null);
+  const [gamesLoading, setGamesLoading] = useState(false);
+  const [betsLoading, setBetsLoading] = useState(false);
 
   useEffect(() => {
-    checkAdminAndLoadData();
-    
-    // Set up real-time subscription for deposit requests
-    const depositChannel = DepositRequestService.subscribeToDepositUpdates(() => {
-      console.log('📱 Real-time deposit update received, reloading...');
-      loadDepositRequests();
-      loadDepositStats();
-    });
-
-    // Set up real-time subscription for profiles table (users)
-    const usersChannel = supabase
-      .channel('admin-users-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles'
-        },
-        (payload) => {
-          console.log('👥 Real-time user change received:', payload);
-          loadUsers();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(depositChannel);
-      supabase.removeChannel(usersChannel);
-    };
+    checkAuthentication();
   }, []);
 
-  const checkAdminAndLoadData = async () => {
+  const checkAuthentication = async () => {
     try {
-      console.log('🔐 Checking admin authentication...');
+      console.log('🔍 Checking admin authentication...');
       const { authenticated, user } = await AdminAuthService.isAuthenticated();
       
-      if (!authenticated || !user) {
-        console.error('❌ Admin authentication failed');
-        toast.error('Admin access required');
+      if (authenticated && user) {
+        console.log('✅ Admin authenticated:', user.email);
+        setIsAuthenticated(true);
+        setCurrentUser(user);
+        await loadData();
+      } else {
+        console.log('❌ Admin not authenticated, redirecting to login');
         navigate('/admin-login');
-        return;
       }
-
-      console.log('✅ Admin authenticated:', user.username);
-      setAdminUser(user);
-      await loadData();
     } catch (error) {
-      console.error('❌ Error checking admin access:', error);
-      setDataError('Error checking admin access');
-      toast.error('Error checking admin access');
+      console.error('❌ Authentication check failed:', error);
       navigate('/admin-login');
     } finally {
       setLoading(false);
@@ -120,178 +95,99 @@ const Admin: React.FC = () => {
   };
 
   const loadData = async () => {
-    try {
-      console.log('📊 Loading admin data...');
-      setDataError(null);
-      
-      const [gamesResult, betsResult] = await Promise.all([
-        supabase.from('game_periods').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(100)
-      ]);
-
-      console.log('📊 Admin data loaded:', {
-        games: gamesResult.data?.length,
-        bets: betsResult.data?.length
-      });
-
-      // Map game_periods to AdminGame format
-      const mappedGames: AdminGame[] = (gamesResult.data || []).map(game => ({
-        id: game.id,
-        period_number: game.period_number,
-        status: game.status,
-        game_mode_type: game.game_mode_type || 'classic',
-        result_number: game.result_number,
-        result_color: game.result_color,
-        created_at: game.created_at,
-        start_time: game.start_time,
-        end_time: game.end_time,
-        // Compatibility properties
-        game_number: game.period_number,
-        game_mode: game.game_mode_type || 'classic'
-      }));
-
-      // Map bets to AdminBet format
-      const mappedBets: AdminBet[] = (betsResult.data || []).map(bet => ({
-        id: bet.id,
-        user_id: bet.user_id,
-        period_number: bet.period_number,
-        bet_type: bet.bet_type as 'color' | 'number',
-        bet_value: bet.bet_value,
-        amount: bet.amount,
-        profit: bet.profit || 0,
-        status: bet.status,
-        created_at: bet.created_at,
-        profiles: { username: 'Unknown', email: 'Unknown' }
-      }));
-
-      setGames(mappedGames);
-      setBets(mappedBets);
-      
-      // Load users separately with better error handling
-      await loadUsers();
-      
-      // Load deposit requests and stats
-      await loadDepositRequests();
-      await loadDepositStats();
-    } catch (error) {
-      console.error('❌ Error loading data:', error);
-      setDataError('Failed to load admin data');
-      toast.error('Failed to load admin data');
-    }
+    console.log('📊 Loading admin data...');
+    await Promise.all([
+      loadUsers(),
+      loadGames(),
+      loadBets()
+    ]);
   };
 
   const loadUsers = async () => {
     try {
       setUsersLoading(true);
-      setDataError(null);
       console.log('👥 Loading users...');
+      const { data, error } = await AdminService.getAllUsers();
       
-      const { data: usersResult, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
       if (error) {
-        console.error('❌ Users loading error:', error);
-        throw error;
+        console.error('❌ Error loading users:', error);
+        toast.error('Failed to load users');
+      } else {
+        console.log('✅ Users loaded:', data.length);
+        setUsers(data);
       }
-
-      // Map profiles to AdminUser format
-      const mappedUsers: AdminUserType[] = (usersResult || []).map(user => ({
-        id: user.id,
-        email: user.email || '',
-        username: user.username || '',
-        role: 'user', // Default role since profiles doesn't have role column
-        balance: user.balance || 0,
-        created_at: user.created_at,
-        updated_at: user.updated_at
-      }));
-
-      console.log('✅ Users loaded successfully:', mappedUsers.length, 'users');
-      setUsers(mappedUsers);
     } catch (error) {
-      console.error('❌ Error loading users:', error);
-      setDataError('Failed to load users');
+      console.error('❌ Exception loading users:', error);
       toast.error('Failed to load users');
-      setUsers([]);
     } finally {
       setUsersLoading(false);
     }
   };
 
-  const loadDepositRequests = async () => {
+  const loadGames = async () => {
     try {
-      setDepositRequestsLoading(true);
-      console.log('💰 Loading deposit requests...');
-      const requests = await DepositRequestService.loadDepositRequests();
-      setDepositRequests(requests);
-      console.log('✅ Deposit requests loaded:', requests.length, 'total requests');
-      console.log('📋 Pending requests:', requests.filter(r => r.status === 'pending').length);
+      setGamesLoading(true);
+      console.log('🎮 Loading games...');
+      const { data, error } = await AdminService.getAllGames();
+      
+      if (error) {
+        console.error('❌ Error loading games:', error);
+        toast.error('Failed to load games');
+      } else {
+        console.log('✅ Games loaded:', data.length);
+        setGames(data);
+      }
     } catch (error) {
-      console.error('❌ Error loading deposit requests:', error);
-      toast.error('Failed to load deposit requests');
+      console.error('❌ Exception loading games:', error);
+      toast.error('Failed to load games');
     } finally {
-      setDepositRequestsLoading(false);
+      setGamesLoading(false);
     }
   };
 
-  const loadDepositStats = async () => {
+  const loadBets = async () => {
     try {
-      const stats = await DepositRequestService.getDepositStats();
-      setDepositStats(stats);
-      console.log('✅ Deposit stats loaded:', stats);
-    } catch (error) {
-      console.error('❌ Error loading deposit stats:', error);
-    }
-  };
-
-  const handleApproveDeposit = async (requestId: string, notes?: string) => {
-    try {
-      console.log('🟢 Handling approve deposit:', requestId);
-      const result = await DepositRequestService.approveDepositRequest(requestId, notes);
-      if (result.success) {
-        console.log('✅ Deposit approved, reloading data...');
-        await loadDepositRequests();
-        await loadDepositStats();
-        // Reload users to get updated balances
-        await loadUsers();
+      setBetsLoading(true);
+      console.log('🎯 Loading bets...');
+      const { data, error } = await AdminService.getAllBets();
+      
+      if (error) {
+        console.error('❌ Error loading bets:', error);
+        toast.error('Failed to load bets');
+      } else {
+        console.log('✅ Bets loaded:', data.length);
+        setBets(data);
       }
     } catch (error) {
-      console.error('❌ Error approving deposit:', error);
+      console.error('❌ Exception loading bets:', error);
+      toast.error('Failed to load bets');
+    } finally {
+      setBetsLoading(false);
     }
   };
 
-  const handleRejectDeposit = async (requestId: string, notes: string) => {
+  const handleLogout = async () => {
     try {
-      console.log('🔴 Handling reject deposit:', requestId);
-      const result = await DepositRequestService.rejectDepositRequest(requestId, notes);
-      if (result.success) {
-        console.log('✅ Deposit rejected, reloading data...');
-        await loadDepositRequests();
-        await loadDepositStats();
-      }
+      console.log('🚪 Admin logging out...');
+      await AdminAuthService.logout();
+      navigate('/admin-login');
     } catch (error) {
-      console.error('❌ Error rejecting deposit:', error);
+      console.error('❌ Logout error:', error);
+      toast.error('Logout failed');
     }
   };
 
   const handleUpdateBalance = async (userId: string, newBalance: number) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ balance: newBalance })
-        .eq('id', userId);
-
-      if (error) {
-        console.error('❌ Balance update error:', error);
-        toast.error('Failed to update balance');
-        return;
+      console.log('💰 Updating balance for user:', userId, 'to:', newBalance);
+      const { success } = await AdminService.updateUserBalance(userId, newBalance);
+      
+      if (success) {
+        toast.success('Balance updated successfully');
+        await loadUsers();
       }
-
-      toast.success('Balance updated successfully');
-      await loadUsers();
     } catch (error) {
-      console.error('❌ Balance update exception:', error);
+      console.error('❌ Balance update error:', error);
       toast.error('Failed to update balance');
     }
   };
@@ -300,59 +196,45 @@ const Admin: React.FC = () => {
     try {
       console.log('🎯 Setting manual result:', number);
       
-      // Find the latest active game from game_periods
-      const { data: activeGame, error } = await supabase
-        .from('game_periods')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error || !activeGame) {
-        console.error('❌ No active game found:', error);
-        toast.error('No active game found');
+      // Find the active game
+      const activeGame = games.find(game => game.status === 'active');
+      if (!activeGame) {
+        toast.error('No active game found', {
+          description: 'There must be an active game to set manual results'
+        });
         return;
       }
 
-      console.log('🎮 Found active game:', activeGame.period_number);
+      console.log('🎮 Found active game:', activeGame.game_number);
 
       // Use the SimpleManualGameService to set manual result
       const success = await SimpleManualGameService.setManualResult(activeGame.id, number);
 
       if (success) {
         toast.success(`Manual result set to ${number} successfully!`, {
-          description: `Game #${activeGame.period_number} result has been set`
+          description: `Game ${activeGame.game_number} result has been set`
         });
-        await loadData();
+        
+        // Reload game data
+        await loadGames();
       } else {
         toast.error('Failed to set manual result', {
-          description: 'Please check console logs for detailed information'
+          description: 'Please check the console for more details'
         });
       }
     } catch (error) {
-      console.error('❌ Manual result exception:', error);
-      toast.error('Failed to set manual result');
+      console.error('❌ Error setting manual result:', error);
+      toast.error('Error setting manual result', {
+        description: 'An unexpected error occurred'
+      });
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      console.log('🚪 Logging out admin...');
-      await AdminAuthService.logout();
-      toast.success('Logged out successfully');
-      // Force page reload to ensure clean state
-      window.location.href = '/admin-login';
-    } catch (error) {
-      console.error('❌ Logout error:', error);
-      navigate('/admin-login');
-    }
-  };
-
-  const handleManualRefresh = async () => {
-    console.log('🔄 Manual refresh triggered');
-    toast.info('Refreshing admin data...');
+  const handleRefreshData = async () => {
+    console.log('🔄 Refreshing admin data...');
+    setLoading(true);
     await loadData();
+    setLoading(false);
     toast.success('Admin data refreshed successfully');
   };
 
@@ -364,86 +246,183 @@ const Admin: React.FC = () => {
 
   const compatibleBets: CompatibleBet[] = bets.map(bet => ({
     ...bet,
-    is_winner: false, // Default value
-    actual_win: bet.profit || 0 // Use profit as actual_win
+    is_winner: bet.is_winner || false, // Use actual value or default
+    actual_win: bet.actual_win || bet.profit || 0 // Use actual_win or profit as fallback
   }));
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-lg font-medium">Loading admin dashboard...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/20">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading admin dashboard...</p>
         </div>
       </div>
     );
   }
 
-  const totalBalance = users.reduce((sum, user) => sum + (user.balance || 0), 0);
-  const pendingDeposits = depositStats?.pending_count || 0;
+  if (!isAuthenticated) {
+    return null; // Will redirect to login
+  }
 
-  console.log('🎛️ Admin render:', {
-    users: users.length,
-    depositRequests: depositRequests.length,
-    pendingDeposits,
-    loading: depositRequestsLoading,
-    usersLoading,
-    dataError,
-    adminUser: adminUser?.email
-  });
+  const statsData = {
+    totalUsers: users.length,
+    totalGames: games.length,
+    totalBets: bets.length,
+    totalRevenue: bets.reduce((sum, bet) => sum + (bet.amount || 0), 0)
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
-      <div className="container mx-auto max-w-7xl">
-        <AdminHeader adminUser={adminUser} onLogout={handleLogout} onRefresh={handleManualRefresh} />
-
-        {dataError && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 font-medium">Error: {dataError}</p>
-            <button 
-              onClick={handleManualRefresh}
-              className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Retry
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
+      {/* Header */}
+      <div className="border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-primary to-purple-600 rounded-lg flex items-center justify-center">
+                  <Settings className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+                    Admin Dashboard
+                  </h1>
+                  <p className="text-xs text-muted-foreground">
+                    Welcome back, {currentUser?.username || 'Admin'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshData}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
-        )}
+        </div>
+      </div>
 
-        <AdminStatsCards
-          usersCount={users.length}
-          gamesCount={games.length}
-          betsCount={bets.length}
-          pendingDeposits={pendingDeposits}
-          totalBalance={totalBalance}
-        />
-
-        <Tabs defaultValue="deposits" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="deposits">
-              Deposits ({pendingDeposits})
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6 lg:w-fit">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Dashboard
             </TabsTrigger>
-            <TabsTrigger value="users">
-              Users ({users.length}) {usersLoading && <RefreshCw className="h-3 w-3 ml-1 animate-spin" />}
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Users
             </TabsTrigger>
-            <TabsTrigger value="games">Games ({games.length})</TabsTrigger>
-            <TabsTrigger value="bets">Bets ({bets.length})</TabsTrigger>
-            <TabsTrigger value="live-control">Live Control</TabsTrigger>
-            <TabsTrigger value="payment-config">Payment Config</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="games" className="flex items-center gap-2">
+              <GameController2 className="w-4 h-4" />
+              Games
+            </TabsTrigger>
+            <TabsTrigger value="bets" className="flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Bets
+            </TabsTrigger>
+            <TabsTrigger value="live-control" className="flex items-center gap-2">
+              <GameController2 className="w-4 h-4" />
+              Live Control  
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Settings
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="deposits" className="space-y-4">
-            <DepositManagement
-              depositRequests={depositRequests}
-              depositStats={depositStats}
-              loading={depositRequestsLoading}
-              onRefresh={() => {
-                loadDepositRequests();
-                loadDepositStats();
-              }}
-              onApprove={handleApproveDeposit}
-              onReject={handleRejectDeposit}
+          <TabsContent value="dashboard" className="space-y-6">
+            <AdminStatsCards 
+              totalUsers={statsData.totalUsers}
+              totalGames={statsData.totalGames} 
+              totalBets={statsData.totalBets}
+              totalRevenue={statsData.totalRevenue}
             />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                  <CardDescription>Latest system activity overview</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Users className="w-5 h-5 text-blue-500" />
+                        <span className="font-medium">Total Users</span>
+                      </div>
+                      <span className="text-lg font-bold">{statsData.totalUsers}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Target className="w-5 h-5 text-green-500" />
+                        <span className="font-medium">Active Bets</span>
+                      </div>
+                      <span className="text-lg font-bold">{bets.filter(bet => bet.status === 'pending').length}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <DollarSign className="w-5 h-5 text-purple-500" />
+                        <span className="font-medium">Total Revenue</span>
+                      </div>
+                      <span className="text-lg font-bold">₹{statsData.totalRevenue.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                  <CardDescription>Common administrative tasks</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    onClick={() => setActiveTab('users')} 
+                    variant="outline" 
+                    className="w-full justify-start"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Manage Users
+                  </Button>
+                  <Button 
+                    onClick={() => setActiveTab('live-control')} 
+                    variant="outline" 
+                    className="w-full justify-start"
+                  >
+                    <GameController2 className="w-4 h-4 mr-2" />
+                    Live Game Control
+                  </Button>
+                  <Button 
+                    onClick={() => setActiveTab('settings')} 
+                    variant="outline" 
+                    className="w-full justify-start"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    System Settings
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">
@@ -456,7 +435,7 @@ const Admin: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="games" className="space-y-4">
-            <GameManagement games={games} />
+            <GameManagement games={games} loading={gamesLoading} onRefresh={loadGames} />
           </TabsContent>
 
           <TabsContent value="bets" className="space-y-4">
@@ -465,15 +444,14 @@ const Admin: React.FC = () => {
 
           <TabsContent value="live-control" className="space-y-4">
             <LiveGameManagement />
-            <LiveGameControl onSetManualResult={handleSetManualResult} />
-          </TabsContent>
-
-          <TabsContent value="payment-config" className="space-y-4">
-            <PaymentGatewayConfig />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">
-            <AdminSettings adminUser={adminUser} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <DepositManagement />
+              <PaymentGatewayConfig />
+            </div>
+            <AdminSettings />
           </TabsContent>
         </Tabs>
       </div>

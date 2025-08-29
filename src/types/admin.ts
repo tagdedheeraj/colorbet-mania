@@ -23,8 +23,8 @@ export interface AdminBet {
   // Additional properties for admin view
   profiles?: { username: string; email: string };
   // Add missing properties for compatibility
-  is_winner?: boolean;
-  actual_win?: number;
+  is_winner: boolean;
+  actual_win: number;
 }
 
 export interface AdminGame {
@@ -40,6 +40,10 @@ export interface AdminGame {
   // Compatibility properties
   game_number: number;
   game_mode: string;
+  // Admin control properties
+  admin_controlled?: boolean;
+  timer_paused?: boolean;
+  manual_result_set?: boolean;
 }
 
 export interface AdminTransaction {
@@ -53,4 +57,11 @@ export interface AdminTransaction {
   balance_before: number;
   balance_after: number;
   reference_id?: string;
+}
+
+export interface DatabaseResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+  debug_info?: any;
 }
