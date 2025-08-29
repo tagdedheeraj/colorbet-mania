@@ -25,11 +25,11 @@ const ResultPopup: React.FC = () => {
     setLoading(true);
     try {
       const allUserBets = await BetHistoryService.loadAllUserBets(user.id);
-      const gameBets = allUserBets.filter(bet => bet.game_id === lastCompletedGame.id);
+      const gameBets = allUserBets.filter(bet => bet.period_number === lastCompletedGame.period_number);
       
       if (gameBets.length > 0) {
         const totalBetAmount = gameBets.reduce((sum, bet) => sum + bet.amount, 0);
-        const totalWinAmount = gameBets.reduce((sum, bet) => sum + (bet.actual_win || 0), 0);
+        const totalWinAmount = gameBets.reduce((sum, bet) => sum + (bet.profit || 0), 0);
         const netResult = totalWinAmount - totalBetAmount;
         
         setUserBetsResult({
@@ -37,7 +37,7 @@ const ResultPopup: React.FC = () => {
           totalBetAmount,
           totalWinAmount,
           netResult,
-          hasWinner: gameBets.some(bet => bet.is_winner)
+          hasWinner: gameBets.some(bet => bet.status === 'won')
         });
       } else {
         setUserBetsResult(null);
@@ -79,7 +79,7 @@ const ResultPopup: React.FC = () => {
           {/* Game Result */}
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-2">
-              Game #{lastCompletedGame.game_number}
+              Game #{lastCompletedGame.period_number}
             </p>
             <div className="flex items-center justify-center gap-3">
               <div className={`px-4 py-2 rounded-lg text-lg font-semibold ${getColorStyle(lastCompletedGame.result_color as ColorType)}`}>
@@ -129,8 +129,8 @@ const ResultPopup: React.FC = () => {
                       </span>
                       <div className="flex items-center gap-2">
                         <span>{bet.amount} coins</span>
-                        <span className={bet.is_winner ? "text-game-green font-semibold" : "text-game-red"}>
-                          {bet.is_winner ? `+${bet.actual_win || bet.potential_win}` : 'Loss'}
+                        <span className={bet.status === 'won' ? "text-game-green font-semibold" : "text-game-red"}>
+                          {bet.status === 'won' ? `+${bet.profit || bet.amount}` : 'Loss'}
                         </span>
                       </div>
                     </div>

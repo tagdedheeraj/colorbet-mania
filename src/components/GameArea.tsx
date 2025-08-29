@@ -13,7 +13,7 @@ const GameArea: React.FC = () => {
     currentGameMode
   } = useGameState();
   
-  const currentModeConfig = GAME_MODES[currentGame?.game_mode || currentGameMode];
+  const currentModeConfig = GAME_MODES[currentGame?.game_mode_type as keyof typeof GAME_MODES] || GAME_MODES[currentGameMode];
   
   const getColorStyle = (color: ColorType | string) => {
     switch (color) {
@@ -114,7 +114,7 @@ const GameArea: React.FC = () => {
         <div className="w-full flex justify-between items-center mb-4">
           <div className="text-center">
             <p className="text-sm text-gray-400">Previous Result</p>
-            <p className="text-sm font-medium text-white">#{latestResult?.game_number || 'N/A'}</p>
+            <p className="text-sm font-medium text-white">#{latestResult?.period_number || 'N/A'}</p>
             {latestResult && (
               <div className="flex items-center justify-center gap-1 mt-1">
                 <div className={`w-2 h-2 rounded-full ${getColorStyle(latestResult.result_color as ColorType)}`}></div>
@@ -137,7 +137,7 @@ const GameArea: React.FC = () => {
                 timeRemaining > 0 ? 'bg-orange-500' : 'bg-gray-500'
               }`}></span>
             </div>
-            <p className="text-sm font-semibold text-white">Game #{currentGame?.game_number || 'Loading...'}</p>
+            <p className="text-sm font-semibold text-white">Game #{currentGame?.period_number || 'Loading...'}</p>
           </div>
           
           <div className="text-center">
@@ -170,7 +170,7 @@ const GameArea: React.FC = () => {
                 <span className="text-4xl font-bold text-white">{latestResult.result_number}</span>
               </div>
               <div className="absolute -top-2 -right-2 bg-black/60 rounded-full px-2 py-1 text-xs text-white">
-                Game #{latestResult.game_number}
+                Game #{latestResult.period_number}
               </div>
             </div>
             <div className="mt-4 flex items-center gap-3">
@@ -198,7 +198,7 @@ const GameArea: React.FC = () => {
                 }`}
               >
                 <span className="text-xl font-bold text-white">{result.result_number}</span>
-                <span className="text-xs text-white/80 mt-1">#{result.game_number}</span>
+                <span className="text-xs text-white/80 mt-1">#{result.period_number}</span>
               </div>
             ))}
           </div>

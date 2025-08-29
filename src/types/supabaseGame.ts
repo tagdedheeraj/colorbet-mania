@@ -34,11 +34,19 @@ export interface Bet {
   profit: number;
   status: string;
   created_at: string;
+  // Additional properties for bet results
+  game_id?: string;
+  actual_win?: number;
+  is_winner?: boolean;
 }
 
 // Extended bet type that includes game period data for history display
 export interface BetWithGame extends Bet {
   game_period: GamePeriod;
+  // Additional properties for compatibility
+  game_id: string;
+  actual_win: number;
+  is_winner: boolean;
 }
 
 export interface GameState {
@@ -82,10 +90,16 @@ export interface GamePeriod {
   admin_set_result_number: number | null;
   admin_set_result_color: string | null;
   is_result_locked: boolean;
+  // Add missing properties that components expect
+  game_number?: number; // Alias for period_number for compatibility
+  game_mode?: GameMode; // Alias for game_mode_type for compatibility
 }
 
-// Legacy aliases for backward compatibility
-export interface SupabaseGame extends GamePeriod {}
+// Legacy aliases for backward compatibility - now properly typed
+export interface SupabaseGame extends GamePeriod {
+  game_number: number; // Make this required for the alias
+  game_mode: GameMode; // Make this required for the alias
+}
 
 export interface SupabaseBet extends Bet {}
 

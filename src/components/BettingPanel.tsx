@@ -66,7 +66,7 @@ const BettingPanel: React.FC = () => {
       return;
     }
     
-    console.log('✅ Placing color bet:', { color, amount: betAmount, game: currentGame.game_number });
+    console.log('✅ Placing color bet:', { color, amount: betAmount, game: currentGame.period_number });
     
     try {
       const success = await placeBet('color', color);
@@ -74,7 +74,7 @@ const BettingPanel: React.FC = () => {
       if (success) {
         setRecentlyPlacedBet(true);
         toast.success(`Bet लगाई गई: ₹${betAmount} ${color} पर`, {
-          description: `Game #${currentGame.game_number} • समय बचा: ${timeRemaining}s`
+          description: `Game #${currentGame.period_number} • समय बचा: ${timeRemaining}s`
         });
       } else {
         toast.error('Bet लगाने में असफल');
@@ -105,7 +105,7 @@ const BettingPanel: React.FC = () => {
       return;
     }
     
-    console.log('✅ Placing number bet:', { number, amount: betAmount, game: currentGame.game_number });
+    console.log('✅ Placing number bet:', { number, amount: betAmount, game: currentGame.period_number });
     
     try {
       const success = await placeBet('number', number.toString());
@@ -113,7 +113,7 @@ const BettingPanel: React.FC = () => {
       if (success) {
         setRecentlyPlacedBet(true);
         toast.success(`Bet लगाई गई: ₹${betAmount} number ${number} पर`, {
-          description: `Game #${currentGame.game_number} • समय बचा: ${timeRemaining}s`
+          description: `Game #${currentGame.period_number} • समय बचा: ${timeRemaining}s`
         });
       } else {
         toast.error('Bet लगाने में असफल');
@@ -155,7 +155,7 @@ const BettingPanel: React.FC = () => {
   console.log('🎮 Betting panel state:', {
     isAuthenticated,
     isSystemLoading,
-    currentGame: currentGame?.game_number || 'none',
+    currentGame: currentGame?.period_number || 'none',
     hasActiveGame: Boolean(hasActiveGame),
     isAcceptingBets,
     hasTimeRemaining,
@@ -178,7 +178,7 @@ const BettingPanel: React.FC = () => {
         {currentGame && (
           <div className="mt-2 space-y-2">
             <div className="flex justify-center items-center gap-2">
-              <span className="text-xs text-gray-400">Game #{currentGame.game_number}</span>
+              <span className="text-xs text-gray-400">Game #{currentGame.period_number}</span>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 isAcceptingBets && !isBettingInProgress
                   ? 'bg-green-500/20 text-green-300 animate-pulse' 
@@ -257,7 +257,7 @@ const BettingPanel: React.FC = () => {
         <div className="bg-black/20 p-2 rounded text-xs text-gray-400 space-y-1">
           <div>Timer: {timeRemaining}s | Betting: {isAcceptingBets ? 'Open' : 'Closed'} | In Progress: {isBettingInProgress.toString()}</div>
           <div>Balance: ₹{userBalance} | Bet: ₹{betAmount} | Can Bet: {canBet.toString()}</div>
-          <div>Recent Bet: {recentlyPlacedBet.toString()} | Game: #{currentGame?.game_number || 'None'}</div>
+          <div>Recent Bet: {recentlyPlacedBet.toString()} | Game: #{currentGame?.period_number || 'None'}</div>
         </div>
       )}
     </div>
