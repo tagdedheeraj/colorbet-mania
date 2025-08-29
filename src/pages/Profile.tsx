@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/store/supabaseAuthStore';
+import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { User, Mail, Phone, Calendar, Trophy, TrendingUp } from 'lucide-react';
 
 interface ProfileBet {
@@ -24,7 +24,7 @@ interface ProfileBet {
 }
 
 const Profile: React.FC = () => {
-  const { profile, updateProfile } = useAuth();
+  const { profile, updateProfile } = useSupabaseAuthStore();
   const [loading, setLoading] = useState(false);
   const [bets, setBets] = useState<ProfileBet[]>([]);
   const [formData, setFormData] = useState({
