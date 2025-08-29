@@ -3,61 +3,35 @@ import { supabase } from '@/integrations/supabase/client';
 import { BetWithGame } from '@/types/supabaseGame';
 
 export class BetHistoryService {
-  static async loadAllUserBets(userId: string): Promise<BetWithGame[]> {
+  static async loadUserBetHistory(userId: string, limit: number = 50): Promise<BetWithGame[]> {
     try {
-      console.log('📊 Loading all user bets for user:', userId);
-      
-      // First get all user bets with optimized query
-      const { data: bets, error: betsError } = await supabase
-        .from('bets')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      console.log('📊 Loading bet history for user:', userId);
 
-      if (betsError) {
-        console.error('❌ Error loading user bets:', betsError);
+      // Get bets with game period data
+      const { data: bets, error } = await supabase
+        .from('bets')
+        .select(`
+          *,
+          game_periods!bets_period_number_fkey(*)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('❌ Error loading bet history:', error);
         return [];
       }
 
       if (!bets || bets.length === 0) {
-        console.log('ℹ️ No bets found for user');
+        console.log('📊 No bet history found for user');
         return [];
       }
 
-      console.log('✅ Loaded', bets.length, 'bets for user');
-
-      // Get unique period numbers from bets
-      const periodNumbers = [...new Set(bets.map(bet => bet.period_number).filter(Boolean))];
-      
-      if (periodNumbers.length === 0) {
-        console.log('ℹ️ No period numbers found in bets');
-        return [];
-      }
-      
-      // Fetch game period data for those period numbers
-      const { data: gamePeriods, error: gamePeriodsError } = await supabase
-        .from('game_periods')
-        .select('*')
-        .in('period_number', periodNumbers)
-        .order('created_at', { ascending: false });
-
-      if (gamePeriodsError) {
-        console.error('❌ Error loading game periods:', gamePeriodsError);
-        return [];
-      }
-
-      console.log('✅ Loaded', gamePeriods?.length || 0, 'game periods');
-
-      // Create a map of game periods for quick lookup
-      const gamePeriodsMap = (gamePeriods || []).reduce((acc, gamePeriod) => {
-        acc[gamePeriod.period_number] = gamePeriod;
-        return acc;
-      }, {} as any);
-
-      // Combine bets with their corresponding game period data
-      const combinedData = bets.map(bet => ({
+      // Map to BetWithGame format
+      const betHistory: BetWithGame[] = bets.map(bet => ({
         id: bet.id,
-        user_id: bet.user_id || '',
+        user_id: bet.user_id,
         period_number: bet.period_number,
         bet_type: bet.bet_type as 'color' | 'number',
         bet_value: bet.bet_value,
@@ -66,75 +40,85 @@ export class BetHistoryService {
         status: bet.status || 'pending',
         created_at: bet.created_at || new Date().toISOString(),
         game_period: {
-          id: gamePeriodsMap[bet.period_number]?.id || '',
-          period_number: bet.period_number,
-          result_color: gamePeriodsMap[bet.period_number]?.result_color || null,
-          result_number: gamePeriodsMap[bet.period_number]?.result_number || null,
-          start_time: gamePeriodsMap[bet.period_number]?.start_time || '',
-          end_time: gamePeriodsMap[bet.period_number]?.end_time || '',
-          status: gamePeriodsMap[bet.period_number]?.status || '',
-          game_mode_type: gamePeriodsMap[bet.period_number]?.game_mode_type || 'automatic',
-          created_at: gamePeriodsMap[bet.period_number]?.created_at || '',
-          admin_set_result_number: gamePeriodsMap[bet.period_number]?.admin_set_result_number || null,
-          admin_set_result_color: gamePeriodsMap[bet.period_number]?.admin_set_result_color || null,
-          is_result_locked: gamePeriodsMap[bet.period_number]?.is_result_locked || false
-        }
+          id: bet.game_periods?.id || '',
+          period_number: bet.game_periods?.period_number || bet.period_number,
+          start_time: bet.game_periods?.start_time || new Date().toISOString(),
+          end_time: bet.game_periods?.end_time || null,
+          status: bet.game_periods?.status || 'completed',
+          result_color: bet.game_periods?.result_color || null,
+          result_number: bet.game_periods?.result_number || null,
+          game_mode_type: bet.game_periods?.game_mode_type || 'automatic',
+          created_at: bet.game_periods?.created_at || new Date().toISOString(),
+          admin_set_result_number: bet.game_periods?.admin_set_result_number || null,
+          admin_set_result_color: bet.game_periods?.admin_set_result_color || null,
+          is_result_locked: bet.game_periods?.is_result_locked || false
+        },
+        // Add required BetWithGame properties
+        game_id: bet.game_periods?.id || bet.id,
+        actual_win: bet.profit || 0,
+        is_winner: bet.status === 'won'
       }));
 
-      console.log('✅ Combined bet and game period data successfully');
-      return combinedData;
+      console.log('✅ Bet history loaded successfully:', betHistory.length);
+      return betHistory;
+
     } catch (error) {
-      console.error('❌ Error loading all user bets:', error);
+      console.error('❌ Exception in loadUserBetHistory:', error);
       return [];
     }
   }
 
-  static async getLatestCompletedGame() {
+  static async getUserGameResults(userId: string, limit: number = 10) {
     try {
-      console.log('🎯 Loading latest completed game...');
-      
-      const { data, error } = await supabase
-        .from('game_periods')
-        .select('*')
-        .eq('status', 'completed')
-        .not('result_number', 'is', null)
-        .not('result_color', 'is', null)
+      console.log('🎯 Loading game results for user:', userId);
+
+      const { data: results, error } = await supabase
+        .from('bets')
+        .select(`
+          *,
+          game_periods!bets_period_number_fkey(*)
+        `)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(limit);
 
       if (error) {
-        console.error('❌ Error loading latest completed game:', error);
-        return null;
+        console.error('❌ Error loading game results:', error);
+        return [];
       }
 
-      if (data) {
-        console.log('✅ Latest completed game loaded:', data.period_number);
-      } else {
-        console.log('ℹ️ No completed games found');
-      }
+      // Group by period and calculate results
+      const gameResults = results?.reduce((acc, bet) => {
+        const period = bet.period_number;
+        if (!acc[period]) {
+          acc[period] = {
+            period_number: period,
+            result_number: bet.game_periods?.result_number,
+            result_color: bet.game_periods?.result_color,
+            total_bet: 0,
+            total_win: 0,
+            bet_count: 0,
+            is_winner: false
+          };
+        }
+        
+        acc[period].total_bet += bet.amount;
+        acc[period].total_win += bet.profit || 0;
+        acc[period].bet_count += 1;
+        
+        if (bet.status === 'won') {
+          acc[period].is_winner = true;
+        }
+        
+        return acc;
+      }, {} as any) || {};
 
-      return data;
-    } catch (error) {
-      console.error('❌ Error loading latest completed game:', error);
-      return null;
-    }
-  }
+      const resultArray = Object.values(gameResults);
+      console.log('✅ Game results loaded:', resultArray.length);
+      return resultArray;
 
-  // New method to get recent bet activity for a user
-  static async getRecentBetActivity(userId: string, limit: number = 5): Promise<BetWithGame[]> {
-    try {
-      console.log('📈 Loading recent bet activity for user:', userId);
-      
-      const allBets = await this.loadAllUserBets(userId);
-      const recentBets = allBets
-        .filter(bet => bet.game_period.status === 'completed')
-        .slice(0, limit);
-      
-      console.log('✅ Recent bet activity loaded:', recentBets.length, 'bets');
-      return recentBets;
     } catch (error) {
-      console.error('❌ Error loading recent bet activity:', error);
+      console.error('❌ Exception in getUserGameResults:', error);
       return [];
     }
   }

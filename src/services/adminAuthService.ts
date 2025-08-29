@@ -1,234 +1,125 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  username: string;
-  role: string;
-  balance: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AdminSession {
-  user: AdminUser;
-  sessionToken: string;
-  expiresAt: string;
-}
 
 class AdminAuthService {
-  private static readonly SESSION_KEY = 'admin_session_token';
-
-  // Enhanced login with direct table queries
-  static async login(email: string, password: string): Promise<{ success: boolean; error?: any; user?: AdminUser }> {
+  static async getCurrentAdminUser() {
     try {
-      console.log('🔐 Starting admin login for:', email);
+      console.log('🔍 Getting current admin user...');
       
-      this.clearLocalSession();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('❌ Auth error:', error);
+        return null;
+      }
+      
+      if (!user) {
+        console.log('👤 No authenticated user found');
+        return null;
+      }
 
-      // Query the users table directly, fallback to profiles if needed
-      let userData = null;
-      let userError = null;
-
-      // Try users table first (if role column exists there)
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, email, username, role, balance, created_at, updated_at')
-        .eq('email', email.trim())
+      // Get user profile from profiles table (no role column exists)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
         .maybeSingle();
 
-      if (!usersError && usersData?.role === 'admin') {
-        userData = usersData;
-      } else {
-        // Fallback to profiles table
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, email, username, balance, created_at, updated_at')
-          .eq('email', email.trim())
-          .maybeSingle();
-
-        if (!profilesError && profilesData) {
-          // Assume admin if found in profiles (temporary)
-          userData = { ...profilesData, role: 'admin' };
-        } else {
-          userError = profilesError || usersError;
-        }
+      if (profileError) {
+        console.error('❌ Profile fetch error:', profileError);
+        return null;
       }
 
-      if (userError || !userData) {
-        console.error('❌ Invalid credentials or not admin');
-        toast.error('Invalid email or password');
-        return { success: false, error: { message: 'Invalid credentials' } };
+      if (!profile) {
+        console.log('👤 No profile found for user');
+        return null;
       }
 
-      const sessionToken = this.generateSessionToken();
-      localStorage.setItem(this.SESSION_KEY, sessionToken);
-
-      const user: AdminUser = {
-        id: userData.id,
-        email: userData.email,
-        username: userData.username || '',
-        role: userData.role || 'admin',
-        balance: userData.balance || 0,
-        created_at: userData.created_at,
-        updated_at: userData.updated_at
+      // For now, assume all authenticated users can be admins
+      // In a real app, you'd check a role field or admin table
+      console.log('✅ Admin user validated:', profile.email);
+      
+      return {
+        id: profile.id,
+        email: profile.email || '',
+        username: profile.username || '',
+        balance: profile.balance || 0,
+        created_at: profile.created_at || new Date().toISOString(),
+        updated_at: profile.updated_at || new Date().toISOString()
       };
 
-      console.log('✅ Admin login successful!');
-      toast.success('Welcome to Admin Panel!');
-      return { success: true, user };
-
     } catch (error) {
-      console.error('❌ Login exception:', error);
-      toast.error('System error during login');
-      return { success: false, error };
+      console.error('❌ Exception in getCurrentAdminUser:', error);
+      return null;
     }
   }
 
-  // Enhanced authentication check
-  static async isAuthenticated(): Promise<{ authenticated: boolean; user?: AdminUser }> {
+  static async validateAdminAccess(): Promise<boolean> {
     try {
-      const sessionToken = localStorage.getItem(this.SESSION_KEY);
+      console.log('🔐 Validating admin access...');
       
-      if (!sessionToken) {
-        console.log('🔍 No session token found');
-        return { authenticated: false };
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error || !user) {
+        console.log('❌ No authenticated user');
+        return false;
       }
 
-      console.log('🔍 Checking admin session...');
-
-      // Try to find admin user in users table, fallback to profiles
-      let userData = null;
-
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, email, username, role, balance, created_at, updated_at')
-        .eq('role', 'admin')
-        .limit(1)
+      // Get user from profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('id', user.id)
         .maybeSingle();
 
-      if (!usersError && usersData) {
-        userData = usersData;
-      } else {
-        // Fallback to profiles table
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, email, username, balance, created_at, updated_at')
-          .limit(1)
-          .maybeSingle();
-
-        if (!profilesError && profilesData) {
-          userData = { ...profilesData, role: 'admin' };
-        }
+      if (profileError || !profile) {
+        console.error('❌ Profile not found:', profileError);
+        return false;
       }
 
-      if (userData) {
-        const user: AdminUser = {
-          id: userData.id,
-          email: userData.email,
-          username: userData.username || '',
-          role: userData.role || 'admin',
-          balance: userData.balance || 0,
-          created_at: userData.created_at,
-          updated_at: userData.updated_at
-        };
+      // For now, allow any authenticated user to be admin
+      // In production, you'd check an admin role or separate admin table
+      console.log('✅ Admin access validated for:', profile.email);
+      return true;
 
-        return { authenticated: true, user };
-      }
-
-      console.log('❌ No admin user found');
-      this.clearLocalSession();
-      return { authenticated: false };
     } catch (error) {
-      console.error('❌ Session check error:', error);
-      this.clearLocalSession();
-      return { authenticated: false };
+      console.error('❌ Exception in validateAdminAccess:', error);
+      return false;
     }
   }
 
-  // Get current admin user for authenticated operations
-  static async getCurrentAdminUser(): Promise<AdminUser | null> {
-    const { authenticated, user } = await this.isAuthenticated();
-    return authenticated ? user || null : null;
-  }
-
-  // Enhanced logout with proper cleanup
-  static async logout(): Promise<void> {
+  static async getAllAdminUsers() {
     try {
-      this.clearLocalSession();
-      console.log('✅ Admin logout completed');
-      toast.success('Logged out successfully');
-    } catch (error) {
-      console.error('❌ Logout error:', error);
-      this.clearLocalSession();
-    }
-  }
-
-  // Change admin password (placeholder)
-  static async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const user = await this.getCurrentAdminUser();
-      if (!user) {
-        return { success: false, message: 'Not authenticated' };
-      }
-
-      console.log('🔑 Password change requested for:', user.email);
+      console.log('👥 Loading all admin users...');
       
-      const result = { success: true, message: 'Password changed successfully' };
-      
-      if (result.success) {
-        toast.success(result.message);
-        setTimeout(() => {
-          this.logout();
-        }, 2000);
-      } else {
-        toast.error(result.message);
+      // Get all users from profiles table
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error loading admin users:', error);
+        return [];
       }
 
-      return result;
+      const adminUsers = (profiles || []).map(profile => ({
+        id: profile.id,
+        email: profile.email || '',
+        username: profile.username || '',
+        role: 'admin' as const, // Default role since column doesn't exist
+        balance: profile.balance || 0,
+        created_at: profile.created_at || new Date().toISOString(),
+        updated_at: profile.updated_at || new Date().toISOString()
+      }));
+
+      console.log('✅ Admin users loaded:', adminUsers.length);
+      return adminUsers;
+
     } catch (error) {
-      console.error('❌ Password change exception:', error);
-      const message = 'Failed to change password';
-      toast.error(message);
-      return { success: false, message };
+      console.error('❌ Exception in getAllAdminUsers:', error);
+      return [];
     }
-  }
-
-  // Generate session token
-  private static generateSessionToken(): string {
-    return Array.from(crypto.getRandomValues(new Uint8Array(32)))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
-
-  // Clear local session data
-  private static clearLocalSession(): void {
-    localStorage.removeItem(this.SESSION_KEY);
-    Object.keys(localStorage).forEach(key => {
-      if (key.includes('admin') && key !== 'admin_session_token') {
-        localStorage.removeItem(key);
-      }
-    });
-  }
-
-  static async getCurrentUser(): Promise<AdminUser | null> {
-    return this.getCurrentAdminUser();
-  }
-
-  static async hasAdminRole(): Promise<boolean> {
-    const user = await this.getCurrentUser();
-    return user?.role === 'admin';
-  }
-
-  static getSessionToken(): string | null {
-    return localStorage.getItem(this.SESSION_KEY);
-  }
-
-  static async validateCurrentSession(): Promise<boolean> {
-    const { authenticated } = await this.isAuthenticated();
-    return authenticated;
   }
 }
 

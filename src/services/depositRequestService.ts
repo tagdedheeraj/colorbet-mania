@@ -1,5 +1,5 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import AdminAuthService from './adminAuthService';
 import { toast } from 'sonner';
 
 export interface DepositRequest {
@@ -9,246 +9,211 @@ export interface DepositRequest {
   payment_method: string;
   transaction_id: string;
   status: 'pending' | 'approved' | 'rejected';
-  admin_notes?: string;
-  processed_by?: string;
-  processed_at?: string;
+  notes?: string;
   created_at: string;
-  updated_at: string;
-  users?: {
-    username: string;
+  processed_at?: string;
+  processed_by?: string;
+  user?: {
     email: string;
-    balance: number;
+    username: string;
   };
 }
 
-export interface DepositStats {
-  pending_count: number;
-  pending_amount: number;
-  today_approved_count: number;
-  today_approved_amount: number;
-}
-
-class DepositRequestService {
-  // Load all deposit requests with user details
-  static async loadDepositRequests(): Promise<DepositRequest[]> {
+export class DepositRequestService {
+  static async getAllDepositRequests(): Promise<DepositRequest[]> {
     try {
-      console.log('🔄 Loading deposit requests...');
-      
-      // Fix: Use specific foreign key relationship to avoid ambiguity
-      // We want the user who made the request (user_id), not the admin who processed it (processed_by)
-      const { data, error } = await supabase
+      console.log('💰 Loading all deposit requests...');
+
+      const { data: requests, error } = await supabase
         .from('deposit_requests')
         .select(`
           *,
-          users!deposit_requests_user_id_fkey(username, email, balance)
+          users:profiles!deposit_requests_user_id_fkey(email, username)
         `)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Error loading deposit requests:', error);
-        console.error('❌ Error details:', JSON.stringify(error, null, 2));
-        throw error;
+        return [];
       }
 
-      console.log('✅ Raw data loaded:', data?.length || 0, 'requests');
-      console.log('🔍 Sample raw data:', data?.[0]);
-      
-      // Transform the data to match our interface
-      const transformedData: DepositRequest[] = (data || []).map(item => {
-        console.log('🔄 Transforming item:', item.id, 'with users:', item.users);
-        
-        return {
-          id: item.id,
-          user_id: item.user_id,
-          amount: item.amount,
-          payment_method: item.payment_method,
-          transaction_id: item.transaction_id,
-          status: item.status as 'pending' | 'approved' | 'rejected',
-          admin_notes: item.admin_notes || undefined,
-          processed_by: item.processed_by || undefined,
-          processed_at: item.processed_at || undefined,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          users: item.users ? {
-            username: item.users.username,
-            email: item.users.email,
-            balance: item.users.balance
-          } : undefined
-        };
-      });
+      const depositRequests: DepositRequest[] = (requests || []).map(request => ({
+        id: request.id,
+        user_id: request.user_id,
+        amount: request.amount,
+        payment_method: request.payment_method,
+        transaction_id: request.transaction_id,
+        status: request.status as 'pending' | 'approved' | 'rejected',
+        notes: request.notes || undefined,
+        created_at: request.created_at,
+        processed_at: request.processed_at || undefined,
+        processed_by: request.processed_by || undefined,
+        user: request.users ? {
+          email: request.users.email || '',
+          username: request.users.username || ''
+        } : undefined
+      }));
 
-      console.log('✅ Transformed data:', transformedData.length, 'requests');
-      console.log('🎯 Sample transformed data:', transformedData[0]);
-      console.log('📊 Pending requests:', transformedData.filter(r => r.status === 'pending').length);
-      
-      return transformedData;
+      console.log('✅ Deposit requests loaded:', depositRequests.length);
+      return depositRequests;
+
     } catch (error) {
-      console.error('❌ Exception loading deposit requests:', error);
-      toast.error('Failed to load deposit requests: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      throw error;
+      console.error('❌ Exception in getAllDepositRequests:', error);
+      return [];
     }
   }
 
-  // Get deposit statistics using a direct query instead of RPC
-  static async getDepositStats(): Promise<DepositStats> {
-    try {
-      console.log('📊 Loading deposit stats...');
-      
-      // Get pending requests
-      const { data: pendingData, error: pendingError } = await supabase
-        .from('deposit_requests')
-        .select('amount')
-        .eq('status', 'pending');
-
-      if (pendingError) {
-        console.error('❌ Error getting pending deposits:', pendingError);
-        throw pendingError;
-      }
-
-      // Get today's approved requests
-      const today = new Date().toISOString().split('T')[0];
-      const { data: approvedData, error: approvedError } = await supabase
-        .from('deposit_requests')
-        .select('amount')
-        .eq('status', 'approved')
-        .gte('processed_at', `${today}T00:00:00.000Z`)
-        .lt('processed_at', `${today}T23:59:59.999Z`);
-
-      if (approvedError) {
-        console.error('❌ Error getting approved deposits:', approvedError);
-        throw approvedError;
-      }
-
-      const pendingAmount = (pendingData || []).reduce((sum, item) => sum + (item.amount || 0), 0);
-      const approvedAmount = (approvedData || []).reduce((sum, item) => sum + (item.amount || 0), 0);
-
-      const stats = {
-        pending_count: (pendingData || []).length,
-        pending_amount: pendingAmount,
-        today_approved_count: (approvedData || []).length,
-        today_approved_amount: approvedAmount
-      };
-      
-      console.log('📊 Deposit stats:', stats);
-      return stats;
-    } catch (error) {
-      console.error('❌ Exception getting deposit stats:', error);
-      throw error;
-    }
-  }
-
-  // Approve deposit request
   static async approveDepositRequest(
     requestId: string, 
-    adminNotes?: string
+    adminUserId: string, 
+    notes?: string
   ): Promise<{ success: boolean; message: string; new_balance?: number }> {
     try {
-      console.log('✅ Approving deposit request:', requestId, 'with notes:', adminNotes);
-      
-      const adminUser = await AdminAuthService.getCurrentAdminUser();
-      if (!adminUser) {
-        throw new Error('Admin authentication required');
+      console.log('✅ Approving deposit request:', requestId);
+
+      // Get the deposit request
+      const { data: request, error: requestError } = await supabase
+        .from('deposit_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+      if (requestError || !request) {
+        console.error('❌ Error fetching deposit request:', requestError);
+        return { success: false, message: 'Deposit request not found' };
       }
 
-      console.log('👤 Admin user verified:', adminUser.id);
-
-      const { data, error } = await supabase.rpc('approve_deposit_request', {
-        p_request_id: requestId,
-        p_admin_id: adminUser.id,
-        p_admin_notes: adminNotes || null
-      });
-
-      if (error) {
-        console.error('❌ Error approving deposit:', error);
-        throw error;
+      if (request.status !== 'pending') {
+        return { success: false, message: 'Deposit request is not pending' };
       }
 
-      console.log('📤 RPC response:', data);
+      // Get current user balance
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', request.user_id)
+        .single();
 
-      const result = data as { success: boolean; message: string; new_balance?: number };
-      
-      if (result.success) {
-        console.log('✅ Deposit approved successfully');
-        toast.success(result.message);
-      } else {
-        console.error('❌ Deposit approval failed:', result.message);
-        toast.error(result.message);
+      if (profileError || !profile) {
+        console.error('❌ Error fetching user profile:', profileError);
+        return { success: false, message: 'User profile not found' };
       }
 
-      return result;
+      const currentBalance = profile.balance || 0;
+      const newBalance = currentBalance + request.amount;
+
+      // Update user balance
+      const { error: balanceError } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', request.user_id);
+
+      if (balanceError) {
+        console.error('❌ Error updating user balance:', balanceError);
+        return { success: false, message: 'Failed to update user balance' };
+      }
+
+      // Update deposit request status
+      const { error: updateError } = await supabase
+        .from('deposit_requests')
+        .update({
+          status: 'approved',
+          processed_at: new Date().toISOString(),
+          processed_by: adminUserId,
+          notes: notes || null
+        })
+        .eq('id', requestId);
+
+      if (updateError) {
+        console.error('❌ Error updating deposit request:', updateError);
+        return { success: false, message: 'Failed to update deposit request' };
+      }
+
+      // Create transaction record
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: request.user_id,
+          type: 'deposit',
+          amount: request.amount,
+          balance_before: currentBalance,
+          balance_after: newBalance,
+          description: `Deposit approved - ${request.payment_method} - ${request.transaction_id}`
+        });
+
+      if (transactionError) {
+        console.error('❌ Error creating transaction:', transactionError);
+        // Don't fail the whole operation for transaction logging
+      }
+
+      console.log('✅ Deposit request approved successfully');
+      toast.success('Deposit request approved successfully');
+      return { success: true, message: 'Deposit approved successfully', new_balance: newBalance };
+
     } catch (error) {
-      console.error('❌ Exception approving deposit:', error);
-      const message = error instanceof Error ? error.message : 'Failed to approve deposit';
-      toast.error(message);
-      return { success: false, message };
+      console.error('❌ Exception in approveDepositRequest:', error);
+      return { success: false, message: 'An error occurred while approving the deposit' };
     }
   }
 
-  // Reject deposit request
   static async rejectDepositRequest(
     requestId: string, 
-    adminNotes: string
+    adminUserId: string, 
+    notes?: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      console.log('❌ Rejecting deposit request:', requestId, 'with notes:', adminNotes);
-      
-      const adminUser = await AdminAuthService.getCurrentAdminUser();
-      if (!adminUser) {
-        throw new Error('Admin authentication required');
-      }
+      console.log('❌ Rejecting deposit request:', requestId);
 
-      console.log('👤 Admin user verified:', adminUser.id);
-
-      const { data, error } = await supabase.rpc('reject_deposit_request', {
-        p_request_id: requestId,
-        p_admin_id: adminUser.id,
-        p_admin_notes: adminNotes
-      });
+      // Update deposit request status
+      const { error } = await supabase
+        .from('deposit_requests')
+        .update({
+          status: 'rejected',
+          processed_at: new Date().toISOString(),
+          processed_by: adminUserId,
+          notes: notes || null
+        })
+        .eq('id', requestId);
 
       if (error) {
-        console.error('❌ Error rejecting deposit:', error);
-        throw error;
+        console.error('❌ Error updating deposit request:', error);
+        return { success: false, message: 'Failed to reject deposit request' };
       }
 
-      console.log('📤 RPC response:', data);
+      console.log('✅ Deposit request rejected successfully');
+      toast.success('Deposit request rejected');
+      return { success: true, message: 'Deposit rejected successfully' };
 
-      const result = data as { success: boolean; message: string };
-      
-      if (result.success) {
-        console.log('✅ Deposit rejected successfully');
-        toast.success(result.message);
-      } else {
-        console.error('❌ Deposit rejection failed:', result.message);
-        toast.error(result.message);
-      }
-
-      return result;
     } catch (error) {
-      console.error('❌ Exception rejecting deposit:', error);
-      const message = error instanceof Error ? error.message : 'Failed to reject deposit';
-      toast.error(message);
-      return { success: false, message };
+      console.error('❌ Exception in rejectDepositRequest:', error);
+      return { success: false, message: 'An error occurred while rejecting the deposit' };
     }
   }
 
-  // Subscribe to real-time deposit request updates
-  static subscribeToDepositUpdates(callback: () => void) {
-    console.log('🔔 Setting up real-time deposit request subscription...');
-    
-    const channel = supabase
-      .channel('deposit-request-updates')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'deposit_requests'
-      }, (payload) => {
-        console.log('🔔 Deposit request update received:', payload);
-        callback();
-      })
-      .subscribe();
+  static async createDepositRequest(data: {
+    user_id: string;
+    amount: number;
+    payment_method: string;
+    transaction_id: string;
+  }): Promise<{ success: boolean; error?: any }> {
+    try {
+      console.log('💰 Creating deposit request:', data);
 
-    return channel;
+      const { error } = await supabase
+        .from('deposit_requests')
+        .insert(data);
+
+      if (error) {
+        console.error('❌ Error creating deposit request:', error);
+        return { success: false, error };
+      }
+
+      console.log('✅ Deposit request created successfully');
+      return { success: true };
+
+    } catch (error) {
+      console.error('❌ Exception in createDepositRequest:', error);
+      return { success: false, error };
+    }
   }
 }
-
-export default DepositRequestService;

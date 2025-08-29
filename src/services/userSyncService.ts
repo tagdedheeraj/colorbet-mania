@@ -5,11 +5,11 @@ import { User } from '@supabase/supabase-js';
 export const UserSyncService = {
   async ensureUserExists(user: User): Promise<boolean> {
     try {
-      console.log('Ensuring user exists in public.users:', user.id);
+      console.log('Ensuring user exists in profiles:', user.id);
       
-      // Check if user exists in public.users
+      // Check if user exists in profiles
       const { data: existingUser, error: checkError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('id')
         .eq('id', user.id)
         .maybeSingle();
@@ -20,18 +20,18 @@ export const UserSyncService = {
       }
 
       if (existingUser) {
-        console.log('User already exists in public.users');
+        console.log('User already exists in profiles');
         return true;
       }
 
-      console.log('User not found in public.users, creating...');
+      console.log('User not found in profiles, creating...');
       
       // Extract username from metadata or email
       const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
       
-      // Create user entry in public.users with 50rs signup bonus
+      // Create user entry in profiles with 50rs signup bonus
       const { error: insertError } = await supabase
-        .from('users')
+        .from('profiles')
         .insert({
           id: user.id,
           email: user.email!,
@@ -40,19 +40,8 @@ export const UserSyncService = {
         });
 
       if (insertError) {
-        console.error('Error creating user in public.users:', insertError);
+        console.error('Error creating user in profiles:', insertError);
         return false;
-      }
-
-      // Create profile entry
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: user.id
-        });
-
-      if (profileError && !profileError.message.includes('duplicate key')) {
-        console.error('Error creating user profile:', profileError);
       }
 
       // Create signup bonus transaction
@@ -62,8 +51,9 @@ export const UserSyncService = {
           user_id: user.id,
           type: 'bonus',
           amount: 50.00,
-          description: 'Welcome bonus - Thank you for joining!',
-          status: 'completed'
+          balance_before: 0,
+          balance_after: 50.00,
+          description: 'Welcome bonus - Thank you for joining!'
         });
 
       if (transactionError) {
@@ -81,9 +71,9 @@ export const UserSyncService = {
 
   async validateUserForDeposit(userId: string): Promise<{ valid: boolean; message?: string }> {
     try {
-      // Check if user exists in public.users
+      // Check if user exists in profiles
       const { data: user, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('id, email, balance')
         .eq('id', userId)
         .maybeSingle();

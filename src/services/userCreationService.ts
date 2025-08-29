@@ -33,6 +33,15 @@ export const UserCreationService = {
         throw profileError;
       }
 
+      // Get current balance for transaction record
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', user.id)
+        .single();
+
+      const currentBalance = profile?.balance || 50.00;
+
       // Create signup bonus transaction
       const { error: transactionError } = await supabase
         .from('transactions')
@@ -40,8 +49,9 @@ export const UserCreationService = {
           user_id: user.id,
           type: 'bonus',
           amount: 50.00,
-          description: 'Welcome bonus - Thank you for joining!',
-          status: 'completed'
+          balance_before: 0,
+          balance_after: currentBalance,
+          description: 'Welcome bonus - Thank you for joining!'
         });
 
       if (transactionError) {

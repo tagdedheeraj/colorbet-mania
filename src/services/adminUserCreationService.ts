@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 
 export class AdminUserCreationService {
   static async createUser(userData: {
@@ -11,10 +12,14 @@ export class AdminUserCreationService {
     try {
       console.log('👤 Creating new user:', userData.email);
 
-      // Create user in profiles table
+      // Generate a UUID for the new user
+      const userId = uuidv4();
+
+      // Create user in profiles table with required id field
       const { data: user, error } = await supabase
         .from('profiles')
         .insert({
+          id: userId,
           email: userData.email,
           username: userData.username,
           balance: userData.balance || 100

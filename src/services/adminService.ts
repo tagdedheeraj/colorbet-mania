@@ -7,7 +7,6 @@ export class AdminService {
     try {
       console.log('👥 AdminService: Loading all users...');
       
-      // Query profiles table instead of users table
       const { data: profiles, error } = await supabase
         .from('profiles')
         .select('*')
@@ -18,12 +17,11 @@ export class AdminService {
         return { data: [], error };
       }
 
-      // Map profiles to AdminUser format
       const users: AdminUser[] = (profiles || []).map(profile => ({
         id: profile.id,
         email: profile.email || '',
         username: profile.username || '',
-        role: 'user', // Default role since users table doesn't have role column
+        role: 'user', // Default role since column doesn't exist
         balance: profile.balance || 0,
         created_at: profile.created_at || new Date().toISOString(),
         updated_at: profile.updated_at || new Date().toISOString()
@@ -53,7 +51,6 @@ export class AdminService {
         return { data: [], error };
       }
 
-      // Map games to AdminGame format
       const adminGames: AdminGame[] = (games || []).map(game => ({
         id: game.id,
         period_number: game.game_number,
@@ -81,11 +78,12 @@ export class AdminService {
     try {
       console.log('🎯 AdminService: Loading all bets...');
       
+      // Get bets with user info from profiles table
       const { data: bets, error } = await supabase
         .from('bets')
         .select(`
           *,
-          profiles!inner(username, email)
+          profiles!bets_user_id_fkey(username, email)
         `)
         .order('created_at', { ascending: false })
         .limit(500);
@@ -95,7 +93,6 @@ export class AdminService {
         return { data: [], error };
       }
 
-      // Map bets to AdminBet format
       const adminBets: AdminBet[] = (bets || []).map(bet => ({
         id: bet.id,
         user_id: bet.user_id,
@@ -110,7 +107,7 @@ export class AdminService {
           username: bet.profiles.username || '',
           email: bet.profiles.email || ''
         } : undefined,
-        is_winner: false, // Default value since column doesn't exist in bets table
+        is_winner: bet.status === 'won',
         actual_win: bet.profit || 0
       }));
 
@@ -127,7 +124,6 @@ export class AdminService {
     try {
       console.log('💰 AdminService: Updating balance for user:', userId, 'to:', newBalance);
 
-      // Update balance in profiles table
       const { error } = await supabase
         .from('profiles')
         .update({ balance: newBalance, updated_at: new Date().toISOString() })

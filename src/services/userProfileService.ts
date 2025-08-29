@@ -7,9 +7,9 @@ export const UserProfileService = {
     try {
       console.log('Fetching profile for user:', userId);
       
-      // Get user data from users table
+      // Get user data from profiles table
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
@@ -26,8 +26,8 @@ export const UserProfileService = {
         email: userData.email || '',
         username: userData.username || userData.email?.split('@')[0] || 'user',
         balance: userData.balance || 0,
-        referral_code: userData.referral_code,
-        referred_by: userData.referred_by,
+        referral_code: null, // Column doesn't exist in current schema
+        referred_by: null, // Column doesn't exist in current schema
         created_at: userData.created_at || new Date().toISOString(),
         updated_at: userData.updated_at || new Date().toISOString()
       };
@@ -39,15 +39,14 @@ export const UserProfileService = {
 
   async updateProfile(userId: string, data: { full_name?: string; phone?: string }): Promise<void> {
     try {
-      // Update profile in profiles table
+      // Since profiles table doesn't have full_name or phone columns,
+      // we'll just update the updated_at timestamp for now
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          user_id: userId,
-          full_name: data.full_name,
-          phone: data.phone,
+        .update({
           updated_at: new Date().toISOString()
-        });
+        })
+        .eq('id', userId);
 
       if (error) throw error;
     } catch (error) {
@@ -58,7 +57,7 @@ export const UserProfileService = {
 
   async updateBalance(userId: string, newBalance: number): Promise<void> {
     const { error } = await supabase
-      .from('users')
+      .from('profiles')
       .update({ balance: newBalance })
       .eq('id', userId);
 

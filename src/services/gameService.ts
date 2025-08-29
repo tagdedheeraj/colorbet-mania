@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { SupabaseGame, SupabaseBet } from '@/types/supabaseGame';
+import { SupabaseGame, SupabaseBet, GameMode } from '@/types/supabaseGame';
 import { GAME_MODES } from '@/config/gameModes';
 
 export class GameService {
@@ -24,6 +24,9 @@ export class GameService {
         return null;
       }
 
+      // Cast game_mode to GameMode type
+      const gameMode = (activeGame.game_mode || 'quick') as GameMode;
+
       return {
         id: activeGame.id,
         game_number: activeGame.game_number,
@@ -33,8 +36,8 @@ export class GameService {
         start_time: activeGame.start_time,
         end_time: activeGame.end_time,
         status: activeGame.status || 'active',
-        game_mode: activeGame.game_mode || 'quick',
-        game_mode_type: activeGame.game_mode || 'automatic',
+        game_mode: gameMode,
+        game_mode_type: gameMode,
         created_at: activeGame.created_at || new Date().toISOString(),
         admin_set_result_number: activeGame.admin_set_result_number,
         admin_set_result_color: activeGame.admin_set_result_color,
@@ -60,22 +63,26 @@ export class GameService {
         return [];
       }
       
-      return (data || []).map(game => ({
-        id: game.id,
-        game_number: game.game_number,
-        period_number: game.game_number,
-        result_color: game.result_color,
-        result_number: game.result_number,
-        start_time: game.start_time,
-        end_time: game.end_time,
-        status: game.status || 'completed',
-        game_mode: game.game_mode || 'quick',
-        game_mode_type: game.game_mode || 'automatic',
-        created_at: game.created_at || new Date().toISOString(),
-        admin_set_result_number: game.admin_set_result_number,
-        admin_set_result_color: game.admin_set_result_color,
-        is_result_locked: game.is_result_locked || false
-      }));
+      return (data || []).map(game => {
+        const gameMode = (game.game_mode || 'quick') as GameMode;
+        
+        return {
+          id: game.id,
+          game_number: game.game_number,
+          period_number: game.game_number,
+          result_color: game.result_color,
+          result_number: game.result_number,
+          start_time: game.start_time,
+          end_time: game.end_time,
+          status: game.status || 'completed',
+          game_mode: gameMode,
+          game_mode_type: gameMode,
+          created_at: game.created_at || new Date().toISOString(),
+          admin_set_result_number: game.admin_set_result_number,
+          admin_set_result_color: game.admin_set_result_color,
+          is_result_locked: game.is_result_locked || false
+        };
+      });
     } catch (error) {
       console.error('Error loading game history:', error);
       return [];
@@ -109,14 +116,13 @@ export class GameService {
       
       return (data || []).map(bet => ({
         id: bet.id,
-        game_id: gameId,
         user_id: bet.user_id || '',
+        period_number: bet.period_number,
         bet_type: bet.bet_type,
         bet_value: bet.bet_value,
         amount: bet.amount,
-        potential_win: bet.amount * (bet.bet_type === 'number' ? 9 : 0.95),
-        is_winner: bet.status === 'won',
-        actual_win: bet.profit || 0,
+        profit: bet.profit || 0,
+        status: bet.status || 'pending',
         created_at: bet.created_at || new Date().toISOString()
       }));
     } catch (error) {
