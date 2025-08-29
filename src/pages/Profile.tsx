@@ -1,18 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Mail, Calendar, Trophy, LogOut, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/store/supabaseAuthStore';
+import { User, Mail, Phone, Calendar, Trophy, TrendingUp } from 'lucide-react';
 
 interface ProfileBet {
   id: string;
-  user_id: string;
   period_number: number;
   bet_type: 'color' | 'number';
   bet_value: string;
@@ -23,266 +24,285 @@ interface ProfileBet {
 }
 
 const Profile: React.FC = () => {
-  const navigate = useNavigate();
-  const { user, isAuthenticated, signOut } = useSupabaseAuthStore();
-  const [profile, setProfile] = useState<any>(null);
-  const [userRecord, setUserRecord] = useState<any>(null);
-  const [userStats, setUserStats] = useState<any>({});
+  const { profile, updateProfile } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [updating, setUpdating] = useState(false);
+  const [bets, setBets] = useState<ProfileBet[]>([]);
   const [formData, setFormData] = useState({
-    email: '',
-    username: ''
+    full_name: profile?.full_name || '',
+    phone: profile?.phone || ''
   });
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/auth');
-      return;
+    if (profile) {
+      setFormData({
+        full_name: profile.full_name || '',
+        phone: profile.phone || ''
+      });
+      loadUserBets();
     }
-    loadProfileData();
-  }, [isAuthenticated, navigate]);
+  }, [profile]);
 
-  const loadProfileData = async () => {
-    if (!user) return;
-
-    setLoading(true);
+  const loadUserBets = async () => {
     try {
-      // Load profile data
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      if (!profile?.id) return;
 
-      if (profileError) throw profileError;
-
-      // Load user stats from bets table
-      const { data: betsData, error: betsError } = await supabase
+      console.log('📊 Loading user bets...');
+      const { data, error } = await supabase
         .from('bets')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      if (betsError) throw betsError;
+      if (error) throw error;
 
-      const profileBets: ProfileBet[] = betsData || [];
-      const totalBets = profileBets.length;
-      
-      // Calculate wins based on profit > 0 and status = 'won'
-      const totalWins = profileBets.filter(bet => bet.status === 'won' && bet.profit > 0).length;
-      const totalWinnings = profileBets
-        .filter(bet => bet.status === 'won' && bet.profit > 0)
-        .reduce((sum, bet) => sum + bet.profit, 0);
+      // Map to ProfileBet format with proper type casting
+      const mappedBets: ProfileBet[] = (data || []).map(bet => ({
+        id: bet.id,
+        period_number: bet.period_number,
+        bet_type: bet.bet_type as 'color' | 'number',
+        bet_value: bet.bet_value,
+        amount: bet.amount,
+        profit: bet.profit || 0,
+        status: bet.status,
+        created_at: bet.created_at
+      }));
 
-      setUserRecord(profileData);
-      setProfile(profileData);
-      setUserStats({
-        totalBets,
-        totalWins,
-        totalWinnings,
-        winRate: totalBets > 0 ? ((totalWins / totalBets) * 100).toFixed(1) : '0'
-      });
-
-      setFormData({
-        email: profileData?.email || '',
-        username: profileData?.username || ''
-      });
+      setBets(mappedBets);
+      console.log('✅ User bets loaded:', mappedBets.length);
     } catch (error) {
-      console.error('Error loading profile data:', error);
-      toast.error('Failed to load profile data');
-    } finally {
-      setLoading(false);
+      console.error('❌ Error loading bets:', error);
+      toast.error('Failed to load betting history');
     }
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    setLoading(true);
 
-    setUpdating(true);
     try {
-      // Update profile record
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          email: formData.email,
-          username: formData.username
-        })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
+      await updateProfile(formData);
       toast.success('Profile updated successfully');
-      loadProfileData();
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('❌ Error updating profile:', error);
       toast.error('Failed to update profile');
     } finally {
-      setUpdating(false);
+      setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      toast.success('Logged out successfully');
-      navigate('/auth');
-    } catch (error) {
-      console.error('Error logging out:', error);
-      toast.error('Failed to logout');
-    }
-  };
+  // Calculate stats
+  const totalBets = bets.length;
+  const totalWagered = bets.reduce((sum, bet) => sum + bet.amount, 0);
+  const totalProfit = bets.reduce((sum, bet) => sum + bet.profit, 0);
+  const winningBets = bets.filter(bet => bet.profit > 0).length;
+  const winRate = totalBets > 0 ? ((winningBets / totalBets) * 100).toFixed(1) : '0.0';
 
-  if (!isAuthenticated || loading) {
+  if (!profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading profile...</p>
-        </div>
+      <div className="container mx-auto max-w-4xl p-4">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Please log in to view your profile.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20">
-      <div className="container mx-auto px-4 py-6">
-        {/* Header with Back Button */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            <h1 className="text-3xl font-bold">Profile</h1>
+    <div className="container mx-auto max-w-4xl p-4 space-y-6">
+      {/* Profile Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center space-x-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src="" />
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                {profile.username?.charAt(0).toUpperCase() || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-1">
+              <CardTitle className="text-2xl">{profile.username}</CardTitle>
+              <CardDescription className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                {profile.email}
+              </CardDescription>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Joined {new Date(profile.created_at).toLocaleDateString()}
+                </div>
+                <Badge variant="secondary">Balance: ₹{profile.balance}</Badge>
+              </div>
+            </div>
           </div>
-          
-          {/* Logout Button */}
-          <Button
-            variant="destructive"
-            onClick={handleLogout}
-            className="flex items-center gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
+        </CardHeader>
+      </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Profile Information */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Profile Information
-                </CardTitle>
-                <CardDescription>
-                  Update your personal information
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleUpdateProfile} className="space-y-4">
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="Enter email"
-                    />
-                  </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Bets</CardTitle>
+            <Trophy className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalBets}</div>
+          </CardContent>
+        </Card>
 
-                  <div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Wagered</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₹{totalWagered}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ₹{totalProfit.toFixed(2)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
+            <Trophy className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{winRate}%</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs for Profile Content */}
+      <Tabs defaultValue="profile" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="profile">Profile Settings</TabsTrigger>
+          <TabsTrigger value="history">Betting History</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile Information</CardTitle>
+              <CardDescription>
+                Update your profile information and preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
                     <Input
                       id="username"
-                      type="text"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      placeholder="Enter username"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="balance">Current Balance</Label>
-                    <Input
-                      id="balance"
-                      type="text"
-                      value={`${userRecord?.balance || 0} coins`}
+                      value={profile.username || ''}
                       disabled
                       className="bg-muted"
                     />
+                    <p className="text-xs text-muted-foreground">Username cannot be changed</p>
                   </div>
 
-                  <Button type="submit" disabled={updating} className="w-full">
-                    {updating ? 'Updating...' : 'Update Profile'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      value={profile.email || ''}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+                  </div>
 
-          {/* Stats and Account Info */}
-          <div className="space-y-6">
-            {/* Account Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5" />
-                  Gaming Stats
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Bets:</span>
-                  <span className="font-semibold">{userStats.totalBets}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Wins:</span>
-                  <span className="font-semibold text-green-600">{userStats.totalWins}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Win Rate:</span>
-                  <span className="font-semibold">{userStats.winRate}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Winnings:</span>
-                  <span className="font-semibold text-green-600">{userStats.totalWinnings?.toFixed(2)} coins</span>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="space-y-2">
+                    <Label htmlFor="full_name">Full Name</Label>
+                    <Input
+                      id="full_name"
+                      value={formData.full_name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                      placeholder="Enter your full name"
+                    />
+                  </div>
 
-            {/* Account Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Account Info
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Member since:</span>
-                  <span className="font-semibold">
-                    {userRecord?.created_at ? new Date(userRecord.created_at).toLocaleDateString() : 'N/A'}
-                  </span>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="Enter your phone number"
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">User ID:</span>
-                  <span className="font-mono text-xs">{user?.id?.slice(0, 8)}...</span>
+
+                <Button type="submit" disabled={loading}>
+                  <User className="h-4 w-4 mr-2" />
+                  {loading ? 'Updating...' : 'Update Profile'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history">
+          <Card>
+            <CardHeader>
+              <CardTitle>Betting History</CardTitle>
+              <CardDescription>
+                Your recent betting activity and results
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {bets.length === 0 ? (
+                <div className="text-center py-8">
+                  <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-lg font-medium">No betting history</p>
+                  <p className="text-muted-foreground">Start placing bets to see your history here</p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+              ) : (
+                <div className="space-y-4">
+                  {bets.map((bet) => (
+                    <div key={bet.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">Game #{bet.period_number}</Badge>
+                          <Badge variant={bet.bet_type === 'color' ? 'default' : 'secondary'}>
+                            {bet.bet_type}
+                          </Badge>
+                          <Badge variant="outline">{bet.bet_value}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(bet.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <p className="font-medium">₹{bet.amount}</p>
+                        <p className={`text-sm ${bet.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {bet.profit >= 0 ? '+' : ''}₹{bet.profit.toFixed(2)}
+                        </p>
+                        <Badge variant={bet.status === 'won' ? 'default' : bet.status === 'lost' ? 'destructive' : 'secondary'}>
+                          {bet.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

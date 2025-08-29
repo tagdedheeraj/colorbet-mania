@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
@@ -99,10 +100,7 @@ const Admin: React.FC = () => {
       
       const [gamesResult, betsResult] = await Promise.all([
         supabase.from('game_periods').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('bets').select(`
-          *,
-          profiles!inner(username, email)
-        `).order('created_at', { ascending: false }).limit(100)
+        supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(100)
       ]);
 
       console.log('📊 Admin data loaded:', {
@@ -126,7 +124,7 @@ const Admin: React.FC = () => {
         game_mode: game.game_mode_type || 'classic'
       }));
 
-      // Map bets to AdminBet format
+      // Map bets to AdminBet format (without profiles join for now)
       const mappedBets: AdminBet[] = (betsResult.data || []).map(bet => ({
         id: bet.id,
         user_id: bet.user_id,
@@ -137,7 +135,8 @@ const Admin: React.FC = () => {
         profit: bet.profit || 0,
         status: bet.status,
         created_at: bet.created_at,
-        profiles: bet.profiles
+        // Provide default profiles structure
+        profiles: { username: 'Unknown', email: 'Unknown' }
       }));
 
       setGames(mappedGames);
