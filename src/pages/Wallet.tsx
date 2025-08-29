@@ -9,19 +9,22 @@ import WalletHeader from '@/components/wallet/WalletHeader';
 import WalletBalance from '@/components/wallet/WalletBalance';
 import TransactionHistory from '@/components/wallet/TransactionHistory';
 
-interface Transaction {
+interface WalletTransaction {
   id: string;
   type: string;
   amount: number;
   description: string;
   status: string;
   created_at: string;
+  balance_before: number;
+  balance_after: number;
+  reference_id?: string;
 }
 
 const Wallet: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, isAuthenticated, refreshProfile } = useSupabaseAuthStore();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,7 +53,20 @@ const Wallet: React.FC = () => {
         return;
       }
 
-      setTransactions(data || []);
+      // Map database transactions to WalletTransaction format
+      const mappedTransactions: WalletTransaction[] = (data || []).map(transaction => ({
+        id: transaction.id,
+        type: transaction.type,
+        amount: transaction.amount,
+        description: transaction.description || `${transaction.type} transaction`,
+        status: 'completed', // Default status since transactions table doesn't have status
+        created_at: transaction.created_at,
+        balance_before: transaction.balance_before,
+        balance_after: transaction.balance_after,
+        reference_id: transaction.reference_id
+      }));
+
+      setTransactions(mappedTransactions);
     } catch (error) {
       console.error('Error loading transactions:', error);
       toast.error('Failed to load transactions');

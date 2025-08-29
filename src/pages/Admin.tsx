@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
@@ -7,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { AdminGame, AdminBet, AdminUser as AdminUserType } from '@/types/admin';
 
 // Import new components
 import AdminHeader from '@/components/admin/AdminHeader';
@@ -21,41 +21,12 @@ import PaymentGatewayConfig from '@/components/admin/PaymentGatewayConfig';
 import AdminSettings from '@/components/admin/AdminSettings';
 import { ManualGameService } from '@/services/admin/manualGameService';
 
-interface Game {
-  id: string;
-  game_number: number;
-  status: string;
-  game_mode: string;
-  result_number?: number;
-  result_color?: string;
-  created_at: string;
-}
-
-interface User {
-  id: string;
-  email: string;
-  balance: number;
-  username?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Bet {
-  id: string;
-  user_id: string;
-  amount: number;
-  status: string;
-  created_at: string;
-  users?: { username: string; email: string };
-  games?: { game_number: number; status: string };
-}
-
 const Admin: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<User[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
-  const [bets, setBets] = useState<Bet[]>([]);
+  const [users, setUsers] = useState<AdminUserType[]>([]);
+  const [games, setGames] = useState<AdminGame[]>([]);
+  const [bets, setBets] = useState<AdminBet[]>([]);
   const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
   const [depositStats, setDepositStats] = useState<DepositStats | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
@@ -139,19 +110,38 @@ const Admin: React.FC = () => {
         bets: betsResult.data?.length
       });
 
-      // Map game_periods to games format for compatibility
-      const mappedGames = (gamesResult.data || []).map(game => ({
+      // Map game_periods to AdminGame format
+      const mappedGames: AdminGame[] = (gamesResult.data || []).map(game => ({
         id: game.id,
-        game_number: game.period_number,
+        period_number: game.period_number,
         status: game.status,
-        game_mode: game.game_mode_type || 'classic',
+        game_mode_type: game.game_mode_type || 'classic',
         result_number: game.result_number,
         result_color: game.result_color,
-        created_at: game.created_at
+        created_at: game.created_at,
+        start_time: game.start_time,
+        end_time: game.end_time,
+        // Compatibility properties
+        game_number: game.period_number,
+        game_mode: game.game_mode_type || 'classic'
+      }));
+
+      // Map bets to AdminBet format
+      const mappedBets: AdminBet[] = (betsResult.data || []).map(bet => ({
+        id: bet.id,
+        user_id: bet.user_id,
+        period_number: bet.period_number,
+        bet_type: bet.bet_type as 'color' | 'number',
+        bet_value: bet.bet_value,
+        amount: bet.amount,
+        profit: bet.profit || 0,
+        status: bet.status,
+        created_at: bet.created_at,
+        profiles: bet.profiles
       }));
 
       setGames(mappedGames);
-      setBets(betsResult.data || []);
+      setBets(mappedBets);
       
       // Load users separately with better error handling
       await loadUsers();
@@ -182,8 +172,19 @@ const Admin: React.FC = () => {
         throw error;
       }
 
-      console.log('✅ Users loaded successfully:', usersResult?.length || 0, 'users');
-      setUsers(usersResult || []);
+      // Map profiles to AdminUser format
+      const mappedUsers: AdminUserType[] = (usersResult || []).map(user => ({
+        id: user.id,
+        email: user.email || '',
+        username: user.username || '',
+        role: 'user', // Default role since profiles doesn't have role column
+        balance: user.balance || 0,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }));
+
+      console.log('✅ Users loaded successfully:', mappedUsers.length, 'users');
+      setUsers(mappedUsers);
     } catch (error) {
       console.error('❌ Error loading users:', error);
       setDataError('Failed to load users');

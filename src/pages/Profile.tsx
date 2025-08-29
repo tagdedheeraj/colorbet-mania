@@ -10,6 +10,18 @@ import { toast } from 'sonner';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { supabase } from '@/integrations/supabase/client';
 
+interface ProfileBet {
+  id: string;
+  user_id: string;
+  period_number: number;
+  bet_type: 'color' | 'number';
+  bet_value: string;
+  amount: number;
+  profit: number;
+  status: string;
+  created_at: string;
+}
+
 const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, signOut } = useSupabaseAuthStore();
@@ -36,23 +48,16 @@ const Profile: React.FC = () => {
 
     setLoading(true);
     try {
-      // Load user data from users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) throw userError;
-
       // Load profile data
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .maybeSingle();
 
-      // Load user stats
+      if (profileError) throw profileError;
+
+      // Load user stats from bets table
       const { data: betsData, error: betsError } = await supabase
         .from('bets')
         .select('*')
@@ -60,11 +65,16 @@ const Profile: React.FC = () => {
 
       if (betsError) throw betsError;
 
-      const totalBets = betsData?.length || 0;
-      const totalWins = betsData?.filter(bet => bet.is_winner && bet.actual_win && bet.actual_win > 0).length || 0;
-      const totalWinnings = betsData?.filter(bet => bet.is_winner && bet.actual_win && bet.actual_win > 0).reduce((sum, bet) => sum + (bet.actual_win || 0), 0) || 0;
+      const profileBets: ProfileBet[] = betsData || [];
+      const totalBets = profileBets.length;
+      
+      // Calculate wins based on profit > 0 and status = 'won'
+      const totalWins = profileBets.filter(bet => bet.status === 'won' && bet.profit > 0).length;
+      const totalWinnings = profileBets
+        .filter(bet => bet.status === 'won' && bet.profit > 0)
+        .reduce((sum, bet) => sum + bet.profit, 0);
 
-      setUserRecord(userData);
+      setUserRecord(profileData);
       setProfile(profileData);
       setUserStats({
         totalBets,
@@ -74,8 +84,8 @@ const Profile: React.FC = () => {
       });
 
       setFormData({
-        email: userData?.email || '',
-        username: userData?.username || ''
+        email: profileData?.email || '',
+        username: profileData?.username || ''
       });
     } catch (error) {
       console.error('Error loading profile data:', error);
@@ -91,16 +101,16 @@ const Profile: React.FC = () => {
 
     setUpdating(true);
     try {
-      // Update user record
-      const { error: userError } = await supabase
-        .from('users')
+      // Update profile record
+      const { error: profileError } = await supabase
+        .from('profiles')
         .update({
           email: formData.email,
           username: formData.username
         })
         .eq('id', user.id);
 
-      if (userError) throw userError;
+      if (profileError) throw profileError;
 
       toast.success('Profile updated successfully');
       loadProfileData();
