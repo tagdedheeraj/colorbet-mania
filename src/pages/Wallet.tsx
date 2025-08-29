@@ -8,9 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import useSupabaseAuthStore from '@/store/supabaseAuthStore';
 import { Wallet, CreditCard, History, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import WalletBalance from '@/components/wallet/WalletBalance';
 import WalletHeader from '@/components/wallet/WalletHeader';
-import TransactionHistory from '@/components/wallet/TransactionHistory';
 
 interface WalletTransaction {
   id: string;
@@ -21,7 +19,7 @@ interface WalletTransaction {
   balance_before: number;
   balance_after: number;
   reference_id: string | null;
-  status?: string; // Make status optional to match database schema
+  status: string; // Made required to match Transaction type
 }
 
 const WalletPage: React.FC = () => {
@@ -64,7 +62,7 @@ const WalletPage: React.FC = () => {
         balance_before: transaction.balance_before,
         balance_after: transaction.balance_after,
         reference_id: transaction.reference_id,
-        status: 'completed' // Default status since database doesn't have this field
+        status: 'completed' // Default status since database doesn't have this field but type requires it
       }));
 
       setTransactions(mappedTransactions);
@@ -98,10 +96,27 @@ const WalletPage: React.FC = () => {
       <WalletHeader />
       
       {/* Balance Card */}
-      <WalletBalance 
-        balance={profile.balance || 0}
-        onDeposit={handleDeposit}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="h-5 w-5" />
+            Wallet Balance
+          </CardTitle>
+          <CardDescription>Your current account balance</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-3xl font-bold">₹{(profile.balance || 0).toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">Available Balance</p>
+            </div>
+            <Button onClick={handleDeposit} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Money
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-4">
@@ -135,11 +150,54 @@ const WalletPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="history">
-          <TransactionHistory 
-            transactions={transactions}
-            loading={loading}
-            onRefresh={loadTransactions}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle>Transaction History</CardTitle>
+              <CardDescription>
+                Your recent transaction activity
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-2 text-sm text-muted-foreground">Loading transactions...</p>
+                </div>
+              ) : transactions.length === 0 ? (
+                <div className="text-center py-8">
+                  <History className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-lg font-medium">No transactions yet</p>
+                  <p className="text-muted-foreground">Your transaction history will appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {transactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={transaction.type === 'deposit' ? 'default' : 'secondary'}>
+                            {transaction.type}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(transaction.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-sm">{transaction.description}</p>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <p className={`font-medium ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {transaction.amount >= 0 ? '+' : ''}₹{transaction.amount.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Balance: ₹{transaction.balance_after.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

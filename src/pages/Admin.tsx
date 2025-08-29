@@ -124,7 +124,7 @@ const Admin: React.FC = () => {
         game_mode: game.game_mode_type || 'classic'
       }));
 
-      // Map bets to AdminBet format (without profiles join for now)
+      // Map bets to AdminBet format
       const mappedBets: AdminBet[] = (betsResult.data || []).map(bet => ({
         id: bet.id,
         user_id: bet.user_id,
@@ -135,7 +135,6 @@ const Admin: React.FC = () => {
         profit: bet.profit || 0,
         status: bet.status,
         created_at: bet.created_at,
-        // Provide default profiles structure
         profiles: { username: 'Unknown', email: 'Unknown' }
       }));
 
