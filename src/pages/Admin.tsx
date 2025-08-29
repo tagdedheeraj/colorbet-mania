@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminAuthService, { AdminUser } from '@/services/adminAuthService';
@@ -9,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Users, 
-  Gamepad2, // Changed from GameController2 to Gamepad2
+  Gamepad2,
   TrendingUp, 
   Settings, 
   LogOut, 
@@ -353,7 +352,7 @@ const Admin: React.FC = () => {
               Bets
             </TabsTrigger>
             <TabsTrigger value="live-control" className="flex items-center gap-2">
-              <Gamepad2 className="w-4 w-4" />
+              <Gamepad2 className="w-4 h-4" />
               Live Control  
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
@@ -485,7 +484,7 @@ const Admin: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="games" className="space-y-4">
-            <GameManagement games={games} onRefresh={loadGames} />
+            <GameManagement games={games} />
           </TabsContent>
 
           <TabsContent value="bets" className="space-y-4">

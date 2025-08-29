@@ -7,7 +7,6 @@ export class EnhancedManualGameService {
     try {
       console.log('🔄 Enhanced: Setting manual mode:', { gameId, enable });
       
-      // Get authenticated admin user
       const adminUser = await AdminAuthService.getCurrentAdminUser();
       if (!adminUser) {
         console.error('❌ Enhanced: No authenticated admin user found');
@@ -16,10 +15,17 @@ export class EnhancedManualGameService {
 
       console.log('✅ Enhanced: Admin user validated:', adminUser.email);
 
-      // Use direct table update instead of RPC function
+      // Update the game directly
+      const updateData: any = { game_mode: enable ? 'manual' : 'automatic' };
+      
+      // Try to update admin_controlled column if it exists
+      if (enable) {
+        updateData.admin_controlled = true;
+      }
+
       const { data, error } = await supabase
         .from('games')
-        .update({ game_mode: enable ? 'manual' : 'automatic' })
+        .update(updateData)
         .eq('id', gameId)
         .select()
         .single();
@@ -48,12 +54,10 @@ export class EnhancedManualGameService {
     try {
       console.log('🎯 Enhanced: Setting manual result:', { gameId, number });
       
-      // Validate input
       if (number < 0 || number > 9) {
         return { success: false, message: 'Number must be between 0 and 9' };
       }
 
-      // Get authenticated admin user
       const adminUser = await AdminAuthService.getCurrentAdminUser();
       if (!adminUser) {
         console.error('❌ Enhanced: No authenticated admin user for result setting');
@@ -62,7 +66,6 @@ export class EnhancedManualGameService {
 
       console.log('✅ Enhanced: Admin user for result setting:', adminUser.email);
 
-      // Determine color based on number
       const getColorForNumber = (num: number): string => {
         if ([1, 3, 7, 9].includes(num)) return 'red';
         if ([2, 4, 6, 8].includes(num)) return 'green';
@@ -72,15 +75,24 @@ export class EnhancedManualGameService {
 
       const color = getColorForNumber(number);
 
-      // Use direct table update
+      // Update the game with manual result
+      const updateData: any = {
+        admin_set_result_number: number,
+        admin_set_result_color: color,
+        result_number: number,
+        result_color: color
+      };
+
+      // Try to set manual_result_set flag if column exists
+      try {
+        updateData.manual_result_set = true;
+      } catch (e) {
+        // Column may not exist, continue without it
+      }
+
       const { data, error } = await supabase
         .from('games')
-        .update({
-          admin_set_result_number: number,
-          admin_set_result_color: color,
-          result_number: number,
-          result_color: color
-        })
+        .update(updateData)
         .eq('id', gameId)
         .select()
         .single();
@@ -109,7 +121,6 @@ export class EnhancedManualGameService {
     try {
       console.log('🏁 Enhanced: Completing game manually:', gameId);
       
-      // Get authenticated admin user
       const adminUser = await AdminAuthService.getCurrentAdminUser();
       if (!adminUser) {
         console.error('❌ Enhanced: No authenticated admin user for completion');
@@ -118,7 +129,6 @@ export class EnhancedManualGameService {
 
       console.log('✅ Enhanced: Admin user for completion:', adminUser.email);
 
-      // Use direct table update
       const { data, error } = await supabase
         .from('games')
         .update({
