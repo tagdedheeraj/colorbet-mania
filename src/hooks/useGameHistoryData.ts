@@ -24,12 +24,17 @@ export const useGameHistoryData = () => {
       console.log('📊 Loading user game results...');
       const results: BetWithGame[] = await BetHistoryService.loadAllUserBets(user.id);
       
-      // Group bets by game
-      const gameGroups = results.reduce((acc, bet) => {
-        const gameId = bet.game_id;
-        if (!acc[gameId]) {
-          acc[gameId] = {
-            game: bet.game,
+      // Group bets by period
+      const periodGroups = results.reduce((acc, bet) => {
+        const periodNumber = bet.period_number;
+        if (!acc[periodNumber]) {
+          acc[periodNumber] = {
+            game: {
+              period_number: periodNumber,
+              result_color: 'green', // Default values for now
+              result_number: 0,
+              created_at: bet.created_at
+            },
             bets: [],
             totalBetAmount: 0,
             totalWinAmount: 0,
@@ -37,17 +42,17 @@ export const useGameHistoryData = () => {
           };
         }
         
-        acc[gameId].bets.push(bet);
-        acc[gameId].totalBetAmount += bet.amount;
-        acc[gameId].totalWinAmount += bet.actual_win || 0;
-        acc[gameId].netResult = acc[gameId].totalWinAmount - acc[gameId].totalBetAmount;
+        acc[periodNumber].bets.push(bet);
+        acc[periodNumber].totalBetAmount += bet.amount;
+        acc[periodNumber].totalWinAmount += bet.profit || 0;
+        acc[periodNumber].netResult = acc[periodNumber].totalWinAmount - acc[periodNumber].totalBetAmount;
         
         return acc;
       }, {} as any);
       
-      // Convert to array and sort by game creation date
-      const sortedResults = Object.values(gameGroups).sort((a: any, b: any) => 
-        new Date(b.game.created_at).getTime() - new Date(a.game.created_at).getTime()
+      // Convert to array and sort by period number
+      const sortedResults = Object.values(periodGroups).sort((a: any, b: any) => 
+        b.game.period_number - a.game.period_number
       );
       
       // Check if we have new results
@@ -70,7 +75,7 @@ export const useGameHistoryData = () => {
       console.log('🎯 Loading latest game result...');
       const latest = await BetHistoryService.getLatestCompletedGame();
       setLatestResult(latest);
-      console.log('✅ Latest result loaded:', latest?.game_number);
+      console.log('✅ Latest result loaded:', latest?.period_number);
     } catch (error) {
       console.error('❌ Error loading latest result:', error);
     }

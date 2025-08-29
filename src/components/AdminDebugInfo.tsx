@@ -20,9 +20,9 @@ const AdminDebugInfo: React.FC = () => {
       
       let userInfo = null;
       if (session?.user) {
-        // Check user in database
+        // Check user in profiles table
         const { data: userData, error: userError } = await supabase
-          .from('users')
+          .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
@@ -33,9 +33,9 @@ const AdminDebugInfo: React.FC = () => {
         };
       }
 
-      // Check if admin user exists
+      // Check if admin user exists (look for admin emails in profiles)
       const { data: adminUsers, error: adminError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('email', 'admin@tradeforwin.xyz');
 
@@ -108,7 +108,7 @@ const AdminDebugInfo: React.FC = () => {
           </Badge>
           {debugInfo.adminUsers?.map((user: any) => (
             <div key={user.id} className="mt-1 text-muted-foreground">
-              {user.email} - Role: {user.role} - ID: {user.id.slice(0, 8)}...
+              {user.email} - Balance: {user.balance} - ID: {user.id.slice(0, 8)}...
             </div>
           ))}
         </div>

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { BetService } from './betService';
 import { toast } from 'sonner';
@@ -11,7 +12,7 @@ export class BetManagementService {
   ): Promise<boolean> {
     console.log('🎯 BetManagementService.placeBet called:', {
       gameId: currentGame?.id,
-      gameNumber: currentGame?.game_number,
+      periodNumber: currentGame?.period_number,
       betAmount,
       type,
       value,
@@ -32,9 +33,9 @@ export class BetManagementService {
         return false;
       }
 
-      // Get fresh user balance from users table
+      // Get fresh user balance from profiles table
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('balance')
         .eq('id', session.user.id)
         .single();
@@ -72,17 +73,17 @@ export class BetManagementService {
         return false;
       }
 
-      // Use game_number for bet placement
-      const gameNumber = currentGame.game_number;
-      if (!gameNumber) {
-        console.error('Invalid game number');
+      // Use period_number for bet placement
+      const periodNumber = currentGame.period_number;
+      if (!periodNumber) {
+        console.error('Invalid period number');
         toast.error('Invalid game data');
         return false;
       }
 
       console.log('✅ Placing bet with enhanced validation:', {
         gameId: currentGame.id,
-        gameNumber,
+        periodNumber,
         userId: session.user.id,
         type,
         value,
@@ -97,7 +98,7 @@ export class BetManagementService {
         value,
         betAmount,
         currentBalance,
-        gameNumber
+        periodNumber
       );
 
       if (success) {
@@ -105,7 +106,7 @@ export class BetManagementService {
           type,
           value,
           amount: betAmount,
-          gameNumber,
+          periodNumber,
           newBalance: currentBalance - betAmount
         });
         
@@ -131,10 +132,10 @@ export class BetManagementService {
         return [];
       }
 
-      // Get current game data
+      // Get current game data from game_periods table
       const { data: currentGame } = await supabase
-        .from('games')
-        .select('game_number')
+        .from('game_periods')
+        .select('period_number')
         .eq('id', gameId)
         .single();
 
@@ -142,17 +143,17 @@ export class BetManagementService {
         return [];
       }
 
-      console.log('📊 Loading bets for game:', {
+      console.log('📊 Loading bets for period:', {
         gameId,
-        gameNumber: currentGame.game_number,
+        periodNumber: currentGame.period_number,
         userId: session.user.id
       });
 
-      // Load bets by game_id directly with enhanced query
+      // Load bets by period_number
       const { data: bets, error } = await supabase
         .from('bets')
         .select('*')
-        .eq('game_id', gameId)
+        .eq('period_number', currentGame.period_number)
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
@@ -162,7 +163,7 @@ export class BetManagementService {
       }
 
       console.log('📈 Current bets loaded successfully:', {
-        gameNumber: currentGame.game_number,
+        periodNumber: currentGame.period_number,
         betsCount: bets?.length || 0,
         bets: bets?.map(bet => ({
           type: bet.bet_type,

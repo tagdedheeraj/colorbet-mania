@@ -99,7 +99,7 @@ export const useGameState = create<GameStateSlice>((set, get) => ({
       }
 
       const { data: userData, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('balance')
         .eq('id', user.user.id)
         .single();

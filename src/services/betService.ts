@@ -10,10 +10,10 @@ export class BetService {
     betValue: string,
     amount: number,
     userBalance: number,
-    gameNumber: number
+    periodNumber: number
   ): Promise<boolean> {
     try {
-      console.log(`Placing bet: ${betType} ${betValue} for ${amount} on game ${gameNumber}`);
+      console.log(`Placing bet: ${betType} ${betValue} for ${amount} on period ${periodNumber}`);
       
       // Validate inputs
       if (amount <= 0 || amount > userBalance) {
@@ -26,24 +26,25 @@ export class BetService {
         return false;
       }
 
-      // Calculate potential win
-      let potentialWin = amount;
+      // Calculate potential profit
+      let profit = amount;
       if (betType === 'color') {
-        potentialWin = betValue === 'purple-red' ? amount * 0.90 : amount * 0.95;
+        profit = betValue === 'purple-red' ? amount * 0.90 : amount * 0.95;
       } else {
-        potentialWin = amount * 9.0;
+        profit = amount * 9.0;
       }
 
-      // Place bet
+      // Place bet using the current schema
       const { data: bet, error: betError } = await supabase
         .from('bets')
         .insert({
           user_id: userId,
-          game_id: gameId,
+          period_number: periodNumber,
           bet_type: betType,
           bet_value: betValue,
           amount: amount,
-          potential_win: potentialWin
+          profit: profit,
+          status: 'pending'
         })
         .select()
         .single();
@@ -54,10 +55,10 @@ export class BetService {
         return false;
       }
 
-      // Update user balance
+      // Update user balance in profiles table
       const newBalance = userBalance - amount;
       const { error: balanceError } = await supabase
-        .from('users')
+        .from('profiles')
         .update({ balance: newBalance })
         .eq('id', userId);
 
@@ -67,14 +68,16 @@ export class BetService {
         return false;
       }
 
-      // Add transaction record
+      // Record transaction
       await supabase
         .from('transactions')
         .insert({
           user_id: userId,
           type: 'bet',
           amount: -amount,
-          description: `Bet on ${betValue} - Game #${gameNumber}`
+          balance_before: userBalance,
+          balance_after: newBalance,
+          description: `Bet on ${betValue} - Period #${periodNumber}`
         });
 
       toast.success(`Bet placed successfully on ${betValue}!`);

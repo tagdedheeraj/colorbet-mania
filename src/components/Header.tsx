@@ -32,7 +32,7 @@ const Header: React.FC = () => {
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
-          table: 'users',
+          table: 'profiles',
           filter: `id=eq.${user.id}`
         }, (payload) => {
           console.log('Balance updated:', payload.new.balance);
@@ -52,7 +52,7 @@ const Header: React.FC = () => {
 
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('balance')
         .eq('id', user.id)
         .single();

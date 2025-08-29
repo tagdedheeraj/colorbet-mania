@@ -106,7 +106,7 @@ const GameHistory: React.FC = () => {
         <div className="glass-panel bg-primary/10 p-3 rounded-md mb-4">
           <h4 className="text-sm font-medium mb-2">Latest Result</h4>
           <div className="flex items-center justify-between">
-            <span className="text-sm">Game #{latestResult.game_number}</span>
+            <span className="text-sm">Period #{latestResult.period_number}</span>
             <div className="flex items-center gap-2">
               <div className={`px-2 py-1 rounded text-xs font-medium ${getColorStyle(latestResult.result_color as ColorType)}`}>
                 {latestResult.result_color === 'purple-red' ? 'Purple Red' : latestResult.result_color}
@@ -130,7 +130,7 @@ const GameHistory: React.FC = () => {
           )}
           {userGameResults.map((gameResult: any, index: number) => (
             <div 
-              key={gameResult.game.id} 
+              key={gameResult.game.period_number} 
               className={`glass-panel bg-secondary/30 p-3 rounded-md space-y-3 transition-all duration-300 ${
                 index === 0 && hasNewResults ? 'ring-2 ring-game-green/50 animate-pulse' : ''
               }`}
@@ -138,7 +138,7 @@ const GameHistory: React.FC = () => {
               {/* Game result info */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Game #{gameResult.game.game_number}</span>
+                  <span className="text-sm font-medium">Period #{gameResult.game.period_number}</span>
                   <span className="text-xs text-muted-foreground">
                     {new Date(gameResult.game.created_at).toLocaleTimeString()}
                   </span>
@@ -179,8 +179,8 @@ const GameHistory: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span>{bet.amount} coins</span>
-                        <span className={bet.is_winner ? "text-game-green" : "text-game-red"}>
-                          {bet.is_winner ? `+${bet.actual_win || bet.potential_win}` : '-'}
+                        <span className={bet.status === 'won' ? "text-game-green" : "text-game-red"}>
+                          {bet.status === 'won' ? `+${bet.profit}` : '-'}
                         </span>
                       </div>
                     </div>
