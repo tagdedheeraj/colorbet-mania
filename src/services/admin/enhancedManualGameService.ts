@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { DatabaseResponse } from '@/types/adminGame';
 import AdminAuthService from '@/services/adminAuthService';
 
 export class EnhancedManualGameService {
@@ -20,7 +19,7 @@ export class EnhancedManualGameService {
       // Use direct table update instead of RPC function
       const { data, error } = await supabase
         .from('games')
-        .update({ admin_controlled: enable })
+        .update({ game_mode: enable ? 'manual' : 'automatic' })
         .eq('id', gameId)
         .select()
         .single();
@@ -79,7 +78,8 @@ export class EnhancedManualGameService {
         .update({
           admin_set_result_number: number,
           admin_set_result_color: color,
-          manual_result_set: true
+          result_number: number,
+          result_color: color
         })
         .eq('id', gameId)
         .select()
@@ -126,7 +126,6 @@ export class EnhancedManualGameService {
           end_time: new Date().toISOString()
         })
         .eq('id', gameId)
-        .eq('manual_result_set', true)
         .select()
         .single();
 
@@ -156,7 +155,7 @@ export class EnhancedManualGameService {
       
       const { data: game, error } = await supabase
         .from('games')
-        .select('admin_controlled, timer_paused, manual_result_set')
+        .select('game_mode, is_result_locked, admin_set_result_number')
         .eq('id', gameId)
         .single();
 
@@ -166,9 +165,9 @@ export class EnhancedManualGameService {
       }
 
       const status = {
-        isManual: game?.admin_controlled || false,
-        timerPaused: game?.timer_paused || false,
-        resultSet: game?.manual_result_set || false
+        isManual: game?.game_mode === 'manual',
+        timerPaused: game?.is_result_locked || false,
+        resultSet: game?.admin_set_result_number !== null
       };
 
       console.log('📊 Enhanced: Game status:', status);

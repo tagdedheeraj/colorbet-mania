@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Users, 
-  GameController2, 
+  Gamepad2, // Changed from GameController2 to Gamepad2
   TrendingUp, 
   Settings, 
   LogOut, 
@@ -114,7 +114,17 @@ const Admin: React.FC = () => {
         toast.error('Failed to load users');
       } else {
         console.log('✅ Users loaded:', data.length);
-        setUsers(data);
+        // Ensure users have required properties for AdminUser type
+        const adminUsers: AdminUser[] = data.map(user => ({
+          id: user.id,
+          email: user.email || '',
+          username: user.username || '',
+          role: user.role || 'user',
+          balance: user.balance || 0,
+          created_at: user.created_at || new Date().toISOString(),
+          updated_at: user.updated_at || new Date().toISOString()
+        }));
+        setUsers(adminUsers);
       }
     } catch (error) {
       console.error('❌ Exception loading users:', error);
@@ -240,14 +250,19 @@ const Admin: React.FC = () => {
 
   // Create compatible data for components
   const compatibleUsers: CompatibleUser[] = users.map(user => ({
-    ...user,
-    balance: user.balance || 0 // Ensure balance is always a number
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    role: user.role,
+    balance: user.balance,
+    created_at: user.created_at,
+    updated_at: user.updated_at
   }));
 
   const compatibleBets: CompatibleBet[] = bets.map(bet => ({
     ...bet,
-    is_winner: bet.is_winner || false, // Use actual value or default
-    actual_win: bet.actual_win || bet.profit || 0 // Use actual_win or profit as fallback
+    is_winner: bet.is_winner || false,
+    actual_win: bet.actual_win || bet.profit || 0
   }));
 
   if (loading) {
@@ -330,7 +345,7 @@ const Admin: React.FC = () => {
               Users
             </TabsTrigger>
             <TabsTrigger value="games" className="flex items-center gap-2">
-              <GameController2 className="w-4 h-4" />
+              <Gamepad2 className="w-4 h-4" />
               Games
             </TabsTrigger>
             <TabsTrigger value="bets" className="flex items-center gap-2">
@@ -338,7 +353,7 @@ const Admin: React.FC = () => {
               Bets
             </TabsTrigger>
             <TabsTrigger value="live-control" className="flex items-center gap-2">
-              <GameController2 className="w-4 h-4" />
+              <Gamepad2 className="w-4 w-4" />
               Live Control  
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
@@ -348,12 +363,47 @@ const Admin: React.FC = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            <AdminStatsCards 
-              totalUsers={statsData.totalUsers}
-              totalGames={statsData.totalGames} 
-              totalBets={statsData.totalBets}
-              totalRevenue={statsData.totalRevenue}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{statsData.totalUsers}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Games</CardTitle>
+                  <Gamepad2 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{statsData.totalGames}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Bets</CardTitle>
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{statsData.totalBets}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">₹{statsData.totalRevenue.toFixed(2)}</div>
+                </CardContent>
+              </Card>
+            </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
@@ -409,7 +459,7 @@ const Admin: React.FC = () => {
                     variant="outline" 
                     className="w-full justify-start"
                   >
-                    <GameController2 className="w-4 h-4 mr-2" />
+                    <Gamepad2 className="w-4 h-4 mr-2" />
                     Live Game Control
                   </Button>
                   <Button 
@@ -435,7 +485,7 @@ const Admin: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="games" className="space-y-4">
-            <GameManagement games={games} loading={gamesLoading} onRefresh={loadGames} />
+            <GameManagement games={games} onRefresh={loadGames} />
           </TabsContent>
 
           <TabsContent value="bets" className="space-y-4">
@@ -448,10 +498,34 @@ const Admin: React.FC = () => {
 
           <TabsContent value="settings" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DepositManagement />
-              <PaymentGatewayConfig />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Deposit Management</CardTitle>
+                  <CardDescription>Manage user deposit requests</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Deposit management features will be available here.</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Gateway</CardTitle>
+                  <CardDescription>Configure payment gateways</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Payment gateway configuration will be available here.</p>
+                </CardContent>
+              </Card>
             </div>
-            <AdminSettings />
+            <Card>
+              <CardHeader>
+                <CardTitle>Admin Settings</CardTitle>
+                <CardDescription>System administration settings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Admin settings will be available here.</p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

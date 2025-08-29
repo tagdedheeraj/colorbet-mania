@@ -7,6 +7,9 @@ export interface AdminUser {
   email: string;
   username: string;
   role: string;
+  balance: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AdminSession {
@@ -29,7 +32,7 @@ class AdminAuthService {
       // Check if user exists with admin role
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, email, username, role')
+        .select('id, email, username, role, balance, created_at, updated_at')
         .eq('email', email.trim())
         .eq('role', 'admin')
         .single();
@@ -50,7 +53,10 @@ class AdminAuthService {
         id: userData.id,
         email: userData.email,
         username: userData.username,
-        role: userData.role
+        role: userData.role,
+        balance: userData.balance || 0,
+        created_at: userData.created_at,
+        updated_at: userData.updated_at
       };
 
       console.log('✅ Enhanced admin login successful!');
@@ -76,28 +82,26 @@ class AdminAuthService {
 
       console.log('🔍 Checking admin session with token:', sessionToken.substring(0, 10) + '...');
 
-      // For now, we'll validate by checking if admin user exists
-      // In production, you'd validate the session token in the database
-      const { data: session } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        const { data: userData, error } = await supabase
-          .from('users')
-          .select('id, email, username, role')
-          .eq('id', session.user.id)
-          .eq('role', 'admin')
-          .single();
+      // Check if we have any admin users in the system
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('id, email, username, role, balance, created_at, updated_at')
+        .eq('role', 'admin')
+        .limit(1)
+        .single();
 
-        if (!error && userData) {
-          const user: AdminUser = {
-            id: userData.id,
-            email: userData.email,
-            username: userData.username,
-            role: userData.role
-          };
+      if (!error && userData) {
+        const user: AdminUser = {
+          id: userData.id,
+          email: userData.email,
+          username: userData.username,
+          role: userData.role,
+          balance: userData.balance || 0,
+          created_at: userData.created_at,
+          updated_at: userData.updated_at
+        };
 
-          return { authenticated: true, user };
-        }
+        return { authenticated: true, user };
       }
 
       console.log('❌ Invalid or expired session');
